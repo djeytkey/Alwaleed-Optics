@@ -161,8 +161,6 @@
 
 		setSelectRequired( $( '#_optic_division' ), true );
 		initSelect2( $( '#_optic_division' ) );
-		applyDivisionRangeFields( division );
-		refreshRangeCount();
 	}
 
 	function collectChildConfig( $block ) {
@@ -377,78 +375,6 @@
 		return catalog;
 	}
 
-	function collectProductRanges() {
-		var ranges = {};
-		getPanel().find( '.wc-optic-power-range' ).each( function () {
-			var $row = $( this );
-			if ( $row.is( ':hidden' ) ) {
-				return;
-			}
-			ranges[ $row.data( 'power' ) ] = {
-				from: $row.find( '.wc-optic-range-from' ).val() || '',
-				to: $row.find( '.wc-optic-range-to' ).val() || '',
-				step: $row.find( '.wc-optic-range-step' ).val() || '',
-			};
-		} );
-		return ranges;
-	}
-
-	function applyDivisionRangeFields( division ) {
-		var allowed = getAllowedPowers( division );
-		getPanel().find( '.wc-optic-power-range' ).each( function () {
-			var $row = $( this );
-			var power = $row.data( 'power' );
-			var show = allowed.indexOf( power ) !== -1;
-			$row.toggle( show );
-			if ( show && ! $row.find( '.wc-optic-range-step' ).val() && wcOpticAdmin.defaultSteps && wcOpticAdmin.defaultSteps[ power ] ) {
-				$row.find( '.wc-optic-range-step' ).val( wcOpticAdmin.defaultSteps[ power ] );
-			}
-		} );
-	}
-
-	function findTemplate( id ) {
-		var found = null;
-		$.each( wcOpticAdmin.templates || [], function ( _, tpl ) {
-			if ( tpl.id === id ) {
-				found = tpl;
-			}
-		} );
-		return found;
-	}
-
-	function applyTemplateRanges( template ) {
-		if ( ! template || ! template.ranges ) {
-			return;
-		}
-		$.each( template.ranges, function ( power, range ) {
-			var $row = getPanel().find( '.wc-optic-power-range[data-power="' + power + '"]' );
-			$row.find( '.wc-optic-range-from' ).val( range.from || '' );
-			$row.find( '.wc-optic-range-to' ).val( range.to || '' );
-			$row.find( '.wc-optic-range-step' ).val( range.step || '' );
-		} );
-	}
-
-	function refreshRangeCount() {
-		var $count = getPanel().find( '.wc-optic-range-count' );
-		var division = getSelectedDivision();
-		if ( ! $count.length || ! division ) {
-			$count.text( '0' );
-			return;
-		}
-		$.post(
-			wcOpticAdmin.ajaxUrl,
-			{
-				action: 'wc_optic_count_power_ranges',
-				nonce: wcOpticAdmin.nonce,
-				division: division,
-				ranges: collectProductRanges(),
-			},
-			function ( res ) {
-				$count.text( res && res.success && res.data ? String( res.data.count ) : '0' );
-			}
-		);
-	}
-
 	function syncIdentityToChildren() {
 		var identity = collectParentIdentity();
 		getChildBlocks().find( '.wc-optic-child-identity-value' ).each( function () {
@@ -590,52 +516,6 @@
 		.on( 'change', '.wc-optic-identity-select', function () {
 			syncIdentityToChildren();
 			refreshAllSkuPreviews();
-		} )
-		.on( 'input change', '.wc-optic-range-from, .wc-optic-range-to, .wc-optic-range-step', refreshRangeCount )
-		.on( 'change', '#wc_optic_product_template', function () {
-			var tpl = findTemplate( $( this ).val() );
-			if ( ! tpl ) {
-				return;
-			}
-			if ( tpl.division ) {
-				$( '#_optic_division' ).val( tpl.division ).trigger( 'change' );
-			}
-			applyTemplateRanges( tpl );
-			refreshRangeCount();
-		} )
-		.on( 'click', '#wc-optic-generate-children', function ( e ) {
-			e.preventDefault();
-			if ( ! wcOpticAdmin.productId ) {
-				window.alert( wcOpticAdmin.i18n.saveFirst );
-				return;
-			}
-			if ( $( '#wc_optic_generate_replace' ).is( ':checked' ) && ! window.confirm( wcOpticAdmin.i18n.confirmReplace ) ) {
-				return;
-			}
-			$.post(
-				wcOpticAdmin.ajaxUrl,
-				{
-					action: 'wc_optic_generate_product_children',
-					nonce: wcOpticAdmin.nonce,
-					product_id: wcOpticAdmin.productId,
-					division: getSelectedDivision(),
-					catalog: collectParentIdentity(),
-					ranges: collectProductRanges(),
-					template_id: $( '#wc_optic_product_template' ).val() || '',
-					unit_price: $( '#wc_optic_generate_price' ).val() || '',
-					stock_qty: $( '#wc_optic_generate_stock' ).val() || 0,
-					replace: $( '#wc_optic_generate_replace' ).is( ':checked' ) ? 1 : 0,
-				},
-				function ( res ) {
-					if ( ! res || ! res.success ) {
-						window.alert( ( res && res.data && res.data.message ) || wcOpticAdmin.i18n.generateFailed );
-						return;
-					}
-					window.location.reload();
-				}
-			).fail( function () {
-				window.alert( wcOpticAdmin.i18n.generateFailed );
-			} );
 		} )
 		.on( 'click', '#wc-optic-add-child', function ( e ) {
 			e.preventDefault();

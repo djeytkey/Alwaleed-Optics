@@ -26,6 +26,7 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_run_convert_batch', array( __CLASS__, 'run_convert_batch' ) );
 		add_action( 'wp_ajax_wc_optic_generate_product_children', array( __CLASS__, 'generate_product_children' ) );
 		add_action( 'wp_ajax_wc_optic_count_power_ranges', array( __CLASS__, 'count_power_ranges' ) );
+		add_action( 'wp_ajax_wc_optic_wizard_product', array( __CLASS__, 'wizard_product' ) );
 	}
 
 	/**
@@ -281,6 +282,24 @@ class WC_Optic_Ajax {
 		}
 
 		wp_send_json_success( array( 'results' => $results ) );
+	}
+
+	/**
+	 * One product payload for the conversion wizard.
+	 */
+	public static function wizard_product() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
+		}
+
+		$product_id = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+		$result     = WC_Optic_Converter::get_wizard_product( $product_id );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+		}
+
+		wp_send_json_success( $result );
 	}
 
 	/**

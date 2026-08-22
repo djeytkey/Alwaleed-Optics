@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-08-22 (dernière mise à jour)  
+**Date :** 2026-08-23 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,13 +13,18 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-08-22 (courante)
+### Session 2026-08-23 (courante)
+
+1. **Wizard Convert** — modal Bootstrap 5 fond **static** (pas de fermeture au clic extérieur). Un produit à la fois : étapes Produit / Identité / Puissances, bouton **Next**.
+2. **Rollback UX fiche produit** — plus de plages / Generate sur la fiche ; identité une fois + internes manuels conservés.
+3. **Version** — bump **1.3.1**.
+
+### Session 2026-08-22 (précédente)
 
 1. **Génération des internes par plage + pas** — identité catalogue une seule fois ; pour chaque puissance de la division : De / À / Pas (step). Valeurs manquantes créées dans le catalogue.
 2. **Gabarits de plages** — option `wc_optic_power_templates`.
-3. **Assistant Convert** — menu **Alwaleed Optics → Convert** : simples → `optic_product` + internes, lots AJAX.
-4. **Fiche produit** — bouton Generate internals (AJAX persist + reload) ; selects identité retirés des blocs enfants.
-5. **Version** — bump **1.3.0**.
+3. **Assistant Convert** — menu **Alwaleed Optics → Convert** : simples → `optic_product` + internes.
+4. **Version** — bump **1.3.0**.
 
 ### Session 2026-08-19 (précédente)
 
@@ -371,7 +376,7 @@ WC_Optic_Power_Template::save() / get_all()
 WC_Optic_Converter::convert_product() / preview()
 ```
 
-**Admin :** `Alwaleed Optics → Convert` (onglets Convert + Range templates). Fiche produit : identité + plages + Generate internals.
+**Admin :** `Alwaleed Optics → Convert` — liste + **Start wizard** (modal Bootstrap static, un produit / Next). Gabarits : onglet Range templates. Fiche produit : identité + internes (plus de Generate).
 
 **Plafond :** `MAX_LEGACY_SYNTHETIC_CHILDREN` (200) par produit.
 
@@ -631,8 +636,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.0] — 2026-08-22**.
-4. **Version plugin** : **1.3.0** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.1] — 2026-08-23**.
+4. **Version plugin** : **1.3.1** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
@@ -713,4 +718,4 @@ php -l includes/admin/class-wc-optic-admin-settings.php
 
 ---
 
-*Dernière mise à jour : 2026-08-22 — version **1.3.0** (génération internes par plage + Convert).*
+*Dernière mise à jour : 2026-08-23 — version **1.3.1** (wizard Convert modal static).*

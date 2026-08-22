@@ -74,7 +74,6 @@ class WC_Optic_Admin_Product {
 
 		$division      = (string) $product->get_meta( '_optic_division', true );
 		$identity      = WC_Optic_SKU::get_identity_catalog( $product );
-		$ranges        = WC_Optic_SKU::normalize_power_ranges( $product->get_meta( WC_Optic_SKU::RANGES_META_KEY, true ), $division );
 		$child_configs = WC_Optic_SKU::get_child_configs( $product );
 		if ( empty( $child_configs ) ) {
 			$child_configs[] = WC_Optic_SKU::normalize_child_config(
@@ -91,38 +90,12 @@ class WC_Optic_Admin_Product {
 		echo '<p class="form-field description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
 		WC_Optic_Admin_Convert::render_identity_fields( $identity, '_optic_identity', true );
 
-		echo '<p class="form-field"><strong>' . esc_html__( 'Power range', 'wc-optic' ) . '</strong></p>';
-		echo '<p class="form-field description">' . esc_html__( 'For each power of this division, set From, To and Step (the increment between powers, e.g. 0.25). Missing catalog values are created automatically.', 'wc-optic' ) . '</p>';
-
-		echo '<p class="form-field form-field-wide">';
-		echo '<label for="wc_optic_product_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label>';
-		echo '<select id="wc_optic_product_template" class="wc-optic-select2">';
-		echo '<option value="">' . esc_html__( 'Custom range', 'wc-optic' ) . '</option>';
-		foreach ( WC_Optic_Power_Template::get_all() as $tpl ) {
-			echo '<option value="' . esc_attr( $tpl['id'] ) . '" data-division="' . esc_attr( $tpl['division'] ) . '">' . esc_html( $tpl['name'] ) . '</option>';
-		}
-		echo '</select></p>';
-
-		WC_Optic_Admin_Convert::render_range_fields( $division, $ranges, '_optic_power_ranges', 'wc-optic-product-ranges' );
-
-		$default_price = '';
-		if ( $product->get_id() ) {
-			$default_price = WC_Optic_Converter::get_source_price( $product );
-		}
-		echo '<div class="wc-optic-generate-bar">';
-		echo '<p class="form-field"><label for="wc_optic_generate_price">' . esc_html__( 'Default unit price', 'wc-optic' ) . '</label>';
-		echo '<input type="text" id="wc_optic_generate_price" class="wc_input_price" value="' . esc_attr( $default_price ) . '" /></p>';
-		echo '<p class="form-field"><label for="wc_optic_generate_stock">' . esc_html__( 'Default stock', 'wc-optic' ) . '</label>';
-		echo '<input type="number" id="wc_optic_generate_stock" min="0" step="1" value="0" /></p>';
-		echo '<p class="form-field"><label><input type="checkbox" id="wc_optic_generate_replace" /> ' . esc_html__( 'Replace existing internals', 'wc-optic' ) . '</label></p>';
-		echo '<p class="form-field"><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' ) . '</p>';
-		echo '<p class="form-field"><button type="button" class="button button-primary" id="wc-optic-generate-children">' . esc_html__( 'Generate internals', 'wc-optic' ) . '</button></p>';
-		echo '</div>';
+		echo '<p class="form-field description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add one internal product at a time below.', 'wc-optic' ) . '</p>';
 
 		echo '<div class="wc-optic-child-configs">';
 		echo '<p class="form-field"><strong>' . esc_html__( 'Internal products', 'wc-optic' ) . '</strong></p>';
 		echo '<p class="form-field wc-optic-sku-powers-hint description">';
-		echo esc_html__( 'Each sellable power combination is one internal product (price, stock, SKU). Generate a range above, or add one manually.', 'wc-optic' );
+		echo esc_html__( 'Each sellable power combination is one internal product (price, stock, SKU).', 'wc-optic' );
 		echo '</p>';
 		echo '<div id="wc-optic-child-config-list">';
 		foreach ( array_values( $child_configs ) as $index => $config ) {
@@ -210,7 +183,6 @@ class WC_Optic_Admin_Product {
 		}
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( isset( $_POST['_optic_identity'] ) ? wp_unslash( $_POST['_optic_identity'] ) : array() );
-		$ranges   = WC_Optic_SKU::normalize_power_ranges( isset( $_POST['_optic_power_ranges'] ) ? wp_unslash( $_POST['_optic_power_ranges'] ) : array(), $division );
 
 		$raw_children = isset( $_POST['_optic_child_configs'] ) && is_array( $_POST['_optic_child_configs'] ) ? wp_unslash( $_POST['_optic_child_configs'] ) : array();
 		foreach ( $raw_children as $key => $raw_child ) {
@@ -231,7 +203,6 @@ class WC_Optic_Admin_Product {
 
 		$product->update_meta_data( '_optic_division', $division );
 		$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $identity );
-		$product->update_meta_data( WC_Optic_SKU::RANGES_META_KEY, $ranges );
 
 		$unique = WC_Optic_SKU::validate_unique_power_combinations( $children, $division );
 		if ( is_wp_error( $unique ) ) {
@@ -296,14 +267,6 @@ class WC_Optic_Admin_Product {
 				'globalBackorderQty' => WC_Optic_SKU::get_global_backorder_qty(),
 				'alertEnabled'       => WC_Optic_Stock::is_alert_enabled(),
 				'globalAlertQty'     => WC_Optic_Stock::get_alert_qty(),
-				'productId'          => ( isset( $GLOBALS['post'] ) && $GLOBALS['post'] ) ? (int) $GLOBALS['post']->ID : 0,
-				'templates'          => WC_Optic_Power_Template::get_all(),
-				'defaultSteps'       => array(
-					'sph'  => WC_Optic_Catalog::get_default_power_step( 'sph' ),
-					'cyl'  => WC_Optic_Catalog::get_default_power_step( 'cyl' ),
-					'axis' => WC_Optic_Catalog::get_default_power_step( 'axis' ),
-					'add'  => WC_Optic_Catalog::get_default_power_step( 'add' ),
-				),
 				'i18n'               => array(
 					'product'           => __( 'Product', 'wc-optic' ),
 					'remove'            => __( 'Remove', 'wc-optic' ),
@@ -314,9 +277,6 @@ class WC_Optic_Admin_Product {
 					'alertGlobal'       => __( 'Global', 'wc-optic' ),
 					'alertCustom'       => __( 'Custom', 'wc-optic' ),
 					'alertDisabled'     => __( 'Stock alerts are disabled in global settings.', 'wc-optic' ),
-					'generateFailed'    => __( 'Could not generate internals.', 'wc-optic' ),
-					'confirmReplace'    => __( 'Replace all existing internal products?', 'wc-optic' ),
-					'saveFirst'         => __( 'Save the product first, then generate internals.', 'wc-optic' ),
 				),
 			)
 		);

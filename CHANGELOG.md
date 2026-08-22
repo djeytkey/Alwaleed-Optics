@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.1] — 2026-08-23
+
+### Modifié
+
+- **Convert** : plus de formulaire en masse. Assistant **wizard** dans une modal Bootstrap 5 (`data-bs-backdrop="static"`) : un produit à la fois, étapes Produit → Identité → Puissances, bouton **Next**.
+- Fiche produit : génération par plage retirée (uniquement l’identité + internes manuels). La génération se fait via le wizard Convert.
+
 ## [1.3.0] — 2026-08-22
 
 ### Ajouté

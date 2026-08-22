@@ -1,0 +1,237 @@
+/* Bootstrap 5 modal + wizard chrome (no reboot — safe in WP admin). */
+
+.modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100000;
+	display: none;
+	width: 100%;
+	height: 100%;
+	overflow-x: hidden;
+	overflow-y: auto;
+	outline: 0;
+}
+
+.modal.fade .modal-dialog {
+	transition: transform 0.3s ease-out;
+	transform: translate(0, -50px);
+}
+
+.modal.show .modal-dialog {
+	transform: none;
+}
+
+.modal-dialog {
+	position: relative;
+	width: auto;
+	margin: 1.75rem auto;
+	pointer-events: none;
+	max-width: 800px;
+}
+
+.modal-dialog-centered {
+	display: flex;
+	align-items: center;
+	min-height: calc(100% - 3.5rem);
+}
+
+.modal-dialog-scrollable .modal-content {
+	max-height: calc(100vh - 3.5rem);
+	overflow: hidden;
+}
+
+.modal-dialog-scrollable .modal-body {
+	overflow-y: auto;
+}
+
+.modal-content {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	pointer-events: auto;
+	background: #fff;
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	border-radius: 8px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 18px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.modal-title {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.wc-optic-wizard-progress {
+	margin-left: auto;
+	color: #646970;
+	font-size: 13px;
+}
+
+.btn-close {
+	padding: 0;
+	width: 28px;
+	height: 28px;
+	border: 0;
+	background: transparent;
+	font-size: 22px;
+	line-height: 1;
+	cursor: pointer;
+	color: #1d2327;
+}
+
+.btn-close::before {
+	content: "\00d7";
+}
+
+.modal-body {
+	padding: 16px 18px 8px;
+}
+
+.modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 12px 18px;
+	border-top: 1px solid #dcdcde;
+}
+
+.modal-backdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 99999;
+	width: 100vw;
+	height: 100vh;
+	background-color: #000;
+}
+
+.modal-backdrop.fade {
+	opacity: 0;
+}
+
+.modal-backdrop.show {
+	opacity: 0.5;
+}
+
+.progress {
+	display: flex;
+	height: 8px;
+	overflow: hidden;
+	background: #f0f0f1;
+	border-radius: 99px;
+	margin-bottom: 14px;
+}
+
+.progress-bar {
+	background: #2271b1;
+	transition: width 0.25s ease;
+}
+
+.wc-optic-wizard-steps {
+	display: flex;
+	gap: 8px;
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+}
+
+.wc-optic-wizard-steps li {
+	flex: 1;
+	text-align: center;
+	padding: 6px 8px;
+	border-radius: 99px;
+	background: #f0f0f1;
+	font-size: 12px;
+	color: #646970;
+}
+
+.wc-optic-wizard-steps li.is-active {
+	background: #2271b1;
+	color: #fff;
+	font-weight: 600;
+}
+
+.wc-optic-wizard-steps li.is-done {
+	background: #00a32a;
+	color: #fff;
+}
+
+.wc-optic-wizard-alert {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 4px solid #d63638;
+	background: #fcf0f1;
+}
+
+.wc-optic-wizard-alert.is-success {
+	border-left-color: #00a32a;
+	background: #edfaef;
+}
+
+.wc-optic-wizard-product {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	margin-bottom: 16px;
+	padding: 10px;
+	background: #f6f7f7;
+	border-radius: 6px;
+}
+
+.wc-optic-wizard-product img {
+	width: 56px;
+	height: 56px;
+	object-fit: cover;
+	border-radius: 4px;
+}
+
+.wc-optic-wizard-product strong {
+	display: block;
+}
+
+#wc-optic-wizard-modal .select2-container {
+	width: 100% !important;
+	max-width: 100%;
+}
+
+#wc-optic-wizard-modal .wc-optic-identity-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0 16px;
+}
+
+@media (max-width: 782px) {
+	#wc-optic-wizard-modal .wc-optic-identity-fields {
+		grid-template-columns: 1fr;
+	}
+}
+
+.wc-optic-convert-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 12px 0 16px;
+}
+
+body.modal-open {
+	overflow: hidden;
+}
+
+.select2-container--open {
+	z-index: 100050 !important;
+}
+
+.wc-optic-converted-row {
+	background: #edfaef !important;
+}

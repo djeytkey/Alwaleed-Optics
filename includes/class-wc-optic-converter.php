@@ -90,6 +90,41 @@ class WC_Optic_Converter {
 	}
 
 	/**
+	 * Payload for the conversion wizard (one product).
+	 *
+	 * @param int $product_id Product id.
+	 * @return array|WP_Error
+	 */
+	public static function get_wizard_product( $product_id ) {
+		$product = wc_get_product( absint( $product_id ) );
+		if ( ! $product instanceof WC_Product ) {
+			return new WP_Error( 'wc_optic_missing_product', __( 'Product not found.', 'wc-optic' ) );
+		}
+
+		$type = $product->get_type();
+		if ( ! in_array( $type, array( 'simple', 'optic_product' ), true ) ) {
+			return new WP_Error( 'wc_optic_unsupported_type', __( 'Only simple products can be converted in this version.', 'wc-optic' ) );
+		}
+
+		$image_id  = $product->get_image_id();
+		$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+
+		return array(
+			'id'           => $product->get_id(),
+			'name'         => $product->get_name(),
+			'sku'          => (string) $product->get_sku(),
+			'price'        => self::get_source_price( $product ),
+			'price_html'   => $product->get_price_html(),
+			'edit_url'     => get_edit_post_link( $product->get_id(), 'raw' ),
+			'image'        => $image_url ? $image_url : '',
+			'type'         => $type,
+			'division'     => (string) $product->get_meta( '_optic_division', true ),
+			'identity'     => WC_Optic_SKU::get_identity_catalog( $product ),
+			'has_children' => self::has_children( $product ),
+		);
+	}
+
+	/**
 	 * Default unit price from the current WooCommerce product.
 	 *
 	 * @param WC_Product $product Product.
