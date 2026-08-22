@@ -1,0 +1,42 @@
+---
+description: Keep SESSION_HANDOFF.md updated after every meaningful Optic-Lenses change
+alwaysApply: true
+---
+
+# Session handoff (Optic-Lenses)
+
+After completing any **meaningful** task in `wp-content/plugins/Optic-Lenses`, update `SESSION_HANDOFF.md` before ending the response.
+
+## When to update
+
+Update when you add, change, or fix:
+
+- Features, admin UI, storefront behavior, stock/pricing/cart logic
+- Architecture (new classes, moved menus, new options/meta)
+- i18n strings, assets, templates, or manual test expectations
+
+Skip only for trivial edits (typos, formatting) with no behavioral impact.
+
+## What to record
+
+1. **Date** — set "dernière mise à jour" to today.
+2. **Résumé exécutif** — bullet for the current session's work.
+3. **Section fonctionnelle** — new `### 2.x` or extend an existing one (behavior, formulas, files).
+4. **Architecture** — table rows for touched PHP/templates/assets.
+5. **Tests manuels** — checklist items if behavior changed.
+6. **Décisions / limites** — non-obvious choices or known gaps.
+
+## Version bump
+
+If the change is release-worthy, also bump version in `woocommerce-optic-product.php` + `composer.json` and add an entry to `CHANGELOG.md`. Otherwise note "bump à planifier" in the handoff.
+
+## Example (minimal)
+
+```markdown
+### 2.x Feature name (session YYYY-MM-DD)
+- What changed and why
+- Key methods: `WC_Optic_Foo::bar()`
+- Files: `includes/class-wc-optic-foo.php`
+```
+
+Do not skip the handoff because the user did not ask explicitly — this rule makes it mandatory for this plugin.

@@ -1,0 +1,139 @@
+/**
+ * WooCommerce admin order screen — optic line items.
+ */
+
+/* Hide price/qty columns (body class from PHP/JS, or :has fallback on the items table). */
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) th.thumb,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) td.thumb,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) th.item_cost,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) td.item_cost,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) th.item_cost_of_goods,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) td.item_cost_of_goods,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) th.quantity,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) td.quantity,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) th.line_tax,
+table.woocommerce_order_items:has(tbody#order_line_items > tr.item.wc-optic-order-item):not(:has(tbody#order_line_items > tr.item:not(.wc-optic-order-item))) td.line_tax,
+body.wc-optic-admin-order-only table.woocommerce_order_items th.thumb,
+body.wc-optic-admin-order-only table.woocommerce_order_items td.thumb,
+body.wc-optic-admin-order-only table.woocommerce_order_items th.item_cost,
+body.wc-optic-admin-order-only table.woocommerce_order_items td.item_cost,
+body.wc-optic-admin-order-only table.woocommerce_order_items th.item_cost_of_goods,
+body.wc-optic-admin-order-only table.woocommerce_order_items td.item_cost_of_goods,
+body.wc-optic-admin-order-only table.woocommerce_order_items th.quantity,
+body.wc-optic-admin-order-only table.woocommerce_order_items td.quantity,
+body.wc-optic-admin-order-only table.woocommerce_order_items th.line_tax,
+body.wc-optic-admin-order-only table.woocommerce_order_items td.line_tax {
+	display: none !important;
+}
+
+body.wc-optic-admin-order-only table.woocommerce_order_items td.name {
+	width: auto;
+}
+
+body.wc-optic-admin-order-only table.woocommerce_order_items td.line_cost {
+	width: 1%;
+	white-space: nowrap;
+}
+
+/* Optic preparation summary (inside order line item). */
+.wc-optic-order-summary {
+	display: block;
+	width: 100%;
+	min-width: min(100%, 640px);
+	max-width: 100%;
+	margin-top: 12px;
+	box-sizing: border-box;
+}
+
+.wc-optic-order-summary__eyes {
+	display: flex !important;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	gap: 28px;
+	direction: ltr;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.wc-optic-order-summary__eye {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 14px 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	background: #f6f7f7;
+	box-sizing: border-box;
+}
+
+.wc-optic-order-summary--same-power .wc-optic-order-summary__eyes {
+	display: block !important;
+	max-width: 360px;
+}
+
+.wc-optic-order-summary--same-power .wc-optic-order-summary__eye {
+	max-width: 100%;
+}
+
+.wc-optic-order-summary__eye-title {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: #1d2327;
+	border-bottom: 1px solid #dcdcde;
+	padding-bottom: 8px;
+	margin-bottom: 2px;
+}
+
+.wc-optic-order-summary__eye-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.wc-optic-order-summary__meta-row {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.wc-optic-order-summary__meta-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: #50575e;
+}
+
+.wc-optic-order-summary__meta-value {
+	font-size: 12px;
+	font-weight: 500;
+	color: #1d2327;
+	word-break: break-word;
+}
+
+.wc-optic-order-summary__eye-qr {
+	margin-top: auto;
+	padding-top: 10px;
+	display: flex;
+	justify-content: center;
+}
+
+.wc-optic-order-summary__eye-qr .wc-optic-qr {
+	--wc-optic-qr-size: 148px;
+	padding: 12px 14px;
+}
+
+.wc-optic-order-summary__eye-qr .wc-optic-qr__img,
+.wc-optic-order-summary__eye-qr .wc-optic-qr__svg svg {
+	width: var(--wc-optic-qr-size);
+	height: var(--wc-optic-qr-size);
+	max-width: 100%;
+}
+
+.wc-optic-order-summary__eye-qr .wc-optic-qr__sku {
+	max-width: 180px;
+	font-size: 11px;
+}

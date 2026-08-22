@@ -1,0 +1,530 @@
+/**
+ * Optic product — storefront.
+ */
+
+.wc-optic-cart-form .wc-optic-fieldset {
+	border: 0;
+	padding: 0;
+	margin: 0;
+}
+
+.wc-optic-config-card {
+	margin: 0 0 1.25em;
+	padding: 1rem;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.wc-optic-config-table {
+	display: grid;
+	gap: 1rem;
+}
+
+.wc-optic-config-table__header {
+	display: grid;
+	grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) minmax(0, 1fr);
+	gap: 1rem;
+	align-items: end;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.wc-optic-config-table__eye {
+	font-weight: 600;
+}
+
+.wc-optic-config-table__row {
+	display: grid;
+	grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+	gap: 1rem;
+	align-items: start;
+}
+
+/* .wc-optic-config-table__label {
+	padding-top: 0.35rem;
+} */
+
+.wc-optic-eyes--stack {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 1.5rem;
+}
+
+/* RTL: OD column first in reading order (DOM is OS then OD) */
+.rtl .wc-optic-eyes--stack,
+html[dir="rtl"] .wc-optic-eyes--stack {
+	direction: rtl;
+}
+
+.wc-optic-eye {
+	min-width: 0;
+}
+
+.wc-optic-eye-title {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.35rem;
+	font-size: 0.95em;
+	color: #6b7280;
+}
+
+.wc-optic-ltr {
+	unicode-bidi: isolate;
+}
+
+.wc-optic-power label {
+	display: inline-block;
+	min-width: 3.5rem;
+}
+
+/* Power type toggle — Eyewa-style pill tabs */
+.wc-optic-power-mode-row {
+	grid-template-columns: 1fr;
+	padding-bottom: 1rem;
+}
+
+.wc-optic-power-mode-row__values {
+	min-width: 0;
+}
+
+.wc-optic-power-mode {
+	display: flex;
+	align-items: stretch;
+	width: 100%;
+	height: 53px;
+	padding: 4px;
+	margin: 0;
+	border: 0;
+	border-radius: 60px;
+	background: #f4f4f5;
+	position: relative;
+	box-sizing: border-box;
+}
+
+.wc-optic-power-mode__input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.wc-optic-power-mode__tab {
+	flex: 1 1 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	padding: 12px 8px;
+	border: 0;
+	border-radius: 24px;
+	background: transparent;
+	cursor: pointer;
+	font-size: 1rem;
+	line-height: 1.25;
+	font-weight: 600;
+	color: #6b7280;
+	text-align: center;
+	transition: background-color 350ms ease-in, color 350ms ease-in, box-shadow 350ms ease-in, font-weight 350ms ease-in;
+	user-select: none;
+}
+
+.wc-optic-power-mode__input:checked + .wc-optic-power-mode__tab {
+	background: #fff;
+	color: #111827;
+	font-weight: 400;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.wc-optic-power-mode__input:focus-visible + .wc-optic-power-mode__tab {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+.wc-optic-power-selectors {
+	display: grid;
+	gap: 0.65rem;
+}
+
+.wc-optic-power-dropdown,
+.wc-optic-power-selectors .select2-container {
+	width: 100% !important;
+}
+
+.wc-optic-power-selectors .select2-selection--single {
+	min-height: 38px;
+}
+
+.wc-optic-power-selectors .select2-selection__rendered {
+	line-height: 36px !important;
+}
+
+.wc-optic-resolution-notice {
+	margin: 0.35rem 0 0;
+	font-size: 0.9em;
+	color: #b32d2e;
+}
+
+select.wc-optic-power-dropdown option.wc-optic-option--rupture,
+.select2-results__option[aria-disabled="true"] {
+	color: #787c82;
+}
+
+.wc-optic-no-terms {
+	display: block;
+	color: #b32d2e;
+}
+
+.wc-optic-toggle {
+	margin: 0.75em 0;
+}
+
+.wc-optic-toggle--question {
+	margin-top: 0;
+	margin-bottom: 1rem;
+	padding-bottom: 1rem;
+	/* padding-bottom: 1rem; */
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.wc-optic-toggle--question label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.wc-optic-config-table__values {
+	min-width: 0;
+}
+
+.wc-optic-qty--single {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 1.5rem;
+	align-items: start;
+}
+
+.wc-optic-qty--single input,
+.wc-optic-qty--dual input {
+	box-sizing: border-box;
+}
+
+.wc-optic-qty--single input {
+	grid-column: 1;
+	width: 100%;
+	max-width: none;
+}
+
+/* Flatsome / WooCommerce themes often force .qty to full form width. */
+.wc-optic-cart-form .wc-optic-qty--single input.qty,
+.wc-optic-cart-form .wc-optic-qty--single input.input-text {
+	width: 100%;
+	max-width: none;
+}
+
+.wc-optic-qty--dual input {
+	max-width: 120px;
+}
+
+.wc-optic-qty--dual {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 1rem;
+}
+
+.wc-optic-qty--dual .form-row {
+	margin: 0;
+}
+
+.wc-optic-notice {
+	color: #b32d2e;
+}
+
+.wc-optic-pricing {
+	margin: 0 0 1em;
+	padding: 0.75em 1em;
+	background: #f6f7f7;
+	border-radius: 4px;
+}
+
+.wc-optic-pricing p {
+	margin: 0.25em 0;
+}
+
+.wc-optic-line-total {
+	font-size: 1.05em;
+}
+
+/* Flatsome: hide duplicate mobile price/qty when optic summary is in product-name. */
+.product-name:has(.wc-optic-line-summary) .show-for-small.mobile-product-price,
+.product-name:has(dd.variation-optic-line) .show-for-small.mobile-product-price {
+	display: none !important;
+}
+
+/* Cart / checkout — optic line summary (no SKU / QR). */
+td.product-name dl.variation,
+.product-name dl.variation {
+	display: block;
+	width: 100%;
+	margin: 0.5em 0 0;
+}
+
+dl.variation dd.variation-optic-line {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	float: none;
+	clear: both;
+	grid-column: 1 / -1;
+}
+
+/* Flatsome / themes that grid dl.variation into label + value columns */
+dl.variation:has(> dd.variation-optic-line) {
+	display: block;
+	width: 100%;
+}
+
+.wc-optic-line-summary {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.wc-optic-line-summary__eyes {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	gap: 0.75rem;
+	direction: ltr;
+	width: 100%;
+	max-width: 100%;
+}
+
+.wc-optic-line-summary__eye {
+	flex: 1 1 calc(50% - 0.375rem);
+	width: auto;
+	max-width: none;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.75rem 0.85rem;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 6px;
+	background: rgba(0, 0, 0, 0.03);
+	box-sizing: border-box;
+}
+
+.wc-optic-line-summary--same-power .wc-optic-line-summary__eyes {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+}
+
+.wc-optic-line-summary--same-power .wc-optic-line-summary__eye {
+	flex: none;
+	width: 100%;
+	max-width: 100%;
+}
+
+.wc-optic-line-summary__meta-row--powers .wc-optic-line-summary__powers {
+	width: 100%;
+}
+
+.wc-optic-line-summary__eye-title {
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: inherit;
+	opacity: 0.85;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	padding-bottom: 0.35rem;
+	margin-bottom: 0.15rem;
+}
+
+.wc-optic-line-summary__eye-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.wc-optic-line-summary__meta-row {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+
+.wc-optic-line-summary__meta-label {
+	font-size: 0.7rem;
+	font-weight: 600;
+	opacity: 0.75;
+}
+
+.wc-optic-line-summary__meta-value {
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+.wc-optic-line-summary__meta-row--total {
+	margin-top: 0.25rem;
+	padding-top: 0.45rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.wc-optic-line-summary__meta-row--total .wc-optic-line-summary__meta-label,
+.wc-optic-line-summary__meta-row--total .wc-optic-line-summary__meta-value {
+	font-weight: 700;
+	font-size: 0.9rem;
+	opacity: 1;
+}
+
+.wc-optic-line-summary__powers {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.wc-optic-line-summary__power-item {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	gap: 0.35em;
+	direction: ltr;
+	unicode-bidi: isolate;
+}
+
+.wc-optic-line-summary__power-item + .wc-optic-line-summary__power-item {
+	margin-top: 0.2rem;
+}
+
+.wc-optic-line-summary__power-key {
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.wc-optic-line-summary__power-key::after {
+	content: ":";
+	margin-inline-start: 0.1em;
+}
+
+.wc-optic-line-summary__power-val {
+	unicode-bidi: isolate;
+}
+
+/* RTL (Arabic): align power rows to the right; order stays SPH → value (LTR inside each row). */
+html[dir="rtl"] .wc-optic-line-summary__meta-row--powers,
+[dir="rtl"] .wc-optic-line-summary__meta-row--powers {
+	align-items: flex-end;
+	text-align: right;
+}
+
+html[dir="rtl"] .wc-optic-line-summary__powers,
+[dir="rtl"] .wc-optic-line-summary__powers {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	width: 100%;
+}
+
+html[dir="rtl"] .wc-optic-line-summary__power-item,
+[dir="rtl"] .wc-optic-line-summary__power-item {
+	justify-content: flex-end;
+	width: 100%;
+}
+
+.wc-optic-cart-eye-prices {
+	display: grid;
+	gap: 0.25rem;
+}
+
+.wc-optic-cart-eye-price {
+	display: block;
+}
+
+.wc-optic-cart-qty {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.wc-optic-cart-qty > span,
+.wc-optic-cart-qty__field {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.25rem;
+}
+
+.wc-optic-cart-qty label,
+.wc-optic-cart-qty__label {
+	display: block;
+	margin: 0;
+	font-weight: 600;
+}
+
+.wc-optic-cart-qty__label {
+	font-size: 0.72rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.wc-optic-cart-qty input[type="number"] {
+	max-width: 110px;
+}
+
+@media (max-width: 768px) {
+	.wc-optic-config-table__header {
+		display: none;
+	}
+
+	.wc-optic-config-table__row {
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
+
+	.wc-optic-config-table__label {
+		padding-top: 0;
+	}
+
+	.wc-optic-eyes--stack,
+	.wc-optic-qty--single,
+	.wc-optic-qty--dual {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+
+	.wc-optic-qty--single input {
+		grid-column: auto;
+		max-width: 120px;
+	}
+
+	.wc-optic-eye-title {
+		display: block;
+	}
+
+	.wc-optic-line-summary__eyes {
+		flex-direction: column;
+	}
+
+	.wc-optic-line-summary--same-power .wc-optic-line-summary__eyes {
+		max-width: none;
+	}
+}
+
+.wc-optic-toggle.wc-optic-toggle--question input {
+    margin-bottom: 0;
+}
+
+#wc_optic_qty_left, #wc_optic_qty_right, #wc_optic_qty {
+    text-align: center;
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wpml-config>
+	<custom-fields>
+		<custom-field action="copy">_optic_division</custom-field>
+		<custom-field action="copy">_optic_default_qty_per_eye</custom-field>
+		<custom-field action="copy-once">_optic_child_configs</custom-field>
+		<custom-field action="copy">_optic_identity_catalog</custom-field>
+		<custom-field action="copy">_optic_power_ranges</custom-field>
+		<custom-field action="copy">_optic_cat_section</custom-field>
+		<custom-field action="copy">_optic_cat_company</custom-field>
+		<custom-field action="copy">_optic_cat_brand</custom-field>
+		<custom-field action="copy">_optic_cat_timing</custom-field>
+		<custom-field action="copy">_optic_cat_color</custom-field>
+		<custom-field action="copy">_optic_cat_sph</custom-field>
+		<custom-field action="copy">_optic_cat_cyl</custom-field>
+		<custom-field action="copy">_optic_cat_axis</custom-field>
+		<custom-field action="copy">_optic_cat_add</custom-field>
+		<custom-field action="copy">_optic_cat_pack</custom-field>
+		<custom-field action="copy">_optic_cat_transparency</custom-field>
+		<custom-field action="copy">_optic_idx_section</custom-field>
+		<custom-field action="copy">_optic_idx_company</custom-field>
+		<custom-field action="copy">_optic_idx_brand</custom-field>
+		<custom-field action="copy">_optic_idx_timing</custom-field>
+		<custom-field action="copy">_optic_idx_color</custom-field>
+		<custom-field action="copy">_optic_idx_sph</custom-field>
+		<custom-field action="copy">_optic_idx_cyl</custom-field>
+		<custom-field action="copy">_optic_idx_axis</custom-field>
+		<custom-field action="copy">_optic_idx_add</custom-field>
+		<custom-field action="copy">_optic_idx_pack</custom-field>
+		<custom-field action="copy">_optic_idx_transparency</custom-field>
+	</custom-fields>
+</wpml-config>

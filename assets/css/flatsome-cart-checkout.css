@@ -1,0 +1,475 @@
+/**
+ * Flatsome — modern cart & checkout (optic products).
+ */
+
+body.wc-optic-flatsome-cart,
+body.wc-optic-flatsome-checkout {
+	--wc-optic-fs-radius: 14px;
+	--wc-optic-fs-radius-sm: 10px;
+	--wc-optic-fs-border: rgba(15, 23, 42, 0.1);
+	--wc-optic-fs-surface: #ffffff;
+	--wc-optic-fs-muted: #64748b;
+	--wc-optic-fs-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+	--wc-optic-fs-shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.05);
+	--wc-optic-fs-gap: 1.25rem;
+}
+
+/* ——— Cart page ——— */
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form {
+	margin-bottom: var(--wc-optic-fs-gap);
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart {
+	border: 0;
+	border-collapse: separate;
+	border-spacing: 0 1rem;
+	background: transparent;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart thead {
+	display: none;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart tbody tr.woocommerce-cart-form__cart-item {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas:
+		"thumb name"
+		"thumb meta"
+		"actions actions";
+	gap: 0.35rem 1rem;
+	padding: 1.15rem 1.25rem;
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius);
+	background: var(--wc-optic-fs-surface);
+	box-shadow: var(--wc-optic-fs-shadow-sm);
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart tbody td {
+	border: 0;
+	padding: 0;
+	background: transparent;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart tbody td::before {
+	display: none !important;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-thumbnail {
+	grid-area: thumb;
+	align-self: start;
+	width: 88px;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-thumbnail img {
+	width: 88px;
+	height: auto;
+	border-radius: var(--wc-optic-fs-radius-sm);
+	border: 1px solid var(--wc-optic-fs-border);
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-name {
+	grid-area: name;
+	font-size: 1.05rem;
+	font-weight: 700;
+	line-height: 1.35;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-name a {
+	text-decoration: none;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-price,
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-quantity,
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-subtotal {
+	grid-area: meta;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-price {
+	font-size: 0.92rem;
+	color: var(--wc-optic-fs-muted);
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-subtotal {
+	font-size: 1.05rem;
+	font-weight: 700;
+	margin-top: 0.15rem;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-remove {
+	grid-area: actions;
+	justify-self: end;
+	align-self: end;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-remove .remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 999px;
+	border: 1px solid var(--wc-optic-fs-border);
+	background: #f8fafc;
+	color: #94a3b8 !important;
+	font-size: 1.25rem;
+	line-height: 1;
+	text-decoration: none;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-remove .remove:hover {
+	background: #fef2f2;
+	border-color: #fecaca;
+	color: #dc2626 !important;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-quantity {
+	margin-top: 0.35rem;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 1rem 1.25rem;
+	margin-top: 0.25rem;
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius);
+	background: var(--wc-optic-fs-surface);
+	box-shadow: var(--wc-optic-fs-shadow-sm);
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 0.5rem;
+	margin: 0;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon label {
+	display: none;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon #coupon_code {
+	min-width: min(100%, 220px);
+	border-radius: var(--wc-optic-fs-radius-sm);
+	border: 1px solid var(--wc-optic-fs-border);
+	padding: 0.65rem 0.85rem;
+}
+
+body.wc-optic-flatsome-cart .woocommerce-cart-form .actions .button,
+body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon .button {
+	border-radius: 999px;
+	padding: 0.65rem 1.15rem;
+}
+
+body.wc-optic-flatsome-cart .cart-collaterals {
+	margin-top: var(--wc-optic-fs-gap);
+}
+
+body.wc-optic-flatsome-cart .cart_totals {
+	padding: 1.35rem 1.5rem;
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius);
+	background: var(--wc-optic-fs-surface);
+	box-shadow: var(--wc-optic-fs-shadow);
+}
+
+body.wc-optic-flatsome-cart .cart_totals > h2 {
+	margin: 0 0 1rem;
+	font-size: 1.15rem;
+	font-weight: 700;
+}
+
+body.wc-optic-flatsome-cart .cart_totals .shop_table {
+	border: 0;
+}
+
+body.wc-optic-flatsome-cart .cart_totals .shop_table th,
+body.wc-optic-flatsome-cart .cart_totals .shop_table td {
+	border: 0;
+	padding: 0.45rem 0;
+	background: transparent;
+}
+
+body.wc-optic-flatsome-cart .cart_totals .shop_table tr {
+	border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+body.wc-optic-flatsome-cart .cart_totals .shop_table tr:last-child {
+	border-bottom: 0;
+}
+
+body.wc-optic-flatsome-cart .cart_totals .shop_table tr.order-total th,
+body.wc-optic-flatsome-cart .cart_totals .shop_table tr.order-total td {
+	padding-top: 0.85rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+body.wc-optic-flatsome-cart .wc-proceed-to-checkout {
+	margin-top: 1rem;
+}
+
+body.wc-optic-flatsome-cart .wc-proceed-to-checkout .checkout-button {
+	display: block;
+	width: 100%;
+	text-align: center;
+	border-radius: 999px;
+	padding: 0.9rem 1.25rem;
+	font-size: 1rem;
+	font-weight: 700;
+	box-shadow: var(--wc-optic-fs-shadow-sm);
+}
+
+/* Optic summary in cart rows */
+body.wc-optic-flatsome-cart .wc-optic-line-summary__eye {
+	border-radius: var(--wc-optic-fs-radius-sm);
+	border-color: var(--wc-optic-fs-border);
+	background: #f8fafc;
+	box-shadow: none;
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-qty {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.65rem;
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-qty__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	min-width: 96px;
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-qty__label {
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--wc-optic-fs-muted);
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-qty input[type="number"] {
+	width: 100%;
+	max-width: none;
+	border-radius: var(--wc-optic-fs-radius-sm);
+	border: 1px solid var(--wc-optic-fs-border);
+	padding: 0.55rem 0.65rem;
+	background: #fff;
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-eye-prices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	padding: 0.35rem 0;
+}
+
+body.wc-optic-flatsome-cart .wc-optic-cart-eye-price {
+	font-size: 0.9rem;
+	color: var(--wc-optic-fs-muted);
+}
+
+/* ——— Checkout ——— */
+
+body.wc-optic-flatsome-checkout form.woocommerce-checkout {
+	--wc-optic-fs-gap: 1.5rem;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-billing-fields,
+body.wc-optic-flatsome-checkout .woocommerce-shipping-fields,
+body.wc-optic-flatsome-checkout .woocommerce-additional-fields,
+body.wc-optic-flatsome-checkout #order_review_heading,
+body.wc-optic-flatsome-checkout #order_review {
+	padding: 1.35rem 1.5rem;
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius);
+	background: var(--wc-optic-fs-surface);
+	box-shadow: var(--wc-optic-fs-shadow-sm);
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-billing-fields > h3,
+body.wc-optic-flatsome-checkout .woocommerce-shipping-fields > h3,
+body.wc-optic-flatsome-checkout #ship-to-different-address,
+body.wc-optic-flatsome-checkout #order_review_heading {
+	margin-top: 0;
+	margin-bottom: 1rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-billing-fields__field-wrapper,
+body.wc-optic-flatsome-checkout .woocommerce-shipping-fields__field-wrapper {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.85rem 1rem;
+}
+
+body.wc-optic-flatsome-checkout .form-row-wide {
+	grid-column: 1 / -1;
+}
+
+body.wc-optic-flatsome-checkout .form-row input.input-text,
+body.wc-optic-flatsome-checkout .form-row textarea,
+body.wc-optic-flatsome-checkout .form-row select,
+body.wc-optic-flatsome-checkout .select2-container .select2-selection--single {
+	border-radius: var(--wc-optic-fs-radius-sm) !important;
+	border-color: var(--wc-optic-fs-border) !important;
+	min-height: 44px;
+}
+
+body.wc-optic-flatsome-checkout .select2-container .select2-selection__rendered {
+	line-height: 42px !important;
+}
+
+body.wc-optic-flatsome-checkout #order_review {
+	margin-top: var(--wc-optic-fs-gap);
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table {
+	border: 0;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table thead {
+	display: none;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tbody tr {
+	display: block;
+	padding: 0.85rem 0;
+	border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tbody td {
+	display: block;
+	border: 0;
+	padding: 0;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table .product-name {
+	font-weight: 600;
+	margin-bottom: 0.35rem;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table .product-total {
+	font-weight: 700;
+	margin-top: 0.35rem;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tfoot th,
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tfoot td {
+	border: 0;
+	padding: 0.45rem 0;
+	background: transparent;
+}
+
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tfoot tr.order-total th,
+body.wc-optic-flatsome-checkout .woocommerce-checkout-review-order-table tfoot tr.order-total td {
+	padding-top: 0.85rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+body.wc-optic-flatsome-checkout #payment {
+	margin-top: 1rem;
+	padding: 1rem 1.15rem;
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius-sm);
+	background: #f8fafc;
+}
+
+body.wc-optic-flatsome-checkout #payment .payment_methods {
+	border: 0;
+}
+
+body.wc-optic-flatsome-checkout #payment .payment_methods li {
+	border: 1px solid var(--wc-optic-fs-border);
+	border-radius: var(--wc-optic-fs-radius-sm);
+	background: #fff;
+	margin-bottom: 0.65rem;
+	padding: 0.75rem 0.85rem;
+}
+
+body.wc-optic-flatsome-checkout #payment .payment_methods li:last-child {
+	margin-bottom: 0;
+}
+
+body.wc-optic-flatsome-checkout #place_order {
+	width: 100%;
+	border-radius: 999px;
+	padding: 0.95rem 1.25rem;
+	font-size: 1rem;
+	font-weight: 700;
+	margin-top: 0.75rem;
+}
+
+body.wc-optic-flatsome-checkout .wc-optic-line-summary__eye {
+	border-radius: var(--wc-optic-fs-radius-sm);
+	border-color: var(--wc-optic-fs-border);
+	background: #f8fafc;
+}
+
+/* Desktop layout */
+@media (min-width: 992px) {
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart tbody tr.woocommerce-cart-form__cart-item {
+		grid-template-columns: 96px minmax(0, 1fr) auto;
+		padding: 1.35rem 1.5rem;
+	}
+
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-price,
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-quantity,
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-subtotal {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin-inline-end: 1rem;
+	}
+
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .shop_table.cart .product-price::before {
+		content: attr(data-title);
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--wc-optic-fs-muted);
+		margin-inline-end: 0.35rem;
+	}
+
+	body.wc-optic-flatsome-cart .cart-collaterals .cart_totals {
+		position: sticky;
+		top: calc(var(--flatsome-scroll-padding-top, 30px) + 1rem);
+	}
+
+	body.wc-optic-flatsome-checkout #order_review {
+		position: sticky;
+		top: calc(var(--flatsome-scroll-padding-top, 30px) + 1rem);
+	}
+}
+
+@media (max-width: 991px) {
+	body.wc-optic-flatsome-checkout .woocommerce-billing-fields__field-wrapper,
+	body.wc-optic-flatsome-checkout .woocommerce-shipping-fields__field-wrapper {
+		grid-template-columns: 1fr;
+	}
+
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon {
+		width: 100%;
+	}
+
+	body.wc-optic-flatsome-cart .woocommerce-cart-form .coupon #coupon_code {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+}
