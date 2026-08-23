@@ -36,13 +36,44 @@
 	min-height: calc(100% - 3.5rem);
 }
 
+/*
+ * Scrollable wizard: constrain height and let .modal-body scroll.
+ * Without flex + min-height:0, overflow:hidden on .modal-content clips
+ * price/stock when SPH+CYL+AXIS ranges make the pane taller than the viewport.
+ */
+.modal-dialog-scrollable {
+	height: calc(100% - 3.5rem);
+	max-height: calc(100% - 3.5rem);
+}
+
+.modal-dialog-centered.modal-dialog-scrollable {
+	flex-direction: column;
+	justify-content: center;
+	height: 100%;
+	max-height: 100%;
+}
+
 .modal-dialog-scrollable .modal-content {
+	display: flex;
+	flex-direction: column;
 	max-height: calc(100vh - 3.5rem);
 	overflow: hidden;
 }
 
+.modal-dialog-centered.modal-dialog-scrollable .modal-content {
+	max-height: min(calc(100vh - 3.5rem), 100%);
+}
+
+.modal-dialog-scrollable .modal-header,
+.modal-dialog-scrollable .modal-footer {
+	flex-shrink: 0;
+}
+
 .modal-dialog-scrollable .modal-body {
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
 .modal-content {
