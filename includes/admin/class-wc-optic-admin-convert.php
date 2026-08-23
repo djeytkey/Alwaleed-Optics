@@ -163,7 +163,7 @@ class WC_Optic_Admin_Convert {
 			'infoEmpty'    => __( 'Showing 0 of 0 products', 'wc-optic' ),
 			'infoFiltered' => __( '(_TOTAL_ of _MAX_ total)', 'wc-optic' ),
 			'lengthMenu'   => __( 'Show _MENU_ products', 'wc-optic' ),
-			'search'       => __( 'Search name or SKU:', 'wc-optic' ),
+			'search'       => __( 'Search:', 'wc-optic' ),
 			'zeroRecords'  => __( 'No matching products found.', 'wc-optic' ),
 			'paginate'     => array(
 				'first'    => __( 'First', 'wc-optic' ),
@@ -319,25 +319,21 @@ class WC_Optic_Admin_Convert {
 		echo '</p>';
 
 		echo '<div class="wc-optic-datatable-wrap wc-optic-convert-datatable-wrap">';
-		echo '<table class="widefat striped wc-optic-convert-datatable" id="wc-optic-convert-table">';
+		echo '<table class="widefat wc-optic-convert-datatable display" id="wc-optic-convert-table" width="100%">';
 		echo '<thead><tr>';
-		echo '<th class="wc-optic-convert-col-select"></th>';
 		echo '<th>' . esc_html__( 'Product', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Parent SKU', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Internal SKUs', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'SKU (parent)', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
 		echo '</tr></thead><tbody>';
 		foreach ( $products as $product ) {
-			$internal_skus = WC_Optic_Converter::get_product_internal_skus( $product );
-			$internal_label = empty( $internal_skus )
-				? '—'
-				: implode( ', ', $internal_skus );
-			$search_blob    = WC_Optic_Converter::get_product_search_blob( $product );
-			echo '<tr class="wc-optic-convert-row" data-search="' . esc_attr( $search_blob ) . '">';
-			echo '<td class="wc-optic-convert-col-select"><input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product->get_id() ) . '" /></td>';
-			echo '<td>' . esc_html( $product->get_name() ) . '</td>';
+			$product_id = $product->get_id();
+			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
+			echo '<td class="wc-optic-convert-product-name">';
+			echo '<label class="wc-optic-convert-product-label">';
+			echo '<input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product_id ) . '" /> ';
+			echo esc_html( $product->get_name() );
+			echo '</label></td>';
 			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
-			echo '<td class="wc-optic-convert-internal-skus" title="' . esc_attr( $internal_label ) . '">' . esc_html( $internal_label ) . '</td>';
 			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
 			echo '</tr>';
 		}

@@ -63,12 +63,20 @@
 	}
 
 	function initConvertDataTable() {
-		if ( ! wcOpticConvert.convertTab || ! $.fn.DataTable ) {
+		if ( ! wcOpticConvert.convertTab ) {
 			return;
 		}
 
 		var $table = $( '#wc-optic-convert-table' );
 		if ( ! $table.length || ! $table.find( 'tbody tr.wc-optic-convert-row' ).length ) {
+			return;
+		}
+
+		if ( ! $.fn.DataTable ) {
+			return;
+		}
+
+		if ( $.fn.DataTable.isDataTable( $table[ 0 ] ) ) {
 			return;
 		}
 
@@ -82,10 +90,9 @@
 			],
 			language: dtLang,
 			autoWidth: false,
-			order: [ [ 1, 'asc' ] ],
+			order: [ [ 0, 'asc' ] ],
 			columnDefs: [
-				{ orderable: false, searchable: false, targets: [ 0 ] },
-				{ orderable: false, targets: [ 4 ] },
+				{ orderable: false, targets: [ 2 ] },
 			],
 		} );
 
@@ -498,7 +505,10 @@
 		}
 
 		initSelect2( $root.find( '.wc-optic-template-form' ) );
-		initConvertDataTable();
+
+		if ( wcOpticConvert.convertTab ) {
+			initConvertDataTable();
+		}
 
 		$root.on( 'change', '#wc-optic-convert-select-all', function () {
 			selectAllMatchingRows( $( this ).is( ':checked' ) );
