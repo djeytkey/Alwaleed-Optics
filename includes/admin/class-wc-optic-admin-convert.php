@@ -376,7 +376,7 @@ class WC_Optic_Admin_Convert {
 	 */
 	protected static function render_wizard_modal() {
 		echo '<div class="modal fade wc-optic-bs" id="wc-optic-wizard-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="wc-optic-wizard-title" aria-hidden="true">';
-		echo '<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">';
+		echo '<div class="modal-dialog modal-lg wc-optic-wizard-dialog">';
 		echo '<div class="modal-content">';
 
 		echo '<div class="modal-header">';
@@ -414,6 +414,7 @@ class WC_Optic_Admin_Convert {
 		echo '</div>';
 
 		echo '<div class="wc-optic-wizard-pane" data-step="3" hidden>';
+		echo '<div class="wc-optic-wizard-pane-scroll">';
 		echo '<p><label for="wc_optic_wizard_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label><br />';
 		echo '<select id="wc_optic_wizard_template" class="wc-optic-wizard-select">';
 		echo '<option value="">' . esc_html__( 'Custom range', 'wc-optic' ) . '</option>';
@@ -424,11 +425,14 @@ class WC_Optic_Admin_Convert {
 		self::render_range_fields( '', array(), 'wizard_ranges', 'wc-optic-wizard-ranges' );
 		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it.', 'wc-optic' ) . '</p>';
 		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' ) . '</p>';
+		echo '</div>';
+		echo '<div class="wc-optic-wizard-pane-fixed">';
 		echo '<p><label for="wc_optic_wizard_price">' . esc_html__( 'Unit price', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_wizard_price" class="wc_input_price regular-text" /></p>';
 		echo '<p><label for="wc_optic_wizard_stock">' . esc_html__( 'Default stock', 'wc-optic' ) . '</label><br />';
 		echo '<input type="number" id="wc_optic_wizard_stock" min="0" step="1" value="0" /></p>';
 		echo '<p><label><input type="checkbox" id="wc_optic_wizard_replace" /> ' . esc_html__( 'Replace existing internals', 'wc-optic' ) . '</label></p>';
+		echo '</div>';
 		echo '</div>';
 
 		echo '</div>';

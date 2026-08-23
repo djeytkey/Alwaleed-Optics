@@ -17,7 +17,7 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 1. **Convert — DataTable jQuery (fix)** — les fichiers **`dataTables.min.js`** et **`dataTables.dataTables.min.css`** manquaient dans `assets/vendor/datatables/` (404 → tableau HTML brut). Ajout vendor 2.1.8 + chargement footer identique à Stock (`print_scripts` prio 20 : DataTables → config → `admin-convert.js`). Pagination, recherche, compteur « Showing _START_–_END_ of _TOTAL_ products ».
 2. **Convert — Select2 wizard** — dropdown mal placé / hors modal : `dropdownParent` était `#wc-optic-wizard-modal` + règle CSS `width:100%` sur tous les `.select2-container` du modal (stretch du dropdown) + overflow scrollable. Correctif : `dropdownParent: body`, z-index au-dessus du modal, width limité à `select + .select2-container`.
-3. **Convert — scroll étape Powers** — barre visible mais prix/stock inaccessibles (SPH+CYL+AXIS) : CSS scrollable incomplet. Correctif : hauteur contrainte sur `.modal-dialog-scrollable` + `flex` / `min-height:0` sur `.modal-body` pour scroller vraiment.
+3. **Convert — scroll étape Powers** — prix/stock inaccessibles (SPH+CYL+AXIS) : retrait `modal-dialog-centered/scrollable` ; zone `.wc-optic-wizard-pane-scroll` pour les plages seules ; prix/stock dans `.wc-optic-wizard-pane-fixed` toujours visibles.
 4. **Convert — liste complète** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Colonnes Product / SKU parent / Price.
 4. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
 3. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
@@ -427,8 +427,8 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Scroll étape Powers (SPH+CYL+AXIS)**
 
-- **Cause :** `.modal-dialog-scrollable .modal-content { overflow:hidden; max-height }` sans hauteur flex sur `.modal-body` (`min-height:0`) → contenu coupé, scrollbar trompeuse, prix/stock hors atteinte.
-- **Correctif :** règles BS5-compatibles dans `admin-wizard.css` : hauteur dialog, `flex` column, `modal-body { flex:1 1 auto; min-height:0; overflow-y:auto }`.
+- **Cause :** double overflow Bootstrap (`modal` + `modal-body`) + `modal-dialog-centered` → scrollbar trompeuse, prix/stock coupés.
+- **Correctif :** HTML step 3 scindé — plages dans `.wc-optic-wizard-pane-scroll` (scroll interne), prix/stock/checkbox dans `.wc-optic-wizard-pane-fixed` (toujours visible). Dialog simplifié sans classes scrollable BS.
 
 **Problème Convert (331 vs 199)**
 
