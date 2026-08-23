@@ -204,17 +204,24 @@
 	function initSelect2( $scope ) {
 		$scope.find( 'select.wc-optic-select2, select.wc-optic-wizard-select' ).each( function () {
 			var $el = $( this );
+			var args;
 			if ( $el.hasClass( 'enhanced' ) && $el.data( 'select2' ) ) {
 				$el.selectWoo( 'destroy' );
 				$el.removeClass( 'enhanced' );
 			}
-			$el.selectWoo( {
+			// Append dropdown to <body> when inside the wizard modal so it is not
+			// clipped by .modal-dialog-scrollable overflow and is not stretched by
+			// modal width rules (dropdownParent on #modal broke alignment).
+			args = {
 				width: '100%',
 				minimumResultsForSearch: 0,
 				allowClear: true,
 				placeholder: $el.data( 'placeholder' ) || '',
-				dropdownParent: $( '#wc-optic-wizard-modal' ),
-			} ).addClass( 'enhanced' );
+			};
+			if ( $el.closest( '#wc-optic-wizard-modal' ).length ) {
+				args.dropdownParent = $( document.body );
+			}
+			$el.selectWoo( args ).addClass( 'enhanced' );
 		} );
 	}
 

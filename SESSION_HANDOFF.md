@@ -16,8 +16,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 ### Session 2026-08-23 (courante)
 
 1. **Convert — DataTable jQuery (fix)** — les fichiers **`dataTables.min.js`** et **`dataTables.dataTables.min.css`** manquaient dans `assets/vendor/datatables/` (404 → tableau HTML brut). Ajout vendor 2.1.8 + chargement footer identique à Stock (`print_scripts` prio 20 : DataTables → config → `admin-convert.js`). Pagination, recherche, compteur « Showing _START_–_END_ of _TOTAL_ products ».
-2. **Convert — liste complète** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Colonnes Product / SKU parent / Price.
-3. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
+2. **Convert — Select2 wizard** — dropdown mal placé / hors modal : `dropdownParent` était `#wc-optic-wizard-modal` + règle CSS `width:100%` sur tous les `.select2-container` du modal (stretch du dropdown) + overflow scrollable. Correctif : `dropdownParent: body`, z-index au-dessus du modal, width limité à `select + .select2-container`.
+3. **Convert — liste complète** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Colonnes Product / SKU parent / Price.
+4. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
 3. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
 4. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.
 5. **Wizard Convert** — modal Bootstrap 5 fond **static**. Un produit à la fois : Produit / Identité / Puissances, **Next**.
@@ -417,6 +418,11 @@ WC_Optic_Converter::convert_product() / preview()
 - **Correctif :** ajout vendor DataTables 2.1.8 ; `WC_Optic_Admin_Convert::print_scripts()` (footer prio 20, même pattern que Stock).
 - **UI :** champ Search, sélecteur « Show _MENU_ products », pagination, info « Showing _START_–_END_ of _TOTAL_ products » + « (_TOTAL_ of _MAX_ total) » filtré.
 - **Étape suivante :** étendre la recherche aux SKU internes (blob déjà préparé côté PHP).
+
+**Select2 dans le wizard Convert**
+
+- **Cause :** `dropdownParent: #wc-optic-wizard-modal` + `#wc-optic-wizard-modal .select2-container { width:100% }` appliqué aussi au dropdown ouvert → mauvais alignement / liste hors zone visible (overflow `.modal-dialog-scrollable`). Pas un conflit DataTables.
+- **Correctif :** `dropdownParent: document.body` pour les selects du modal ; CSS width limité à `select + .select2-container` ; z-index `body > .select2-container--open` au-dessus du modal (100060).
 
 **Problème Convert (331 vs 199)**
 

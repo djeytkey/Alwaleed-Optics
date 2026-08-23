@@ -199,7 +199,8 @@
 	display: block;
 }
 
-#wc-optic-wizard-modal .select2-container {
+/* Only the selection widget next to the <select> — not the dropdown on <body>. */
+#wc-optic-wizard-modal .modal-body select + .select2-container {
 	width: 100% !important;
 	max-width: 100%;
 }
@@ -228,8 +229,13 @@ body.modal-open {
 	overflow: hidden;
 }
 
-.select2-container--open {
-	z-index: 100050 !important;
+/* Above custom Bootstrap modal (z-index 100000) when dropdown is on <body>. */
+body > .select2-container {
+	z-index: 100050;
+}
+
+body > .select2-container--open {
+	z-index: 100060 !important;
 }
 
 .wc-optic-converted-row {
