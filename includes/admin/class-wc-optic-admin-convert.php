@@ -73,8 +73,10 @@ class WC_Optic_Admin_Convert {
 		);
 
 		$division_powers = array();
+		$division_colors = array();
 		foreach ( WC_Optic_Plugin::get_divisions() as $slug => $def ) {
 			$division_powers[ $slug ] = $def['powers'];
+			$division_colors[ $slug ] = ! empty( $def['show_color'] );
 		}
 
 		wp_localize_script(
@@ -84,6 +86,7 @@ class WC_Optic_Admin_Convert {
 				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 				'nonce'           => wp_create_nonce( 'wc_optic_admin' ),
 				'divisionPowers'  => $division_powers,
+				'divisionShowColor' => $division_colors,
 				'powerTypes'      => WC_Optic_Catalog::get_power_types(),
 				'defaultSteps'    => array(
 					'sph'  => WC_Optic_Catalog::get_default_power_step( 'sph' ),
@@ -98,7 +101,7 @@ class WC_Optic_Admin_Convert {
 					'deleteConfirm'   => __( 'Delete this power range template?', 'wc-optic' ),
 					'selectProducts'  => __( 'Select at least one product.', 'wc-optic' ),
 					'needDivision'    => __( 'Choose an optical division.', 'wc-optic' ),
-					'needIdentity'    => __( 'Fill every identity field (section, company, brand, timing, color, pack, transparency).', 'wc-optic' ),
+					'needIdentity'    => __( 'Fill every required identity field (section, company, brand, timing, pack, transparency — and color when the division uses it).', 'wc-optic' ),
 					'needRanges'      => __( 'Set From, To and Step for each power of this division.', 'wc-optic' ),
 					'needPrice'       => __( 'This product has no price. Enter a unit price.', 'wc-optic' ),
 					'confirmReplace'  => __( 'This product already has internals. Replace them?', 'wc-optic' ),
@@ -112,6 +115,7 @@ class WC_Optic_Admin_Convert {
 					'finish'          => __( 'Finish', 'wc-optic' ),
 					'progress'        => __( 'Product %1$d of %2$d', 'wc-optic' ),
 					'done'            => __( 'All selected products have been processed.', 'wc-optic' ),
+					'visibleAfterFilter' => __( '%d visible after filter', 'wc-optic' ),
 				),
 			)
 		);
@@ -221,17 +225,56 @@ class WC_Optic_Admin_Convert {
 	 * Convert tab: product list + wizard launcher.
 	 */
 	protected static function render_convert_tab() {
+		$stats    = WC_Optic_Converter::get_convert_stats();
 		$products = WC_Optic_Converter::get_eligible_products(
 			array(
-				'limit' => 200,
+				'limit' => WC_Optic_Converter::CONVERT_LIST_LIMIT,
 				'page'  => 1,
 			)
 		);
+		$displayed = count( $products );
 
 		echo '<p class="description">' . esc_html__( 'Select one or more simple products, then start the wizard. Each product is converted one by one (Next). The modal cannot be closed by clicking outside.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
 			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. Internals are copied to Arabic (and other) translations after conversion.', 'wc-optic' ) . '</p>';
 		}
+
+		echo '<p class="wc-optic-convert-stats description" id="wc-optic-convert-stats"';
+		echo ' data-total-simple="' . esc_attr( (string) $stats['total_simple'] ) . '"';
+		echo ' data-eligible="' . esc_attr( (string) $stats['eligible'] ) . '"';
+		echo ' data-displayed="' . esc_attr( (string) $displayed ) . '"';
+		echo ' data-excluded-wpml="' . esc_attr( (string) $stats['excluded_wpml'] ) . '"';
+		echo ' data-excluded-ineligible="' . esc_attr( (string) $stats['excluded_ineligible'] ) . '">';
+		echo esc_html(
+			sprintf(
+				/* translators: 1: displayed count, 2: eligible count, 3: total simple products in catalog */
+				__( 'Showing %1$d of %2$d eligible products (%3$d simple products in catalog).', 'wc-optic' ),
+				$displayed,
+				$stats['eligible'],
+				$stats['total_simple']
+			)
+		);
+		if ( $stats['excluded_wpml'] > 0 ) {
+			echo ' ';
+			echo esc_html(
+				sprintf(
+					/* translators: %d: WPML translation count excluded */
+					__( '%d WPML translations excluded.', 'wc-optic' ),
+					$stats['excluded_wpml']
+				)
+			);
+		}
+		echo '</p>';
+
+		echo '<p class="wc-optic-convert-visible-count description" id="wc-optic-convert-visible-count">';
+		echo esc_html(
+			sprintf(
+				/* translators: %d: number of rows visible after search filter */
+				__( '%d visible after filter', 'wc-optic' ),
+				$displayed
+			)
+		);
+		echo '</p>';
 
 		echo '<p class="wc-optic-convert-toolbar">';
 		echo '<input type="search" id="wc-optic-convert-search" class="regular-text" placeholder="' . esc_attr__( 'Search products…', 'wc-optic' ) . '" /> ';
@@ -333,20 +376,22 @@ class WC_Optic_Admin_Convert {
 	 * @param array  $selected Selected ids.
 	 * @param string $name     Field name prefix.
 	 * @param bool   $required Required.
+	 * @param string $division Optional division slug (controls color field visibility).
 	 */
-	public static function render_identity_fields( array $selected, $name = '_optic_identity', $required = true ) {
+	public static function render_identity_fields( array $selected, $name = '_optic_identity', $required = true, $division = '' ) {
 		echo '<div class="wc-optic-identity-fields">';
 		foreach ( WC_Optic_SKU::get_identity_catalog_types() as $type ) {
+			$show_color = ( 'color' !== $type ) || WC_Optic_Plugin::division_shows_color( $division );
 			$current = isset( $selected[ $type ] ) ? (int) $selected[ $type ] : 0;
 			$field   = $name . '[' . $type . ']';
 			$id      = 'wc_optic_identity_' . $type . '_' . sanitize_key( $name );
-			echo '<p class="form-field form-field-wide wc-optic-identity-field">';
+			echo '<p class="form-field form-field-wide wc-optic-identity-field wc-optic-identity-field--' . esc_attr( $type ) . '" data-optic-type="' . esc_attr( $type ) . '"' . ( $show_color ? '' : ' hidden' ) . '>';
 			echo '<label for="' . esc_attr( $id ) . '">' . esc_html( WC_Optic_Catalog::get_type_label( $type ) );
-			if ( $required ) {
+			if ( $required && $show_color ) {
 				echo ' <abbr class="required" title="' . esc_attr__( 'required', 'woocommerce' ) . '">*</abbr>';
 			}
 			echo '</label>';
-			echo '<select name="' . esc_attr( $field ) . '" id="' . esc_attr( $id ) . '" class="wc-enhanced-select wc-optic-select2 wc-optic-identity-select" data-optic-type="' . esc_attr( $type ) . '" data-placeholder="' . esc_attr__( '— Select —', 'wc-optic' ) . '"' . ( $required ? ' required="required" aria-required="true"' : '' ) . '>';
+			echo '<select name="' . esc_attr( $field ) . '" id="' . esc_attr( $id ) . '" class="wc-enhanced-select wc-optic-select2 wc-optic-identity-select" data-optic-type="' . esc_attr( $type ) . '" data-placeholder="' . esc_attr__( '— Select —', 'wc-optic' ) . '"' . ( $required && $show_color ? ' required="required" aria-required="true"' : '' ) . '>';
 			echo '<option value=""></option>';
 			foreach ( WC_Optic_Catalog::get_terms( $type ) as $row ) {
 				echo '<option value="' . esc_attr( (string) $row->id ) . '" ' . selected( $current, (int) $row->id, false ) . '>' . esc_html( WC_Optic_Catalog::get_display_name( $row ) ) . '</option>';

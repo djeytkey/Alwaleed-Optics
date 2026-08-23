@@ -120,4 +120,22 @@ class WC_Optic_Plugin {
 		$all = self::get_divisions();
 		return isset( $all[ $division ] ) ? $all[ $division ]['powers'] : array();
 	}
+
+	/**
+	 * Whether the color catalog field is shown/required for a division.
+	 *
+	 * @param string $division Division slug.
+	 * @return bool
+	 */
+	public static function division_shows_color( $division ) {
+		$division = sanitize_key( (string) $division );
+		if ( '' === $division ) {
+			return true;
+		}
+		$all = self::get_divisions();
+		if ( ! isset( $all[ $division ] ) ) {
+			return true;
+		}
+		return ! empty( $all[ $division ]['show_color'] );
+	}
 }

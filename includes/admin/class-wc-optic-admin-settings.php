@@ -53,6 +53,7 @@ class WC_Optic_Admin_Settings {
 					'restoreDivision'     => __( 'Restore', 'wc-optic' ),
 					'hideDivisionLabel'   => __( 'Hide division', 'wc-optic' ),
 					'divisionPowerRequired' => __( 'Select at least one power for each division.', 'wc-optic' ),
+					'showColorSelector'   => __( 'Show color selector', 'wc-optic' ),
 				),
 				'divisionPowers' => WC_Optic_Divisions::get_available_powers(),
 				'divisionPowerLabels' => array_map(
@@ -277,11 +278,12 @@ class WC_Optic_Admin_Settings {
 		wp_nonce_field( 'wc_optic_divisions_save', 'wc_optic_divisions_nonce' );
 		echo '<div class="notice inline wc-optic-divisions-settings-box">';
 		echo '<p><strong>' . esc_html__( 'Optical divisions', 'wc-optic' ) . '</strong></p>';
-		echo '<p class="description">' . esc_html__( 'Each division defines which prescription powers (SPH, CYL, AXIS, ADD) apply to optic products assigned to it. Hidden divisions stay available for existing products but are removed from product selectors.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Each division defines which prescription powers (SPH, CYL, AXIS, ADD) apply to optic products assigned to it. Check "Show color field" when customers must pick a lens color (e.g. Color Lenses). Leave unchecked for fully transparent products (e.g. Toric). Hidden divisions stay available for existing products but are removed from product selectors.', 'wc-optic' ) . '</p>';
 
 		echo '<table class="widefat striped wc-optic-divisions-table"><thead><tr>';
 		echo '<th>' . esc_html__( 'Division name', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Associated powers', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Show color field', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Actions', 'wc-optic' ) . '</th>';
 		echo '</tr></thead>';
 		echo '<tbody id="wc-optic-divisions-visible">';
@@ -294,14 +296,14 @@ class WC_Optic_Admin_Settings {
 		echo '</tbody>';
 
 		if ( ! empty( $hidden ) ) {
-			echo '<tbody id="wc-optic-divisions-hidden-separator"><tr class="wc-optic-divisions-hidden-heading"><td colspan="3"><strong>' . esc_html__( 'Hidden divisions', 'wc-optic' ) . '</strong></td></tr></tbody>';
+			echo '<tbody id="wc-optic-divisions-hidden-separator"><tr class="wc-optic-divisions-hidden-heading"><td colspan="4"><strong>' . esc_html__( 'Hidden divisions', 'wc-optic' ) . '</strong></td></tr></tbody>';
 			echo '<tbody id="wc-optic-divisions-hidden">';
 			foreach ( $hidden as $slug => $def ) {
 				self::render_division_row( $slug, $def, (string) $slug, true );
 			}
 			echo '</tbody>';
 		} else {
-			echo '<tbody id="wc-optic-divisions-hidden-separator" class="wc-optic-is-empty"><tr class="wc-optic-divisions-hidden-heading"><td colspan="3"><strong>' . esc_html__( 'Hidden divisions', 'wc-optic' ) . '</strong></td></tr></tbody>';
+			echo '<tbody id="wc-optic-divisions-hidden-separator" class="wc-optic-is-empty"><tr class="wc-optic-divisions-hidden-heading"><td colspan="4"><strong>' . esc_html__( 'Hidden divisions', 'wc-optic' ) . '</strong></td></tr></tbody>';
 			echo '<tbody id="wc-optic-divisions-hidden"></tbody>';
 		}
 
@@ -320,15 +322,16 @@ class WC_Optic_Admin_Settings {
 	 * One division settings row.
 	 *
 	 * @param string                                          $slug       Division slug (empty for new).
-	 * @param array{label:string, powers:string[], hidden?:bool} $def        Division data.
+	 * @param array{label:string, powers:string[], hidden?:bool, show_color?:bool} $def        Division data.
 	 * @param string                                          $suffix     Form array key suffix.
 	 * @param bool                                            $is_hidden  Whether row is hidden.
 	 */
 	protected static function render_division_row( $slug, array $def, $suffix, $is_hidden = false ) {
 		$pf     = 'wc_optic_division[' . $suffix . ']';
-		$label  = isset( $def['label'] ) ? (string) $def['label'] : '';
-		$powers = isset( $def['powers'] ) && is_array( $def['powers'] ) ? $def['powers'] : array();
-		$slug   = sanitize_key( (string) $slug );
+		$label      = isset( $def['label'] ) ? (string) $def['label'] : '';
+		$powers     = isset( $def['powers'] ) && is_array( $def['powers'] ) ? $def['powers'] : array();
+		$show_color = ! empty( $def['show_color'] );
+		$slug       = sanitize_key( (string) $slug );
 		$row_class = 'wc-optic-division-row';
 		if ( $is_hidden ) {
 			$row_class .= ' wc-optic-division-row--hidden';
@@ -351,6 +354,13 @@ class WC_Optic_Admin_Settings {
 			echo esc_html( WC_Optic_Divisions::get_power_label( $power ) );
 			echo '</label> ';
 		}
+		echo '</td>';
+		echo '<td class="wc-optic-division-show-color">';
+		$color_id = 'wc-optic-show-color-' . $suffix;
+		echo '<label for="' . esc_attr( $color_id ) . '">';
+		echo '<input type="checkbox" id="' . esc_attr( $color_id ) . '" name="' . esc_attr( $pf ) . '[show_color]" value="1" ' . checked( $show_color, true, false ) . ' /> ';
+		echo esc_html__( 'Show color selector', 'wc-optic' );
+		echo '</label>';
 		echo '</td>';
 		echo '<td class="wc-optic-division-actions">';
 		if ( '' !== $slug ) {

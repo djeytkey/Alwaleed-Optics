@@ -411,6 +411,9 @@ class WC_Optic_SKU {
 					}
 					$value = isset( $config['powers'][ $type ] ) ? (int) $config['powers'][ $type ] : 0;
 				} else {
+					if ( ! in_array( $type, self::get_required_identity_types( $division ), true ) ) {
+						continue;
+					}
 					$value = isset( $config['catalog'][ $type ] ) ? (int) $config['catalog'][ $type ] : 0;
 				}
 
@@ -1306,6 +1309,20 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Identity catalog types required for a division (color omitted when disabled).
+	 *
+	 * @param string $division Division slug.
+	 * @return string[]
+	 */
+	public static function get_required_identity_types( $division ) {
+		$types = self::get_identity_catalog_types();
+		if ( ! WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$types = array_values( array_diff( $types, array( 'color' ) ) );
+		}
+		return $types;
+	}
+
+	/**
 	 * Normalize parent-level catalog identity.
 	 *
 	 * @param mixed $raw Raw identity map.
@@ -1458,8 +1475,8 @@ class WC_Optic_SKU {
 		}
 
 		$identity = self::normalize_identity_catalog( $catalog );
-		foreach ( $identity as $type => $id ) {
-			if ( $id < 1 ) {
+		foreach ( self::get_required_identity_types( $division ) as $type ) {
+			if ( (int) ( $identity[ $type ] ?? 0 ) < 1 ) {
 				return new WP_Error(
 					'wc_optic_missing_identity',
 					sprintf(

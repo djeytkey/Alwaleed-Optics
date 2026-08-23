@@ -17,25 +17,29 @@ class WC_Optic_Divisions {
 	/**
 	 * Built-in division definitions used when nothing is stored yet.
 	 *
-	 * @return array<string, array{label:string, powers:string[], hidden:bool}>
+	 * @return array<string, array{label:string, powers:string[], hidden:bool, show_color:bool}>
 	 */
 	public static function get_default_divisions() {
 		$defaults = array(
 			'color_lenses'       => array(
-				'label'  => __( 'Color lenses', 'wc-optic' ),
-				'powers' => array( 'sph' ),
+				'label'      => __( 'Color lenses', 'wc-optic' ),
+				'powers'     => array( 'sph' ),
+				'show_color' => true,
 			),
 			'sama_color_lenses'  => array(
-				'label'  => __( 'SAMA Color Lenses', 'wc-optic' ),
-				'powers' => array( 'sph', 'cyl', 'axis' ),
+				'label'      => __( 'SAMA Color Lenses', 'wc-optic' ),
+				'powers'     => array( 'sph', 'cyl', 'axis' ),
+				'show_color' => true,
 			),
 			'astigmatism_toric'  => array(
-				'label'  => __( 'Astigmatism Toric', 'wc-optic' ),
-				'powers' => array( 'sph', 'cyl', 'axis' ),
+				'label'      => __( 'Astigmatism Toric', 'wc-optic' ),
+				'powers'     => array( 'sph', 'cyl', 'axis' ),
+				'show_color' => false,
 			),
 			'multifocal_bifocal' => array(
-				'label'  => __( 'Multifocal Bifocal', 'wc-optic' ),
-				'powers' => array( 'sph', 'add' ),
+				'label'      => __( 'Multifocal Bifocal', 'wc-optic' ),
+				'powers'     => array( 'sph', 'add' ),
+				'show_color' => false,
 			),
 		);
 
@@ -56,7 +60,7 @@ class WC_Optic_Divisions {
 	/**
 	 * All configured divisions keyed by slug (including hidden).
 	 *
-	 * @return array<string, array{label:string, powers:string[], hidden:bool}>
+	 * @return array<string, array{label:string, powers:string[], hidden:bool, show_color:bool}>
 	 */
 	public static function get_all() {
 		$stored = get_option( self::OPTION_KEY, null );
@@ -91,7 +95,7 @@ class WC_Optic_Divisions {
 	/**
 	 * Divisions shown in product selectors (non-hidden only).
 	 *
-	 * @return array<string, array{label:string, powers:string[], hidden:bool}>
+	 * @return array<string, array{label:string, powers:string[], hidden:bool, show_color:bool}>
 	 */
 	public static function get_visible() {
 		$visible = array();
@@ -131,7 +135,7 @@ class WC_Optic_Divisions {
 	/**
 	 * Persist divisions (raw structure without WPML filter on labels).
 	 *
-	 * @param array<string, array{label:string, powers:string[], hidden?:bool}> $divisions Divisions.
+	 * @param array<string, array{label:string, powers:string[], hidden?:bool, show_color?:bool}> $divisions Divisions.
 	 * @return bool
 	 */
 	public static function save( array $divisions ) {
@@ -232,7 +236,8 @@ class WC_Optic_Divisions {
 			$label  = isset( $data['label'] ) ? sanitize_text_field( (string) $data['label'] ) : '';
 			$slug   = isset( $data['slug'] ) ? sanitize_key( (string) $data['slug'] ) : '';
 			$powers = self::sanitize_powers( isset( $data['powers'] ) ? $data['powers'] : array() );
-			$hidden = ! empty( $data['hidden'] );
+			$hidden     = ! empty( $data['hidden'] );
+			$show_color = ! empty( $data['show_color'] );
 
 			if ( '' === trim( $label ) && empty( $powers ) ) {
 				continue;
@@ -262,9 +267,10 @@ class WC_Optic_Divisions {
 			}
 
 			$divisions[ $slug ] = array(
-				'label'  => $label,
-				'powers' => $powers,
-				'hidden' => $hidden,
+				'label'      => $label,
+				'powers'     => $powers,
+				'hidden'     => $hidden,
+				'show_color' => $show_color,
 			);
 		}
 
@@ -385,7 +391,7 @@ class WC_Optic_Divisions {
 	 *
 	 * @param array  $def  Raw definition.
 	 * @param string $slug Slug fallback.
-	 * @return array{slug:string, label:string, powers:string[], hidden:bool}|null
+	 * @return array{slug:string, label:string, powers:string[], hidden:bool, show_color:bool}|null
 	 */
 	protected static function normalize_entry( array $def, $slug ) {
 		$slug = sanitize_key( (string) $slug );
@@ -403,11 +409,19 @@ class WC_Optic_Divisions {
 			return null;
 		}
 
+		$show_color = true;
+		if ( array_key_exists( 'show_color', $def ) ) {
+			$show_color = ! empty( $def['show_color'] );
+		} elseif ( in_array( $slug, array( 'astigmatism_toric', 'multifocal_bifocal' ), true ) ) {
+			$show_color = false;
+		}
+
 		return array(
-			'slug'   => $slug,
-			'label'  => $label,
-			'powers' => $powers,
-			'hidden' => ! empty( $def['hidden'] ),
+			'slug'       => $slug,
+			'label'      => $label,
+			'powers'     => $powers,
+			'hidden'     => ! empty( $def['hidden'] ),
+			'show_color' => $show_color,
 		);
 	}
 }

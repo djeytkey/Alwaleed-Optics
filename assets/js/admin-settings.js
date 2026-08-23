@@ -50,6 +50,12 @@
 			'<td class="wc-optic-division-powers">' +
 			powersHtml +
 			'</td>' +
+			'<td class="wc-optic-division-show-color">' +
+			'<label><input type="checkbox" name="' +
+			pf +
+			'[show_color]" value="1" /> ' +
+			( wcOpticAdmin.i18n.showColorSelector || 'Show color selector' ) +
+			'</label></td>' +
 			'<td class="wc-optic-division-actions"></td>' +
 			'</tr>';
 		return $( html );

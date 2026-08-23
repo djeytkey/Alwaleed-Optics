@@ -16,6 +16,53 @@
 		return wcOpticConvert.divisionPowers[ division ];
 	}
 
+	function divisionShowsColor( division ) {
+		if ( ! division || ! wcOpticConvert.divisionShowColor ) {
+			return true;
+		}
+		if ( typeof wcOpticConvert.divisionShowColor[ division ] === 'undefined' ) {
+			return true;
+		}
+		return !! wcOpticConvert.divisionShowColor[ division ];
+	}
+
+	function applyDivisionIdentityFields( division ) {
+		var showColor = divisionShowsColor( division );
+		var $color = $root.find( '#wc-optic-wizard-modal .wc-optic-identity-field--color' );
+		$color.toggle( showColor );
+		var $select = $color.find( '.wc-optic-identity-select' );
+		setSelectRequired( $select, showColor );
+		if ( ! showColor ) {
+			$select.val( '' );
+		}
+	}
+
+	function setSelectRequired( $select, required ) {
+		if ( ! $select || ! $select.length ) {
+			return;
+		}
+		if ( required ) {
+			$select.prop( 'required', true ).attr( 'aria-required', 'true' );
+		} else {
+			$select.prop( 'required', false ).removeAttr( 'aria-required' );
+		}
+		if ( $select.hasClass( 'enhanced' ) && $select.data( 'select2' ) ) {
+			$select.selectWoo( 'destroy' );
+			$select.removeClass( 'enhanced' );
+			initSelect2( $select.closest( '#wc-optic-wizard-modal' ) );
+		}
+	}
+
+	function refreshVisibleCount() {
+		var visible = $( '.wc-optic-convert-row:visible' ).length;
+		var $el = $( '#wc-optic-convert-visible-count' );
+		if ( ! $el.length ) {
+			return;
+		}
+		var template = wcOpticConvert.i18n.visibleAfterFilter || '%d visible after filter';
+		$el.text( sprintf( template, visible ) );
+	}
+
 	function rangeFieldValue( raw ) {
 		if ( raw === undefined || raw === null ) {
 			return '';
@@ -171,6 +218,9 @@
 		if ( step === 2 || step === 3 ) {
 			setTimeout( function () {
 				initSelect2( $( '#wc-optic-wizard-modal' ) );
+				if ( step === 2 ) {
+					applyDivisionIdentityFields( $( '#wc_optic_wizard_division' ).val() || '' );
+				}
 			}, 50 );
 		}
 		if ( step === 3 ) {
@@ -250,6 +300,7 @@
 				$( '#wc_optic_wizard_template' ).val( '' );
 				fillIdentity( current.identity || {} );
 				applyDivisionRanges( current.division || '' );
+				applyDivisionIdentityFields( current.division || '' );
 				updateProgress();
 				setStep( 1 );
 				setTimeout( function () {
@@ -266,8 +317,12 @@
 
 	function identityComplete() {
 		var catalog = collectIdentity();
+		var division = $( '#wc_optic_wizard_division' ).val() || '';
 		var ok = true;
-		$.each( catalog, function ( _, value ) {
+		$.each( catalog, function ( type, value ) {
+			if ( type === 'color' && ! divisionShowsColor( division ) ) {
+				return;
+			}
 			if ( ! value ) {
 				ok = false;
 			}
@@ -406,6 +461,7 @@
 		}
 
 		initSelect2( $root.find( '.wc-optic-template-form' ) );
+		refreshVisibleCount();
 
 		$root.on( 'input', '#wc-optic-convert-search', function () {
 			var q = $.trim( $( this ).val() || '' ).toLowerCase();
@@ -413,6 +469,7 @@
 				var hay = $( this ).data( 'search' ) || '';
 				$( this ).toggle( ! q || hay.indexOf( q ) !== -1 );
 			} );
+			refreshVisibleCount();
 		} );
 
 		$root.on( 'change', '#wc-optic-convert-select-all', function () {
@@ -450,7 +507,9 @@
 		} );
 
 		$root.on( 'change', '#wc_optic_wizard_division', function () {
-			applyDivisionRanges( $( this ).val() || '' );
+			var division = $( this ).val() || '';
+			applyDivisionRanges( division );
+			applyDivisionIdentityFields( division );
 			refreshCount();
 		} );
 

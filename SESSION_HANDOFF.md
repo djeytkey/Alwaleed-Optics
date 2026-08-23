@@ -15,11 +15,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-08-23 (courante)
 
-1. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
-2. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.
-3. **Wizard Convert** (plus tôt dans la journée) — modal Bootstrap 5 fond **static**. Un produit à la fois : Produit / Identité / Puissances, **Next**.
-4. **Rollback UX fiche produit** — plus de plages / Generate sur la fiche ; identité une fois + internes manuels.
-5. **Version** — bump **1.3.2**.
+1. **Convert — liste complète des produits** — la limite codée en dur à **200** produits masquait ~132 simples éligibles (ex. 199 affichés sur 331). `CONVERT_LIST_LIMIT = -1` charge tous les éligibles ; compteur « X affichés sur Y éligibles (Z simples au catalogue) » + « N visible(s) après filtre ».
+2. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
+3. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
+4. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.
+5. **Wizard Convert** — modal Bootstrap 5 fond **static**. Un produit à la fois : Produit / Identité / Puissances, **Next**.
+6. **Version** — reste **1.3.2** (bump à planifier pour cette livraison Convert + show_color).
 
 ### Session 2026-08-22 (précédente)
 
@@ -407,6 +408,24 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-wpml.php`, `class-wc-optic-converter.php`, `admin-convert.js`, `wpml-config.xml`, `admin/class-wc-optic-admin-convert.php`.
 
+### 2.14 Convert — liste complète + couleur par division (session 2026-08-23)
+
+**Problème Convert (331 vs 199)**
+
+- `render_convert_tab()` appelait `get_eligible_products( [ 'limit' => 200 ] )` — seuls les **200 premiers** simples étaient chargés ; avec WPML (~1 traduction filtrée) → **199 lignes**.
+- Correctif : `WC_Optic_Converter::CONVERT_LIST_LIMIT = -1` (tous les éligibles).
+- Stats : `get_convert_stats()` → `total_simple`, `eligible`, `excluded_wpml`, `excluded_ineligible`.
+- UI : « Showing X of Y eligible products (Z simple products in catalog) » + compteur filtre recherche.
+
+**Couleur optionnelle par division**
+
+- Option division `show_color` (bool), case **Show color selector** dans Settings → Divisions.
+- `WC_Optic_Plugin::division_shows_color()`, `WC_Optic_SKU::get_required_identity_types()`.
+- Masquage : wizard Convert (étape Identité), fiche produit ; validation génération internes sans exiger `color` si décoché.
+- Défauts : `color_lenses` / `sama_color_lenses` → coché ; `astigmatism_toric` / `multifocal_bifocal` → décoché. Divisions existantes sans clé : Toric/Multifocal inférés par slug.
+
+**Fichiers :** `class-wc-optic-converter.php`, `class-wc-optic-divisions.php`, `class-wc-optic-plugin.php`, `class-wc-optic-sku.php`, `admin/class-wc-optic-admin-convert.php`, `admin/class-wc-optic-admin-settings.php`, `admin/class-wc-optic-admin-product.php`, `admin-convert.js`, `admin-product.js`, `admin-settings.js`.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -423,18 +442,20 @@ WC_Optic_Converter::convert_product() / preview()
 | Fichier | Rôle |
 |---------|------|
 | `admin/class-wc-optic-admin-menu.php` | Menu principal Alwaleed Optics + badge alertes stock + Convert |
-| `admin/class-wc-optic-admin-convert.php` | **Nouveau (1.3.0)** — gabarits de plages + conversion simples |
-| `class-wc-optic-power-template.php` | **Nouveau** — option `wc_optic_power_templates` |
-| `class-wc-optic-converter.php` | **Nouveau** — type simple → optic + génération internes |
+| `admin/class-wc-optic-admin-convert.php` | Gabarits + conversion ; compteur produits ; identité sans couleur si division |
+| `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` |
+| `class-wc-optic-converter.php` | Simple → optic ; `get_convert_stats()`, `CONVERT_LIST_LIMIT = -1` |
+| `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
+| `class-wc-optic-divisions.php` | Divisions ; `show_color` par division |
+| `class-wc-optic-plugin.php` | `division_shows_color()` |
 | `admin/class-wc-optic-admin-stock.php` | **Nouveau (2026-06-11)** — page Stock (gestion + alertes) |
-| `admin/class-wc-optic-admin-settings.php` | Settings globaux (backorder, seuil alerte stock) |
 | `class-wc-optic-stock.php` | **Nouveau (2026-06-11)** — inventaire, alertes, restock |
 | `class-wc-optic-ajax.php` | + `wc_optic_restock_child` |
 | `admin/class-wc-optic-admin-import.php` | Import catalogue ; hook screen sous menu Alwaleed Optics |
-| `admin/class-wc-optic-admin-product.php` | Champs backorder par produit interne |
+| `admin/class-wc-optic-admin-product.php` | Fiche produit ; identité couleur selon division |
 | `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `enumerate_power_range_values()` (force +0.00) |
 | `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
-| `class-wc-optic-sku.php` | No-power, prix défaut, **backorder**, matrice storefront, `persist_child_data` |
+| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; `get_required_identity_types()` |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
 | `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, `apply_child_stock_delta` |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
@@ -650,6 +671,10 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] WPML : Convert n’affiche pas le doublon AR ; après wizard EN, la fiche AR a les mêmes internes
 - [ ] WPML String Translation : noms catalogue / divisions ; fallback si chaîne vide
 - [ ] Toric : 3 plages ; > 200 combinaisons → refus
+- [ ] Convert : la liste affiche **tous** les simples éligibles (compteur X/Y/Z cohérent avec le catalogue WooCommerce)
+- [ ] Convert : filtre recherche met à jour « N visible(s) after filter »
+- [ ] Settings → Astigmatism Toric : **Show color selector** décoché → wizard Identité sans champ Couleur ; conversion OK
+- [ ] Settings → Color Lenses : case cochée → champ Couleur requis
 - [ ] Convert : preview puis run sur 2–3 simples
 - [ ] Changer la couleur identité + Update → SKU de tous les internes mis à jour
 - [ ] Fiche boutique : cascade inchangée

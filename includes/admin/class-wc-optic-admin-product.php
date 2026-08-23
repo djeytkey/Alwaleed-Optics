@@ -88,7 +88,7 @@ class WC_Optic_Admin_Product {
 
 		echo '<p class="form-field"><strong>' . esc_html__( 'Optical identity', 'wc-optic' ) . '</strong></p>';
 		echo '<p class="form-field description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
-		WC_Optic_Admin_Convert::render_identity_fields( $identity, '_optic_identity', true );
+		WC_Optic_Admin_Convert::render_identity_fields( $identity, '_optic_identity', true, $division );
 
 		echo '<p class="form-field description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add one internal product at a time below.', 'wc-optic' ) . '</p>';
 
@@ -250,8 +250,10 @@ class WC_Optic_Admin_Product {
 			true
 		);
 		$division_powers = array();
+		$division_colors = array();
 		foreach ( WC_Optic_Plugin::get_divisions() as $slug => $def ) {
 			$division_powers[ $slug ] = $def['powers'];
+			$division_colors[ $slug ] = ! empty( $def['show_color'] );
 		}
 
 		wp_localize_script(
@@ -262,6 +264,7 @@ class WC_Optic_Admin_Product {
 				'nonce'          => wp_create_nonce( 'wc_optic_admin' ),
 				'isNewProduct'   => self::is_new_product_screen(),
 				'divisionPowers' => $division_powers,
+				'divisionShowColor' => $division_colors,
 				'powerTypes'     => WC_Optic_Catalog::get_power_types(),
 				'backorderEnabled'   => WC_Optic_SKU::is_backorder_enabled(),
 				'globalBackorderQty' => WC_Optic_SKU::get_global_backorder_qty(),

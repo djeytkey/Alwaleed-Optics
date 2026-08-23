@@ -15,6 +15,67 @@ class WC_Optic_Converter {
 	const BATCH_SIZE = 5;
 
 	/**
+	 * Max products loaded on the Convert screen (-1 = no cap).
+	 */
+	const CONVERT_LIST_LIMIT = -1;
+
+	/**
+	 * Counts for the Convert product list (simple totals vs eligible vs displayed).
+	 *
+	 * @return array{total_simple:int, eligible:int, excluded_wpml:int, excluded_ineligible:int}
+	 */
+	public static function get_convert_stats() {
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
+		}
+
+		try {
+			$ids = wc_get_products(
+				array(
+					'type'   => 'simple',
+					'status' => array( 'publish', 'draft', 'private' ),
+					'limit'  => -1,
+					'return' => 'ids',
+				)
+			);
+			if ( ! is_array( $ids ) ) {
+				$ids = array();
+			}
+
+			$stats = array(
+				'total_simple'        => count( $ids ),
+				'eligible'            => 0,
+				'excluded_wpml'       => 0,
+				'excluded_ineligible' => 0,
+			);
+
+			foreach ( $ids as $product_id ) {
+				$product_id = absint( $product_id );
+				if ( ! $product_id ) {
+					continue;
+				}
+				if ( $wpml && ! WC_Optic_WPML::is_original_product( $product_id ) ) {
+					++$stats['excluded_wpml'];
+					continue;
+				}
+				$product = wc_get_product( $product_id );
+				if ( ! $product instanceof WC_Product || ! self::is_eligible( $product ) ) {
+					++$stats['excluded_ineligible'];
+					continue;
+				}
+				++$stats['eligible'];
+			}
+
+			return $stats;
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
+	}
+
+	/**
 	 * Query simple products eligible for conversion.
 	 *
 	 * @param array $args Query args.
@@ -429,8 +490,8 @@ class WC_Optic_Converter {
 		}
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( $prepared['catalog'] );
-		foreach ( $identity as $type => $id ) {
-			if ( $id < 1 ) {
+		foreach ( WC_Optic_SKU::get_required_identity_types( $prepared['division'] ) as $type ) {
+			if ( (int) ( $identity[ $type ] ?? 0 ) < 1 ) {
 				return new WP_Error(
 					'wc_optic_missing_identity',
 					sprintf(

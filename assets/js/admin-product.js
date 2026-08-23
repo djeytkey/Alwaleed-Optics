@@ -23,6 +23,33 @@
 		return wcOpticAdmin.divisionPowers[ division ];
 	}
 
+	function divisionShowsColor( division ) {
+		if ( ! division || ! wcOpticAdmin.divisionShowColor ) {
+			return true;
+		}
+		if ( typeof wcOpticAdmin.divisionShowColor[ division ] === 'undefined' ) {
+			return true;
+		}
+		return !! wcOpticAdmin.divisionShowColor[ division ];
+	}
+
+	function applyDivisionIdentityFields() {
+		var division = getSelectedDivision();
+		var showColor = divisionShowsColor( division );
+		var $field = getPanel().find( '.wc-optic-identity-field--color' );
+		var $select = $field.find( '.wc-optic-identity-select' );
+		if ( ! showColor ) {
+			$select.val( '' );
+		}
+		setSelectRequired( $select, showColor );
+		$field.toggle( showColor );
+		if ( showColor ) {
+			initSelect2( $select );
+		} else {
+			destroySelect2( $select );
+		}
+	}
+
 	function isPowerType( type ) {
 		return (
 			wcOpticAdmin.powerTypes &&
@@ -161,6 +188,7 @@
 
 		setSelectRequired( $( '#_optic_division' ), true );
 		initSelect2( $( '#_optic_division' ) );
+		applyDivisionIdentityFields();
 	}
 
 	function collectChildConfig( $block ) {
@@ -510,6 +538,7 @@
 		} )
 		.on( 'change', '#_optic_division', function () {
 			applyDivisionPowerFields();
+			applyDivisionIdentityFields();
 			refreshAllSkuPreviews();
 			renumberBlocks();
 		} )
