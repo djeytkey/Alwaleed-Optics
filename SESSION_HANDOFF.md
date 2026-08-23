@@ -15,7 +15,7 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-08-23 (courante)
 
-1. **Convert — liste complète des produits** — la limite codée en dur à **200** produits masquait ~132 simples éligibles (ex. 199 affichés sur 331). `CONVERT_LIST_LIMIT = -1` charge tous les éligibles ; compteur « X affichés sur Y éligibles (Z simples au catalogue) » + « N visible(s) après filtre ».
+1. **Convert — liste complète + DataTable** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Tableau **DataTables** : pagination, tri, recherche nom + SKU parent + SKU internes ; compteur « _TOTAL_ of _MAX_ total » au filtre.
 2. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
 3. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
 4. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.

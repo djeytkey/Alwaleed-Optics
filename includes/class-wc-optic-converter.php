@@ -76,6 +76,48 @@ class WC_Optic_Converter {
 	}
 
 	/**
+	 * Internal child SKUs attached to a product (optic parents).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return string[]
+	 */
+	public static function get_product_internal_skus( WC_Product $product ) {
+		$skus = array();
+		foreach ( WC_Optic_SKU::get_child_configs( $product ) as $config ) {
+			if ( ! is_array( $config ) ) {
+				continue;
+			}
+			$sku = isset( $config['sku'] ) ? trim( (string) $config['sku'] ) : '';
+			if ( '' !== $sku ) {
+				$skus[ $sku ] = $sku;
+			}
+		}
+		return array_values( $skus );
+	}
+
+	/**
+	 * Lowercase search blob: name, parent SKU, internal SKUs.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return string
+	 */
+	public static function get_product_search_blob( WC_Product $product ) {
+		$parts = array(
+			$product->get_name(),
+			$product->get_sku(),
+		);
+		$parts = array_merge( $parts, self::get_product_internal_skus( $product ) );
+		$parts = array_map(
+			static function ( $value ) {
+				return strtolower( trim( (string) $value ) );
+			},
+			$parts
+		);
+		$parts = array_filter( $parts );
+		return implode( ' ', $parts );
+	}
+
+	/**
 	 * Query simple products eligible for conversion.
 	 *
 	 * @param array $args Query args.

@@ -235,3 +235,29 @@ body.modal-open {
 .wc-optic-converted-row {
 	background: #edfaef !important;
 }
+
+.wc-optic-convert-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75em 1.25em;
+	margin: 0.75em 0 0;
+}
+
+.wc-optic-convert-datatable-wrap .wc-optic-convert-col-select {
+	width: 2.5em;
+	text-align: center;
+}
+
+.wc-optic-convert-datatable-wrap .wc-optic-convert-internal-skus {
+	max-width: 280px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.wc-optic-convert-datatable-wrap .dataTables_info {
+	font-weight: 600;
+}

@@ -42,13 +42,40 @@ class WC_Optic_Admin_Convert {
 			return;
 		}
 
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! in_array( $tab, array( 'convert', 'templates' ), true ) ) {
+			$tab = 'convert';
+		}
+
 		wp_enqueue_style( 'woocommerce_admin_styles' );
 		wp_enqueue_script( 'selectWoo' );
 		wp_enqueue_script( 'wc-enhanced-select' );
+
+		$style_deps = array();
+		$script_deps = array( 'jquery', 'selectWoo', 'wc-enhanced-select', 'wc-optic-bootstrap' );
+
+		if ( 'convert' === $tab ) {
+			wp_enqueue_style(
+				'wc-optic-datatables',
+				WC_OPTIC_PLUGIN_URL . 'assets/vendor/datatables/dataTables.dataTables.min.css',
+				array(),
+				'2.1.8'
+			);
+			$style_deps[] = 'wc-optic-datatables';
+			wp_enqueue_script(
+				'wc-optic-datatables',
+				WC_OPTIC_PLUGIN_URL . 'assets/vendor/datatables/dataTables.min.js',
+				array( 'jquery' ),
+				'2.1.8',
+				true
+			);
+			$script_deps[] = 'wc-optic-datatables';
+		}
+
 		wp_enqueue_style(
 			'wc-optic-admin',
 			WC_OPTIC_PLUGIN_URL . 'assets/css/admin.css',
-			array(),
+			$style_deps,
 			WC_OPTIC_VERSION
 		);
 		wp_enqueue_style(
@@ -67,7 +94,7 @@ class WC_Optic_Admin_Convert {
 		wp_enqueue_script(
 			'wc-optic-admin-convert',
 			WC_OPTIC_PLUGIN_URL . 'assets/js/admin-convert.js',
-			array( 'jquery', 'selectWoo', 'wc-enhanced-select', 'wc-optic-bootstrap' ),
+			$script_deps,
 			WC_OPTIC_VERSION,
 			true
 		);
@@ -96,6 +123,8 @@ class WC_Optic_Admin_Convert {
 				),
 				'maxChildren'     => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
 				'templates'       => WC_Optic_Power_Template::get_all(),
+				'convertTab'      => 'convert' === $tab,
+				'dt'              => 'convert' === $tab ? self::get_datatables_i18n() : array(),
 				'i18n'            => array(
 					'saveFailed'      => __( 'Could not save the template.', 'wc-optic' ),
 					'deleteConfirm'   => __( 'Delete this power range template?', 'wc-optic' ),
@@ -115,9 +144,33 @@ class WC_Optic_Admin_Convert {
 					'finish'          => __( 'Finish', 'wc-optic' ),
 					'progress'        => __( 'Product %1$d of %2$d', 'wc-optic' ),
 					'done'            => __( 'All selected products have been processed.', 'wc-optic' ),
-					'visibleAfterFilter' => __( '%d visible after filter', 'wc-optic' ),
+					'selectAllFiltered' => __( 'Select all matching rows', 'wc-optic' ),
+					'allProducts'       => __( 'All', 'wc-optic' ),
 				),
 			)
+		);
+	}
+
+	/**
+	 * DataTables strings for the Convert product list.
+	 *
+	 * @return array<string, mixed>
+	 */
+	protected static function get_datatables_i18n() {
+		return array(
+			'emptyTable'   => __( 'No simple products found.', 'wc-optic' ),
+			'info'         => __( 'Showing _START_–_END_ of _TOTAL_ products', 'wc-optic' ),
+			'infoEmpty'    => __( 'Showing 0 of 0 products', 'wc-optic' ),
+			'infoFiltered' => __( '(_TOTAL_ of _MAX_ total)', 'wc-optic' ),
+			'lengthMenu'   => __( 'Show _MENU_ products', 'wc-optic' ),
+			'search'       => __( 'Search name or SKU:', 'wc-optic' ),
+			'zeroRecords'  => __( 'No matching products found.', 'wc-optic' ),
+			'paginate'     => array(
+				'first'    => __( 'First', 'wc-optic' ),
+				'last'     => __( 'Last', 'wc-optic' ),
+				'next'     => __( 'Next', 'wc-optic' ),
+				'previous' => __( 'Previous', 'wc-optic' ),
+			),
 		);
 	}
 
@@ -232,24 +285,18 @@ class WC_Optic_Admin_Convert {
 				'page'  => 1,
 			)
 		);
-		$displayed = count( $products );
-
 		echo '<p class="description">' . esc_html__( 'Select one or more simple products, then start the wizard. Each product is converted one by one (Next). The modal cannot be closed by clicking outside.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
 			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. Internals are copied to Arabic (and other) translations after conversion.', 'wc-optic' ) . '</p>';
 		}
 
 		echo '<p class="wc-optic-convert-stats description" id="wc-optic-convert-stats"';
-		echo ' data-total-simple="' . esc_attr( (string) $stats['total_simple'] ) . '"';
 		echo ' data-eligible="' . esc_attr( (string) $stats['eligible'] ) . '"';
-		echo ' data-displayed="' . esc_attr( (string) $displayed ) . '"';
-		echo ' data-excluded-wpml="' . esc_attr( (string) $stats['excluded_wpml'] ) . '"';
-		echo ' data-excluded-ineligible="' . esc_attr( (string) $stats['excluded_ineligible'] ) . '">';
+		echo ' data-total-simple="' . esc_attr( (string) $stats['total_simple'] ) . '">';
 		echo esc_html(
 			sprintf(
-				/* translators: 1: displayed count, 2: eligible count, 3: total simple products in catalog */
-				__( 'Showing %1$d of %2$d eligible products (%3$d simple products in catalog).', 'wc-optic' ),
-				$displayed,
+				/* translators: 1: eligible count, 2: total simple products in catalog */
+				__( '%1$d products eligible for conversion (%2$d simple products in catalog).', 'wc-optic' ),
 				$stats['eligible'],
 				$stats['total_simple']
 			)
@@ -266,36 +313,36 @@ class WC_Optic_Admin_Convert {
 		}
 		echo '</p>';
 
-		echo '<p class="wc-optic-convert-visible-count description" id="wc-optic-convert-visible-count">';
-		echo esc_html(
-			sprintf(
-				/* translators: %d: number of rows visible after search filter */
-				__( '%d visible after filter', 'wc-optic' ),
-				$displayed
-			)
-		);
-		echo '</p>';
-
 		echo '<p class="wc-optic-convert-toolbar">';
-		echo '<input type="search" id="wc-optic-convert-search" class="regular-text" placeholder="' . esc_attr__( 'Search products…', 'wc-optic' ) . '" /> ';
-		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all visible', 'wc-optic' ) . '</label> ';
+		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all matching rows', 'wc-optic' ) . '</label> ';
 		echo '<button type="button" class="button button-primary" id="wc-optic-start-wizard">' . esc_html__( 'Start wizard', 'wc-optic' ) . '</button>';
 		echo '</p>';
 
-		echo '<table class="widefat striped" id="wc-optic-convert-table">';
-		echo '<thead><tr><th></th><th>' . esc_html__( 'Product', 'wc-optic' ) . '</th><th>' . esc_html__( 'SKU', 'wc-optic' ) . '</th><th>' . esc_html__( 'Price', 'wc-optic' ) . '</th></tr></thead><tbody>';
+		echo '<div class="wc-optic-datatable-wrap wc-optic-convert-datatable-wrap">';
+		echo '<table class="widefat striped wc-optic-convert-datatable" id="wc-optic-convert-table">';
+		echo '<thead><tr>';
+		echo '<th class="wc-optic-convert-col-select"></th>';
+		echo '<th>' . esc_html__( 'Product', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Parent SKU', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Internal SKUs', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
+		echo '</tr></thead><tbody>';
 		foreach ( $products as $product ) {
-			echo '<tr class="wc-optic-convert-row" data-search="' . esc_attr( strtolower( $product->get_name() . ' ' . $product->get_sku() ) ) . '">';
-			echo '<td><input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product->get_id() ) . '" /></td>';
+			$internal_skus = WC_Optic_Converter::get_product_internal_skus( $product );
+			$internal_label = empty( $internal_skus )
+				? '—'
+				: implode( ', ', $internal_skus );
+			$search_blob    = WC_Optic_Converter::get_product_search_blob( $product );
+			echo '<tr class="wc-optic-convert-row" data-search="' . esc_attr( $search_blob ) . '">';
+			echo '<td class="wc-optic-convert-col-select"><input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product->get_id() ) . '" /></td>';
 			echo '<td>' . esc_html( $product->get_name() ) . '</td>';
 			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
-			echo '<td>' . wp_kses_post( $product->get_price_html() ) . '</td>';
+			echo '<td class="wc-optic-convert-internal-skus" title="' . esc_attr( $internal_label ) . '">' . esc_html( $internal_label ) . '</td>';
+			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
 			echo '</tr>';
 		}
-		if ( empty( $products ) ) {
-			echo '<tr><td colspan="4">' . esc_html__( 'No simple products found.', 'wc-optic' ) . '</td></tr>';
-		}
 		echo '</tbody></table>';
+		echo '</div>';
 
 		self::render_wizard_modal();
 	}
