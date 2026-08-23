@@ -15,8 +15,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-08-23 (courante)
 
-1. **Convert — liste complète + DataTable** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Tableau **DataTables** : pagination, tri, recherche nom + SKU parent + SKU internes ; compteur « _TOTAL_ of _MAX_ total » au filtre.
-2. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
+1. **Convert — DataTable jQuery (fix)** — les fichiers **`dataTables.min.js`** et **`dataTables.dataTables.min.css`** manquaient dans `assets/vendor/datatables/` (404 → tableau HTML brut). Ajout vendor 2.1.8 + chargement footer identique à Stock (`print_scripts` prio 20 : DataTables → config → `admin-convert.js`). Pagination, recherche, compteur « Showing _START_–_END_ of _TOTAL_ products ».
+2. **Convert — liste complète** — `CONVERT_LIST_LIMIT = -1` (préserver `-1` avant `absint`). Colonnes Product / SKU parent / Price.
+3. **Divisions — champ couleur optionnel** — case **Show color selector** par division (Settings). Si décochée (ex. Toric transparent), le select Couleur est masqué et non requis (wizard Convert, fiche produit, validation SKU). Défauts : coché pour Color / SAMA Color, décoché pour Astigmatism Toric / Multifocal.
 3. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
 4. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.
 5. **Wizard Convert** — modal Bootstrap 5 fond **static**. Un produit à la fois : Produit / Identité / Puissances, **Next**.
@@ -410,6 +411,13 @@ WC_Optic_Converter::convert_product() / preview()
 
 ### 2.14 Convert — liste complète + couleur par division (session 2026-08-23)
 
+**DataTable Convert (fix 2026-08-23)**
+
+- **Cause racine :** seul `rowGroup.dataTables.min.js` était versionné — `dataTables.min.js` / CSS absents → `$.fn.DataTable` undefined, init silencieusement ignorée.
+- **Correctif :** ajout vendor DataTables 2.1.8 ; `WC_Optic_Admin_Convert::print_scripts()` (footer prio 20, même pattern que Stock).
+- **UI :** champ Search, sélecteur « Show _MENU_ products », pagination, info « Showing _START_–_END_ of _TOTAL_ products » + « (_TOTAL_ of _MAX_ total) » filtré.
+- **Étape suivante :** étendre la recherche aux SKU internes (blob déjà préparé côté PHP).
+
 **Problème Convert (331 vs 199)**
 
 - `render_convert_tab()` appelait `get_eligible_products( [ 'limit' => 200 ] )` — seuls les **200 premiers** simples étaient chargés ; avec WPML (~1 traduction filtrée) → **199 lignes**.
@@ -442,7 +450,7 @@ WC_Optic_Converter::convert_product() / preview()
 | Fichier | Rôle |
 |---------|------|
 | `admin/class-wc-optic-admin-menu.php` | Menu principal Alwaleed Optics + badge alertes stock + Convert |
-| `admin/class-wc-optic-admin-convert.php` | Gabarits + conversion ; compteur produits ; identité sans couleur si division |
+| `admin/class-wc-optic-admin-convert.php` | Gabarits + conversion ; DataTables footer ; compteur produits ; identité sans couleur si division |
 | `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` |
 | `class-wc-optic-converter.php` | Simple → optic ; `get_convert_stats()`, `CONVERT_LIST_LIMIT = -1` |
 | `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
@@ -481,7 +489,9 @@ WC_Optic_Converter::convert_product() / preview()
 | `assets/js/admin-product.js` | Toggle Custom backorder, identité, plages, Generate internals |
 | `assets/js/admin-convert.js` | Wizard Convert ; From/To/Step acceptent `0` |
 | `assets/js/admin-stock.js` | Collapsible parent rows, recherche, expand/collapse, modal restock (+ reset backorder), badge low stock parent, DataTables (onglet alertes) |
-| `assets/vendor/datatables/*` | DataTables.net + RowGroup (bundled) |
+| `assets/vendor/datatables/dataTables.min.js` | **DataTables 2.1.8 core** (Convert + Stock alerts) |
+| `assets/vendor/datatables/dataTables.dataTables.min.css` | Styles DataTables |
+| `assets/vendor/datatables/rowGroup.dataTables.min.js` | Extension RowGroup (bundled) |
 | `assets/css/frontend.css` | Pill Eyewa power mode, line-summary total, qty centrées, labels grille |
 | `assets/css/admin.css` | Backorder admin, Settings 2 colonnes, **stock tables + modal restock + badge low stock**, `.wc-optic-is-hidden` |
 | `assets/css/flatsome-cart-checkout.css` | Styles panier/checkout Flatsome |

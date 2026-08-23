@@ -17,6 +17,7 @@ class WC_Optic_Admin_Convert {
 	 */
 	public static function hooks() {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
+		add_action( 'admin_print_footer_scripts', array( __CLASS__, 'print_scripts' ), 20 );
 	}
 
 	/**
@@ -33,6 +34,61 @@ class WC_Optic_Admin_Convert {
 	}
 
 	/**
+	 * JS config for admin-convert.js.
+	 *
+	 * @param string $tab Active tab slug.
+	 * @return array<string, mixed>
+	 */
+	protected static function get_js_config( $tab ) {
+		$division_powers = array();
+		$division_colors = array();
+		foreach ( WC_Optic_Plugin::get_divisions() as $slug => $def ) {
+			$division_powers[ $slug ] = $def['powers'];
+			$division_colors[ $slug ] = ! empty( $def['show_color'] );
+		}
+
+		return array(
+			'ajaxUrl'           => admin_url( 'admin-ajax.php' ),
+			'nonce'             => wp_create_nonce( 'wc_optic_admin' ),
+			'divisionPowers'    => $division_powers,
+			'divisionShowColor' => $division_colors,
+			'powerTypes'        => WC_Optic_Catalog::get_power_types(),
+			'defaultSteps'      => array(
+				'sph'  => WC_Optic_Catalog::get_default_power_step( 'sph' ),
+				'cyl'  => WC_Optic_Catalog::get_default_power_step( 'cyl' ),
+				'axis' => WC_Optic_Catalog::get_default_power_step( 'axis' ),
+				'add'  => WC_Optic_Catalog::get_default_power_step( 'add' ),
+			),
+			'maxChildren'       => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
+			'templates'         => WC_Optic_Power_Template::get_all(),
+			'convertTab'        => 'convert' === $tab,
+			'dt'                => 'convert' === $tab ? self::get_datatables_i18n() : array(),
+			'i18n'              => array(
+				'saveFailed'        => __( 'Could not save the template.', 'wc-optic' ),
+				'deleteConfirm'     => __( 'Delete this power range template?', 'wc-optic' ),
+				'selectProducts'    => __( 'Select at least one product.', 'wc-optic' ),
+				'needDivision'      => __( 'Choose an optical division.', 'wc-optic' ),
+				'needIdentity'      => __( 'Fill every required identity field (section, company, brand, timing, pack, transparency — and color when the division uses it).', 'wc-optic' ),
+				'needRanges'        => __( 'Set From, To and Step for each power of this division.', 'wc-optic' ),
+				'needPrice'         => __( 'This product has no price. Enter a unit price.', 'wc-optic' ),
+				'confirmReplace'    => __( 'This product already has internals. Replace them?', 'wc-optic' ),
+				'confirmClose'      => __( 'Close the wizard? Unsaved steps for this product will be lost.', 'wc-optic' ),
+				'convertFailed'     => __( 'Could not convert this product.', 'wc-optic' ),
+				'loadFailed'        => __( 'Could not load the product.', 'wc-optic' ),
+				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
+				'skipped'           => __( 'Skipped: already has internal products.', 'wc-optic' ),
+				'nextProduct'       => __( 'Next product', 'wc-optic' ),
+				'nextStep'          => __( 'Next', 'wc-optic' ),
+				'finish'            => __( 'Finish', 'wc-optic' ),
+				'progress'          => __( 'Product %1$d of %2$d', 'wc-optic' ),
+				'done'              => __( 'All selected products have been processed.', 'wc-optic' ),
+				'selectAllFiltered' => __( 'Select all matching rows', 'wc-optic' ),
+				'allProducts'       => __( 'All', 'wc-optic' ),
+			),
+		);
+	}
+
+	/**
 	 * Enqueue assets.
 	 *
 	 * @param string $hook Hook.
@@ -42,19 +98,17 @@ class WC_Optic_Admin_Convert {
 			return;
 		}
 
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! in_array( $tab, array( 'convert', 'templates' ), true ) ) {
-			$tab = 'convert';
-		}
+		$tab           = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$is_convert_tab = in_array( $tab, array( 'convert', 'templates' ), true ) ? 'convert' === $tab : true;
 
 		wp_enqueue_style( 'woocommerce_admin_styles' );
 		wp_enqueue_script( 'selectWoo' );
 		wp_enqueue_script( 'wc-enhanced-select' );
 
-		$style_deps = array();
+		$style_deps  = array();
 		$script_deps = array( 'jquery', 'selectWoo', 'wc-enhanced-select', 'wc-optic-bootstrap' );
 
-		if ( 'convert' === $tab ) {
+		if ( $is_convert_tab ) {
 			wp_enqueue_style(
 				'wc-optic-datatables',
 				WC_OPTIC_PLUGIN_URL . 'assets/vendor/datatables/dataTables.dataTables.min.css',
@@ -62,14 +116,6 @@ class WC_Optic_Admin_Convert {
 				'2.1.8'
 			);
 			$style_deps[] = 'wc-optic-datatables';
-			wp_enqueue_script(
-				'wc-optic-datatables',
-				WC_OPTIC_PLUGIN_URL . 'assets/vendor/datatables/dataTables.min.js',
-				array( 'jquery' ),
-				'2.1.8',
-				true
-			);
-			$script_deps[] = 'wc-optic-datatables';
 		}
 
 		wp_enqueue_style(
@@ -91,64 +137,46 @@ class WC_Optic_Admin_Convert {
 			'5.3.3',
 			true
 		);
-		wp_enqueue_script(
+
+		$convert_js = WC_OPTIC_PLUGIN_DIR . 'assets/js/admin-convert.js';
+		$version    = is_readable( $convert_js ) ? (string) filemtime( $convert_js ) : WC_OPTIC_VERSION;
+
+		wp_register_script(
 			'wc-optic-admin-convert',
 			WC_OPTIC_PLUGIN_URL . 'assets/js/admin-convert.js',
 			$script_deps,
-			WC_OPTIC_VERSION,
+			$version,
 			true
 		);
 
-		$division_powers = array();
-		$division_colors = array();
-		foreach ( WC_Optic_Plugin::get_divisions() as $slug => $def ) {
-			$division_powers[ $slug ] = $def['powers'];
-			$division_colors[ $slug ] = ! empty( $def['show_color'] );
+		if ( ! $is_convert_tab ) {
+			wp_enqueue_script( 'wc-optic-admin-convert' );
+			wp_localize_script( 'wc-optic-admin-convert', 'wcOpticConvert', self::get_js_config( $tab ) );
+		}
+	}
+
+	/**
+	 * Print Convert tab scripts in the admin footer (DataTables before admin-convert.js).
+	 */
+	public static function print_scripts() {
+		if ( ! self::is_convert_page() ) {
+			return;
 		}
 
-		wp_localize_script(
-			'wc-optic-admin-convert',
-			'wcOpticConvert',
-			array(
-				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
-				'nonce'           => wp_create_nonce( 'wc_optic_admin' ),
-				'divisionPowers'  => $division_powers,
-				'divisionShowColor' => $division_colors,
-				'powerTypes'      => WC_Optic_Catalog::get_power_types(),
-				'defaultSteps'    => array(
-					'sph'  => WC_Optic_Catalog::get_default_power_step( 'sph' ),
-					'cyl'  => WC_Optic_Catalog::get_default_power_step( 'cyl' ),
-					'axis' => WC_Optic_Catalog::get_default_power_step( 'axis' ),
-					'add'  => WC_Optic_Catalog::get_default_power_step( 'add' ),
-				),
-				'maxChildren'     => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
-				'templates'       => WC_Optic_Power_Template::get_all(),
-				'convertTab'      => 'convert' === $tab,
-				'dt'              => 'convert' === $tab ? self::get_datatables_i18n() : array(),
-				'i18n'            => array(
-					'saveFailed'      => __( 'Could not save the template.', 'wc-optic' ),
-					'deleteConfirm'   => __( 'Delete this power range template?', 'wc-optic' ),
-					'selectProducts'  => __( 'Select at least one product.', 'wc-optic' ),
-					'needDivision'    => __( 'Choose an optical division.', 'wc-optic' ),
-					'needIdentity'    => __( 'Fill every required identity field (section, company, brand, timing, pack, transparency — and color when the division uses it).', 'wc-optic' ),
-					'needRanges'      => __( 'Set From, To and Step for each power of this division.', 'wc-optic' ),
-					'needPrice'       => __( 'This product has no price. Enter a unit price.', 'wc-optic' ),
-					'confirmReplace'  => __( 'This product already has internals. Replace them?', 'wc-optic' ),
-					'confirmClose'    => __( 'Close the wizard? Unsaved steps for this product will be lost.', 'wc-optic' ),
-					'convertFailed'   => __( 'Could not convert this product.', 'wc-optic' ),
-					'loadFailed'      => __( 'Could not load the product.', 'wc-optic' ),
-					'converted'       => __( 'Converted: %d internal products.', 'wc-optic' ),
-					'skipped'         => __( 'Skipped: already has internal products.', 'wc-optic' ),
-					'nextProduct'     => __( 'Next product', 'wc-optic' ),
-					'nextStep'        => __( 'Next', 'wc-optic' ),
-					'finish'          => __( 'Finish', 'wc-optic' ),
-					'progress'        => __( 'Product %1$d of %2$d', 'wc-optic' ),
-					'done'            => __( 'All selected products have been processed.', 'wc-optic' ),
-					'selectAllFiltered' => __( 'Select all matching rows', 'wc-optic' ),
-					'allProducts'       => __( 'All', 'wc-optic' ),
-				),
-			)
-		);
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'convert' !== $tab ) {
+			return;
+		}
+
+		$convert_js = WC_OPTIC_PLUGIN_DIR . 'assets/js/admin-convert.js';
+		$version    = is_readable( $convert_js ) ? (string) filemtime( $convert_js ) : WC_OPTIC_VERSION;
+
+		echo '<script src="' . esc_url( WC_OPTIC_PLUGIN_URL . 'assets/vendor/datatables/dataTables.min.js' ) . '?ver=2.1.8"></script>' . "\n";
+		echo '<script id="wc-optic-convert-config">var wcOpticConvert = ';
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode.
+		echo wp_json_encode( self::get_js_config( 'convert' ) );
+		echo ';</script>' . "\n";
+		echo '<script src="' . esc_url( WC_OPTIC_PLUGIN_URL . 'assets/js/admin-convert.js' ) . '?ver=' . esc_attr( $version ) . '"></script>' . "\n";
 	}
 
 	/**
