@@ -89,10 +89,15 @@ class WC_Optic_Converter {
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
+		$limit = (int) $args['limit'];
+		if ( -1 !== $limit ) {
+			$limit = max( 1, absint( $limit ) );
+		}
+
 		$query_args = array(
 			'type'    => 'simple',
 			'status'  => array( 'publish', 'draft', 'private' ),
-			'limit'   => max( 1, absint( $args['limit'] ) ),
+			'limit'   => $limit,
 			'page'    => max( 1, absint( $args['page'] ) ),
 			'orderby' => 'title',
 			'order'   => 'ASC',

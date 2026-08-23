@@ -413,7 +413,7 @@ WC_Optic_Converter::convert_product() / preview()
 **Problème Convert (331 vs 199)**
 
 - `render_convert_tab()` appelait `get_eligible_products( [ 'limit' => 200 ] )` — seuls les **200 premiers** simples étaient chargés ; avec WPML (~1 traduction filtrée) → **199 lignes**.
-- Correctif : `WC_Optic_Converter::CONVERT_LIST_LIMIT = -1` (tous les éligibles).
+- Correctif : `WC_Optic_Converter::CONVERT_LIST_LIMIT = -1` (tous les éligibles). **Attention :** `absint(-1)` vaut `1` — la limite `-1` doit être préservée avant `absint` dans `get_eligible_products()`.
 - Stats : `get_convert_stats()` → `total_simple`, `eligible`, `excluded_wpml`, `excluded_ineligible`.
 - UI : « Showing X of Y eligible products (Z simple products in catalog) » + compteur filtre recherche.
 
