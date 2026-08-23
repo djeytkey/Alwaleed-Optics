@@ -272,6 +272,11 @@ class WC_Optic_Catalog {
 		$value = str_replace( array( '−', '–', '—' ), '-', $value );
 		$value = str_replace( ',', '.', $value );
 		$value = preg_replace( '/\s+/u', '', $value );
+		$value = str_replace(
+			array( '٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹' ),
+			array( '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ),
+			$value
+		);
 		if ( is_numeric( $value ) ) {
 			return (float) $value;
 		}
@@ -336,11 +341,19 @@ class WC_Optic_Catalog {
 			return null;
 		}
 
-		$formatted = self::format_power_value( $type, $number );
-		$slug      = self::sanitize_slug( $formatted );
-		$by_slug   = self::get_by_slug( $type, $slug );
-		if ( $by_slug ) {
-			return $by_slug;
+		$formatted  = self::format_power_value( $type, $number );
+		$candidates = array( $formatted, ltrim( $formatted, '+' ), (string) (int) round( (float) $number ) );
+		if ( self::power_number_is_zero( $number ) ) {
+			$candidates = array_merge( $candidates, array( '+0.00', '0.00', '0', '+0', '+000', '000' ) );
+		}
+		foreach ( array_unique( $candidates ) as $candidate ) {
+			if ( '' === $candidate ) {
+				continue;
+			}
+			$by_slug = self::get_by_slug( $type, $candidate );
+			if ( $by_slug ) {
+				return $by_slug;
+			}
 		}
 
 		if ( ! isset( self::$power_term_cache[ $type ] ) ) {
@@ -356,6 +369,9 @@ class WC_Optic_Catalog {
 				continue;
 			}
 			if ( (int) round( $parsed * $scale ) === $want ) {
+				return $row;
+			}
+			if ( self::power_number_is_zero( $number ) && self::sph_term_is_zero_power( $row ) ) {
 				return $row;
 			}
 		}
@@ -421,11 +437,65 @@ class WC_Optic_Catalog {
 	 * @return int|WP_Error
 	 */
 	public static function count_power_range( $type, $from, $to, $step ) {
+		$values = self::enumerate_power_range_values( $type, $from, $to, $step );
+		if ( is_wp_error( $values ) ) {
+			return $values;
+		}
+		return count( $values );
+	}
+
+	/**
+	 * Whether a numeric power is plano / zero.
+	 *
+	 * @param float $number Value.
+	 * @return bool
+	 */
+	public static function power_number_is_zero( $number ) {
+		return abs( (float) $number ) < 0.0001;
+	}
+
+	/**
+	 * List numeric values for a range (always includes 0.00 when 0 is inside the bounds).
+	 *
+	 * @param string $type Power type.
+	 * @param mixed  $from Range start.
+	 * @param mixed  $to   Range end.
+	 * @param mixed  $step Increment.
+	 * @return float[]|WP_Error
+	 */
+	public static function enumerate_power_range_values( $type, $from, $to, $step ) {
 		$bounds = self::normalize_power_range_bounds( $type, $from, $to, $step );
 		if ( is_wp_error( $bounds ) ) {
 			return $bounds;
 		}
-		return (int) $bounds['count'];
+
+		$values = array();
+		$seen   = array();
+		for ( $value = (int) $bounds['from']; $value <= (int) $bounds['to']; $value += (int) $bounds['step'] ) {
+			$number = $value / (int) $bounds['scale'];
+			$key    = (string) (int) round( $number * (int) $bounds['scale'] );
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$values[]     = $number;
+		}
+
+		if ( (int) $bounds['from'] <= 0 && (int) $bounds['to'] >= 0 ) {
+			$zero_key = '0';
+			if ( ! isset( $seen[ $zero_key ] ) ) {
+				$values[] = 0.0;
+			}
+		}
+
+		usort(
+			$values,
+			static function ( $a, $b ) {
+				return $a <=> $b;
+			}
+		);
+
+		return $values;
 	}
 
 	/**
@@ -505,12 +575,12 @@ class WC_Optic_Catalog {
 			return new WP_Error( 'wc_optic_invalid_power_type', __( 'Invalid power type.', 'wc-optic' ) );
 		}
 
-		$bounds = self::normalize_power_range_bounds( $type, $from, $to, $step );
-		if ( is_wp_error( $bounds ) ) {
-			return $bounds;
+		$numbers = self::enumerate_power_range_values( $type, $from, $to, $step );
+		if ( is_wp_error( $numbers ) ) {
+			return $numbers;
 		}
 
-		$count = (int) $bounds['count'];
+		$count = count( $numbers );
 		$max   = max( 1, (int) $max );
 		if ( $count > $max ) {
 			return new WP_Error(
@@ -526,8 +596,8 @@ class WC_Optic_Catalog {
 		}
 
 		$ids = array();
-		for ( $value = (int) $bounds['from']; $value <= (int) $bounds['to']; $value += (int) $bounds['step'] ) {
-			$row = self::get_or_create_power_term( $type, $value / (int) $bounds['scale'] );
+		foreach ( $numbers as $number ) {
+			$row = self::get_or_create_power_term( $type, $number );
 			if ( is_wp_error( $row ) ) {
 				return $row;
 			}
@@ -581,7 +651,7 @@ class WC_Optic_Catalog {
 			return false;
 		}
 
-		if ( in_array( $value, array( 'plano', 'plan', 'zero', '0', '+0' ), true ) ) {
+		if ( in_array( $value, array( 'plano', 'plan', 'zero', '0', '+0', '+0.00', '0.00', '+000', '000' ), true ) ) {
 			return true;
 		}
 

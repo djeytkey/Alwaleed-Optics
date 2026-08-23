@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.2] — 2026-08-23
+
+### Corrigé
+
+- **+0.00** : si 0 est dans la plage (From ≤ 0 ≤ To), la puissance est toujours générée, même si le pas ne tombe pas dessus. Les champs From/To/Step acceptent `0` / `0.00`.
+- **WPML / WCML** : Convert liste uniquement les originaux (langue par défaut) ; les internes (`_optic_child_configs` et metas liées) sont copiés vers les traductions. `wpml-config.xml` passe `_optic_child_configs` en `copy`.
+
 ## [1.3.1] — 2026-08-23
 
 ### Modifié

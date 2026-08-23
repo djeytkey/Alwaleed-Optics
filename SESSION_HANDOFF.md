@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-23 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,9 +15,11 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-08-23 (courante)
 
-1. **Wizard Convert** — modal Bootstrap 5 fond **static** (pas de fermeture au clic extérieur). Un produit à la fois : étapes Produit / Identité / Puissances, bouton **Next**.
-2. **Rollback UX fiche produit** — plus de plages / Generate sur la fiche ; identité une fois + internes manuels conservés.
-3. **Version** — bump **1.3.1**.
+1. **+0.00 dans les plages** — si From ≤ 0 ≤ To, SPH/CYL/ADD **+0.00** est toujours généré (même si le pas ne tombe pas sur 0). JS wizard n’ignore plus `0` / `0.00`.
+2. **WPML** — Convert n’affiche que les originaux (langue par défaut). Après conversion / save, les internes sont copiés vers les traductions (EN → AR). `_optic_child_configs` est en `copy` dans `wpml-config.xml`.
+3. **Wizard Convert** (plus tôt dans la journée) — modal Bootstrap 5 fond **static**. Un produit à la fois : Produit / Identité / Puissances, **Next**.
+4. **Rollback UX fiche produit** — plus de plages / Generate sur la fiche ; identité une fois + internes manuels.
+5. **Version** — bump **1.3.2**.
 
 ### Session 2026-08-22 (précédente)
 
@@ -382,6 +384,29 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
 
+### 2.13 +0.00 forcé + WPML (session 2026-08-23)
+
+**+0.00 dans le range**
+
+- `WC_Optic_Catalog::enumerate_power_range_values()` force l’inclusion de `0.0` dès que les bornes encadrent 0, puis trie.
+- `find_power_term_by_value()` reconnaît `+0.00`, `0.00`, `0`, slugs `+000` / `000`.
+- `parse_power_number()` accepte aussi les chiffres arabes / persans.
+- Wizard JS : `rangeFieldFilled()` — `0` et `0.00` sont des valeurs valides (plus de `if (!range.from)`).
+
+**Storefront color lenses :** l’interne **+0.00** reste le mode **No power** (`noPowerChild`) et n’apparaît pas dans le dropdown Power — c’est voulu. Il est bien créé dans `_optic_child_configs`.
+
+**WPML / WCML**
+
+- Liste Convert : `wpml_switch_language` vers la langue par défaut + skip des traductions.
+- Conversion / save original : `WC_Optic_WPML::sync_product_translations()` copie division, identity, ranges, children, index metas ; passe le type `optic_product` sur les traductions. Les prix WCML ne sont pas écrasés.
+- `wpml-config.xml` : `_optic_child_configs` en **copy** (plus copy-once).
+- String Translation : fallback sur le nom source si la traduction WPML est vide.
+- AJAX Convert / wizard ajoutés à `wcml_multi_currency_ajax_actions`.
+
+**Méthodes :** `enumerate_power_range_values()`, `WC_Optic_WPML::get_original_product_id()`, `sync_product_translations()`, `switch_to_default_language()`.
+
+**Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-wpml.php`, `class-wc-optic-converter.php`, `admin-convert.js`, `wpml-config.xml`, `admin/class-wc-optic-admin-convert.php`.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -407,7 +432,8 @@ WC_Optic_Converter::convert_product() / preview()
 | `class-wc-optic-ajax.php` | + `wc_optic_restock_child` |
 | `admin/class-wc-optic-admin-import.php` | Import catalogue ; hook screen sous menu Alwaleed Optics |
 | `admin/class-wc-optic-admin-product.php` | Champs backorder par produit interne |
-| `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `sph_value_is_zero_power()` |
+| `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `enumerate_power_range_values()` (force +0.00) |
+| `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
 | `class-wc-optic-sku.php` | No-power, prix défaut, **backorder**, matrice storefront, `persist_child_data` |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
 | `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, `apply_child_stock_delta` |
@@ -432,7 +458,7 @@ WC_Optic_Converter::convert_product() / preview()
 | `assets/js/cart.js` | Inchangé (sync qty) |
 | `assets/js/admin-settings.js` | Toggle visibilité champ backorder qty global |
 | `assets/js/admin-product.js` | Toggle Custom backorder, identité, plages, Generate internals |
-| `assets/js/admin-convert.js` | **Nouveau** — gabarits + preview/run Convert |
+| `assets/js/admin-convert.js` | Wizard Convert ; From/To/Step acceptent `0` |
 | `assets/js/admin-stock.js` | Collapsible parent rows, recherche, expand/collapse, modal restock (+ reset backorder), badge low stock parent, DataTables (onglet alertes) |
 | `assets/vendor/datatables/*` | DataTables.net + RowGroup (bundled) |
 | `assets/css/frontend.css` | Pill Eyewa power mode, line-summary total, qty centrées, labels grille |
@@ -619,6 +645,10 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Settings → SPH contient les valeurs créées (ex. −7.25)
 - [ ] Relancer Generate sans replace → skip ; avec replace → régénère
 - [ ] +0.00 dans une plage → interne no-power
+- [ ] Plage −8.00 → +6.00 / 0.25 → interne SPH **+0.00** présent dans `_optic_child_configs`
+- [ ] Plage dont le pas saute 0 (ex. −1.00 → +1.00 / 0.30) → **+0.00** quand même créé
+- [ ] WPML : Convert n’affiche pas le doublon AR ; après wizard EN, la fiche AR a les mêmes internes
+- [ ] WPML String Translation : noms catalogue / divisions ; fallback si chaîne vide
 - [ ] Toric : 3 plages ; > 200 combinaisons → refus
 - [ ] Convert : preview puis run sur 2–3 simples
 - [ ] Changer la couleur identité + Update → SKU de tous les internes mis à jour
@@ -636,8 +666,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.1] — 2026-08-23**.
-4. **Version plugin** : **1.3.1** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.2] — 2026-08-23**.
+4. **Version plugin** : **1.3.2** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
@@ -654,7 +684,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - Afficher « À partir de » au lieu du prix sec (débattu, non retenu).
 - Commit git.
 - Tests automatisés PHPUnit / E2E.
-- Traductions WPML des nouvelles chaînes.
+- Traductions WPML des nouvelles chaînes admin (wizard / Convert). Les noms catalogue restent dans String Translation (`wc-optic-catalog`).
 - Admin : indication visuelle « variante No power » sur les produits internes.
 - Commit git.
 
@@ -715,7 +745,10 @@ php -l includes/admin/class-wc-optic-admin-settings.php
 | Autoload | Enregistré **immédiatement** (activation avant `plugins_loaded`) |
 | Génération puissances | Plage De/À + **Pas** (step) ; identité catalogue une fois ; auto-création termes |
 | Convert 1.3.0 | Produits **simples** seulement ; variables plus tard |
+| +0.00 dans une plage | **Toujours généré** si From ≤ 0 ≤ To |
+| +0.00 storefront color | Reste **No power** (pas dans le dropdown Power) |
+| WPML Convert | Originaux langue par défaut uniquement ; copy internes → traductions |
 
 ---
 
-*Dernière mise à jour : 2026-08-23 — version **1.3.1** (wizard Convert modal static).*
+*Dernière mise à jour : 2026-08-23 — version **1.3.2** (+0.00 forcé dans les plages + sync WPML).*

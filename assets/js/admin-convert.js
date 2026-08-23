@@ -16,6 +16,17 @@
 		return wcOpticConvert.divisionPowers[ division ];
 	}
 
+	function rangeFieldValue( raw ) {
+		if ( raw === undefined || raw === null ) {
+			return '';
+		}
+		return String( raw );
+	}
+
+	function rangeFieldFilled( raw ) {
+		return rangeFieldValue( raw ).trim() !== '';
+	}
+
 	function collectRanges() {
 		var ranges = {};
 		$root.find( '#wc-optic-wizard-modal .wc-optic-power-range' ).each( function () {
@@ -24,9 +35,9 @@
 				return;
 			}
 			ranges[ $row.data( 'power' ) ] = {
-				from: $row.find( '.wc-optic-range-from' ).val() || '',
-				to: $row.find( '.wc-optic-range-to' ).val() || '',
-				step: $row.find( '.wc-optic-range-step' ).val() || '',
+				from: rangeFieldValue( $row.find( '.wc-optic-range-from' ).val() ),
+				to: rangeFieldValue( $row.find( '.wc-optic-range-to' ).val() ),
+				step: rangeFieldValue( $row.find( '.wc-optic-range-step' ).val() ),
 			};
 		} );
 		return ranges;
@@ -72,9 +83,9 @@
 		}
 		$.each( template.ranges, function ( power, range ) {
 			var $row = $root.find( '#wc-optic-wizard-modal .wc-optic-power-range[data-power="' + power + '"]' );
-			$row.find( '.wc-optic-range-from' ).val( range.from || '' );
-			$row.find( '.wc-optic-range-to' ).val( range.to || '' );
-			$row.find( '.wc-optic-range-step' ).val( range.step || '' );
+			$row.find( '.wc-optic-range-from' ).val( rangeFieldValue( range.from ) );
+			$row.find( '.wc-optic-range-to' ).val( rangeFieldValue( range.to ) );
+			$row.find( '.wc-optic-range-step' ).val( rangeFieldValue( range.step ) );
 		} );
 	}
 
@@ -272,7 +283,7 @@
 		}
 		var ok = true;
 		$.each( ranges, function ( _, range ) {
-			if ( ! range.from || ! range.to || ! range.step ) {
+			if ( ! rangeFieldFilled( range.from ) || ! rangeFieldFilled( range.to ) || ! rangeFieldFilled( range.step ) ) {
 				ok = false;
 			}
 		} );

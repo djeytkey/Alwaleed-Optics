@@ -43,23 +43,37 @@ class WC_Optic_Converter {
 			$query_args['s'] = $search;
 		}
 
-		$products = wc_get_products( $query_args );
-		if ( ! is_array( $products ) ) {
-			return array();
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
 		}
 
-		$out = array();
-		foreach ( $products as $product ) {
-			if ( ! $product instanceof WC_Product ) {
-				continue;
+		try {
+			$products = wc_get_products( $query_args );
+			if ( ! is_array( $products ) ) {
+				return array();
 			}
-			if ( ! self::is_eligible( $product ) ) {
-				continue;
-			}
-			$out[] = $product;
-		}
 
-		return $out;
+			$out = array();
+			foreach ( $products as $product ) {
+				if ( ! $product instanceof WC_Product ) {
+					continue;
+				}
+				if ( ! self::is_eligible( $product ) ) {
+					continue;
+				}
+				if ( $wpml && ! WC_Optic_WPML::is_original_product( $product->get_id() ) ) {
+					continue;
+				}
+				$out[] = $product;
+			}
+
+			return $out;
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
 	}
 
 	/**
@@ -96,32 +110,55 @@ class WC_Optic_Converter {
 	 * @return array|WP_Error
 	 */
 	public static function get_wizard_product( $product_id ) {
-		$product = wc_get_product( absint( $product_id ) );
-		if ( ! $product instanceof WC_Product ) {
-			return new WP_Error( 'wc_optic_missing_product', __( 'Product not found.', 'wc-optic' ) );
+		$requested_id = absint( $product_id );
+		$display_name = '';
+		if ( $requested_id ) {
+			$requested = wc_get_product( $requested_id );
+			if ( $requested instanceof WC_Product ) {
+				$display_name = $requested->get_name();
+			}
 		}
 
-		$type = $product->get_type();
-		if ( ! in_array( $type, array( 'simple', 'optic_product' ), true ) ) {
-			return new WP_Error( 'wc_optic_unsupported_type', __( 'Only simple products can be converted in this version.', 'wc-optic' ) );
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			$product_id = WC_Optic_WPML::get_original_product_id( $requested_id );
+			WC_Optic_WPML::switch_to_default_language();
+		} else {
+			$product_id = $requested_id;
 		}
 
-		$image_id  = $product->get_image_id();
-		$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+		try {
+			$product = wc_get_product( $product_id );
+			if ( ! $product instanceof WC_Product ) {
+				return new WP_Error( 'wc_optic_missing_product', __( 'Product not found.', 'wc-optic' ) );
+			}
 
-		return array(
-			'id'           => $product->get_id(),
-			'name'         => $product->get_name(),
-			'sku'          => (string) $product->get_sku(),
-			'price'        => self::get_source_price( $product ),
-			'price_html'   => $product->get_price_html(),
-			'edit_url'     => get_edit_post_link( $product->get_id(), 'raw' ),
-			'image'        => $image_url ? $image_url : '',
-			'type'         => $type,
-			'division'     => (string) $product->get_meta( '_optic_division', true ),
-			'identity'     => WC_Optic_SKU::get_identity_catalog( $product ),
-			'has_children' => self::has_children( $product ),
-		);
+			$type = $product->get_type();
+			if ( ! in_array( $type, array( 'simple', 'optic_product' ), true ) ) {
+				return new WP_Error( 'wc_optic_unsupported_type', __( 'Only simple products can be converted in this version.', 'wc-optic' ) );
+			}
+
+			$image_id  = $product->get_image_id();
+			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+
+			return array(
+				'id'           => $product->get_id(),
+				'name'         => $display_name ? $display_name : $product->get_name(),
+				'sku'          => (string) $product->get_sku(),
+				'price'        => self::get_source_price( $product ),
+				'price_html'   => $product->get_price_html(),
+				'edit_url'     => get_edit_post_link( $product->get_id(), 'raw' ),
+				'image'        => $image_url ? $image_url : '',
+				'type'         => $type,
+				'division'     => (string) $product->get_meta( '_optic_division', true ),
+				'identity'     => WC_Optic_SKU::get_identity_catalog( $product ),
+				'has_children' => self::has_children( $product ),
+			);
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
 	}
 
 	/**
@@ -232,63 +269,79 @@ class WC_Optic_Converter {
 	 * @return array|WP_Error
 	 */
 	public static function convert_product( $product_id, array $args ) {
-		$product = wc_get_product( absint( $product_id ) );
-		if ( ! $product instanceof WC_Product ) {
-			return new WP_Error( 'wc_optic_missing_product', __( 'Product not found.', 'wc-optic' ) );
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			$product_id = WC_Optic_WPML::get_original_product_id( $product_id );
+			WC_Optic_WPML::switch_to_default_language();
 		}
 
-		$type = $product->get_type();
-		if ( ! in_array( $type, array( 'simple', 'optic_product' ), true ) ) {
-			return new WP_Error( 'wc_optic_unsupported_type', __( 'Only simple products can be converted in this version.', 'wc-optic' ) );
-		}
+		try {
+			$product = wc_get_product( absint( $product_id ) );
+			if ( ! $product instanceof WC_Product ) {
+				return new WP_Error( 'wc_optic_missing_product', __( 'Product not found.', 'wc-optic' ) );
+			}
 
-		$mode = isset( $args['mode'] ) ? sanitize_key( $args['mode'] ) : 'skip_if_has_children';
-		if ( 'replace' !== $mode && self::has_children( $product ) ) {
+			$type = $product->get_type();
+			if ( ! in_array( $type, array( 'simple', 'optic_product' ), true ) ) {
+				return new WP_Error( 'wc_optic_unsupported_type', __( 'Only simple products can be converted in this version.', 'wc-optic' ) );
+			}
+
+			$mode = isset( $args['mode'] ) ? sanitize_key( $args['mode'] ) : 'skip_if_has_children';
+			if ( 'replace' !== $mode && self::has_children( $product ) ) {
+				return array(
+					'product_id'  => $product->get_id(),
+					'skipped'     => true,
+					'child_count' => count( WC_Optic_SKU::get_child_configs( $product ) ),
+					'message'     => __( 'Already has internal products.', 'wc-optic' ),
+				);
+			}
+
+			$prepared = self::prepare_args( $product, $args );
+			if ( is_wp_error( $prepared ) ) {
+				return $prepared;
+			}
+
+			$children = WC_Optic_SKU::build_children_from_ranges(
+				$prepared['division'],
+				$prepared['catalog'],
+				$prepared['ranges'],
+				$prepared['unit_price'],
+				$prepared['stock_qty']
+			);
+			if ( is_wp_error( $children ) ) {
+				return $children;
+			}
+
+			if ( 'optic_product' !== $product->get_type() ) {
+				wp_set_object_terms( $product->get_id(), 'optic_product', 'product_type' );
+				$product = wc_get_product( $product->get_id() );
+				if ( ! $product instanceof WC_Product ) {
+					return new WP_Error( 'wc_optic_type_failed', __( 'Could not change the product type.', 'wc-optic' ) );
+				}
+			}
+
+			$product->update_meta_data( '_optic_division', $prepared['division'] );
+			$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $prepared['catalog'] );
+			$product->update_meta_data( WC_Optic_SKU::RANGES_META_KEY, $prepared['ranges'] );
+			WC_Optic_SKU::persist_child_data( $product, $children );
+			WC_Optic_SKU::sync_product_sku( $product );
+			$product->save();
+
+			if ( $wpml ) {
+				WC_Optic_WPML::sync_product_translations( $product->get_id() );
+			}
+
 			return array(
 				'product_id'  => $product->get_id(),
-				'skipped'     => true,
-				'child_count' => count( WC_Optic_SKU::get_child_configs( $product ) ),
-				'message'     => __( 'Already has internal products.', 'wc-optic' ),
+				'skipped'     => false,
+				'child_count' => count( $children ),
+				'sku_sample'  => isset( $children[0]['sku'] ) ? (string) $children[0]['sku'] : '',
 			);
-		}
-
-		$prepared = self::prepare_args( $product, $args );
-		if ( is_wp_error( $prepared ) ) {
-			return $prepared;
-		}
-
-		$children = WC_Optic_SKU::build_children_from_ranges(
-			$prepared['division'],
-			$prepared['catalog'],
-			$prepared['ranges'],
-			$prepared['unit_price'],
-			$prepared['stock_qty']
-		);
-		if ( is_wp_error( $children ) ) {
-			return $children;
-		}
-
-		if ( 'optic_product' !== $product->get_type() ) {
-			wp_set_object_terms( $product->get_id(), 'optic_product', 'product_type' );
-			$product = wc_get_product( $product->get_id() );
-			if ( ! $product instanceof WC_Product ) {
-				return new WP_Error( 'wc_optic_type_failed', __( 'Could not change the product type.', 'wc-optic' ) );
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
 			}
 		}
-
-		$product->update_meta_data( '_optic_division', $prepared['division'] );
-		$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $prepared['catalog'] );
-		$product->update_meta_data( WC_Optic_SKU::RANGES_META_KEY, $prepared['ranges'] );
-		WC_Optic_SKU::persist_child_data( $product, $children );
-		WC_Optic_SKU::sync_product_sku( $product );
-		$product->save();
-
-		return array(
-			'product_id'  => $product->get_id(),
-			'skipped'     => false,
-			'child_count' => count( $children ),
-			'sku_sample'  => isset( $children[0]['sku'] ) ? (string) $children[0]['sku'] : '',
-		);
 	}
 
 	/**

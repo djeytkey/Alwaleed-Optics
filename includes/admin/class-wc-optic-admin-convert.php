@@ -229,6 +229,9 @@ class WC_Optic_Admin_Convert {
 		);
 
 		echo '<p class="description">' . esc_html__( 'Select one or more simple products, then start the wizard. Each product is converted one by one (Next). The modal cannot be closed by clicking outside.', 'wc-optic' ) . '</p>';
+		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
+			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. Internals are copied to Arabic (and other) translations after conversion.', 'wc-optic' ) . '</p>';
+		}
 
 		echo '<p class="wc-optic-convert-toolbar">';
 		echo '<input type="search" id="wc-optic-convert-search" class="regular-text" placeholder="' . esc_attr__( 'Search products…', 'wc-optic' ) . '" /> ';
@@ -305,6 +308,7 @@ class WC_Optic_Admin_Convert {
 		}
 		echo '</select></p>';
 		self::render_range_fields( '', array(), 'wizard_ranges', 'wc-optic-wizard-ranges' );
+		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it.', 'wc-optic' ) . '</p>';
 		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' ) . '</p>';
 		echo '<p><label for="wc_optic_wizard_price">' . esc_html__( 'Unit price', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_wizard_price" class="wc_input_price regular-text" /></p>';

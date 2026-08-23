@@ -3,7 +3,7 @@
 	<custom-fields>
 		<custom-field action="copy">_optic_division</custom-field>
 		<custom-field action="copy">_optic_default_qty_per_eye</custom-field>
-		<custom-field action="copy-once">_optic_child_configs</custom-field>
+		<custom-field action="copy">_optic_child_configs</custom-field>
 		<custom-field action="copy">_optic_identity_catalog</custom-field>
 		<custom-field action="copy">_optic_power_ranges</custom-field>
 		<custom-field action="copy">_optic_cat_section</custom-field>
@@ -29,4 +29,7 @@
 		<custom-field action="copy">_optic_idx_pack</custom-field>
 		<custom-field action="copy">_optic_idx_transparency</custom-field>
 	</custom-fields>
+	<admin-texts>
+		<key name="wc_optic_power_templates" />
+	</admin-texts>
 </wpml-config>

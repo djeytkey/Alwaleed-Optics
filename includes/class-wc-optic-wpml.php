@@ -23,6 +23,20 @@ class WC_Optic_WPML {
 	protected static $booted = false;
 
 	/**
+	 * Prevent recursive translation sync on product save.
+	 *
+	 * @var bool
+	 */
+	protected static $syncing = false;
+
+	/**
+	 * Language codes to restore after a temporary switch.
+	 *
+	 * @var array<int, string|null>
+	 */
+	protected static $language_stack = array();
+
+	/**
 	 * Bootstrap hooks when WPML is active.
 	 */
 	public static function init() {
@@ -44,6 +58,7 @@ class WC_Optic_WPML {
 		add_filter( 'wcml_product_content_label', array( __CLASS__, 'product_content_label' ), 10, 2 );
 
 		add_filter( 'wcml_do_not_display_custom_fields_for_product', array( __CLASS__, 'hide_internal_index_meta_from_editor' ) );
+		add_action( 'woocommerce_after_product_object_save', array( __CLASS__, 'maybe_sync_after_save' ), 20, 1 );
 	}
 
 	/**
@@ -153,7 +168,8 @@ class WC_Optic_WPML {
 		$key = self::catalog_string_name( $term_id );
 
 		if ( has_filter( 'wpml_translate_single_string' ) ) {
-			return (string) apply_filters( 'wpml_translate_single_string', $name, self::STRING_CONTEXT_CATALOG, $key, $lang );
+			$translated = (string) apply_filters( 'wpml_translate_single_string', $name, self::STRING_CONTEXT_CATALOG, $key, $lang );
+			return '' !== trim( $translated ) ? $translated : $name;
 		}
 
 		if ( function_exists( 'icl_t' ) ) {
@@ -225,7 +241,8 @@ class WC_Optic_WPML {
 	public static function filter_division_label( $label, $slug ) {
 		$key = self::division_string_name( $slug );
 		if ( has_filter( 'wpml_translate_single_string' ) ) {
-			return (string) apply_filters( 'wpml_translate_single_string', $label, self::STRING_CONTEXT_DIVISION, $key, null );
+			$translated = (string) apply_filters( 'wpml_translate_single_string', $label, self::STRING_CONTEXT_DIVISION, $key, null );
+			return '' !== trim( $translated ) ? $translated : $label;
 		}
 		if ( function_exists( 'icl_t' ) ) {
 			$translated = icl_t( self::STRING_CONTEXT_DIVISION, $key, $label );
@@ -278,7 +295,182 @@ class WC_Optic_WPML {
 	}
 
 	/**
-	 * Admin-only AJAX used with product editing; no multicurrency switch required.
+	 * Switch WPML to the default language (stackable).
+	 */
+	public static function switch_to_default_language() {
+		if ( ! self::is_active() ) {
+			return;
+		}
+
+		$current = apply_filters( 'wpml_current_language', null );
+		$default = apply_filters( 'wpml_default_language', null );
+		self::$language_stack[] = $current;
+		if ( $default && (string) $current !== (string) $default ) {
+			do_action( 'wpml_switch_language', $default );
+		}
+	}
+
+	/**
+	 * Restore the language saved by switch_to_default_language().
+	 */
+	public static function restore_language() {
+		if ( ! self::$language_stack ) {
+			return;
+		}
+
+		$previous = array_pop( self::$language_stack );
+		if ( null !== $previous && '' !== $previous ) {
+			do_action( 'wpml_switch_language', $previous );
+		}
+	}
+
+	/**
+	 * Original / default-language product id for a WPML translation group.
+	 *
+	 * @param int $product_id Any product id in the group.
+	 * @return int
+	 */
+	public static function get_original_product_id( $product_id ) {
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::is_active() ) {
+			return $product_id;
+		}
+
+		$default = apply_filters( 'wpml_default_language', null );
+		$mapped  = apply_filters( 'wpml_object_id', $product_id, 'product', true, $default );
+		return $mapped ? (int) $mapped : $product_id;
+	}
+
+	/**
+	 * Whether the product is the WPML original (not a translation).
+	 *
+	 * @param int $product_id Product id.
+	 * @return bool
+	 */
+	public static function is_original_product( $product_id ) {
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::is_active() ) {
+			return true;
+		}
+
+		$type = apply_filters( 'wpml_element_type', 'post_product' );
+		$info = apply_filters(
+			'wpml_element_language_details',
+			null,
+			array(
+				'element_id'   => $product_id,
+				'element_type' => $type,
+			)
+		);
+
+		if ( is_object( $info ) && isset( $info->source_language_code ) ) {
+			return empty( $info->source_language_code );
+		}
+
+		$lang    = apply_filters( 'wpml_element_language_code', null, array( 'element_id' => $product_id, 'element_type' => $type ) );
+		$default = apply_filters( 'wpml_default_language', null );
+		if ( $lang && $default ) {
+			return (string) $lang === (string) $default;
+		}
+
+		return true;
+	}
+
+	/**
+	 * After an original optic product is saved, copy internals to translations.
+	 *
+	 * @param WC_Product $product Product.
+	 */
+	public static function maybe_sync_after_save( $product ) {
+		if ( self::$syncing || ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			return;
+		}
+		if ( ! self::is_original_product( $product->get_id() ) ) {
+			return;
+		}
+
+		self::sync_product_translations( $product->get_id() );
+	}
+
+	/**
+	 * Copy optic metas from the converted product to its WPML/WCML translations.
+	 *
+	 * @param int $product_id Source product id.
+	 */
+	public static function sync_product_translations( $product_id ) {
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::is_active() || self::$syncing ) {
+			return;
+		}
+
+		$source = wc_get_product( $product_id );
+		if ( ! $source instanceof WC_Product ) {
+			return;
+		}
+
+		$keys = array(
+			'_optic_division',
+			WC_Optic_SKU::CHILD_META_KEY,
+			WC_Optic_SKU::IDENTITY_META_KEY,
+			WC_Optic_SKU::RANGES_META_KEY,
+		);
+		$keys = array_merge( $keys, array_values( WC_Optic_SKU::INDEX_META_KEYS ) );
+
+		$trid = apply_filters( 'wpml_element_trid', null, $product_id, 'post_product' );
+		if ( ! $trid ) {
+			return;
+		}
+
+		$translations = apply_filters( 'wpml_get_element_translations', null, $trid, 'post_product' );
+		if ( ! is_array( $translations ) ) {
+			return;
+		}
+
+		self::$syncing = true;
+		$current_lang   = apply_filters( 'wpml_current_language', null );
+
+		try {
+			foreach ( $translations as $translation ) {
+				$target_id = isset( $translation->element_id ) ? (int) $translation->element_id : 0;
+				if ( $target_id < 1 || $target_id === $product_id ) {
+					continue;
+				}
+
+				$lang = isset( $translation->language_code ) ? (string) $translation->language_code : '';
+				if ( $lang ) {
+					do_action( 'wpml_switch_language', $lang );
+				}
+
+				$target = wc_get_product( $target_id );
+				if ( ! $target instanceof WC_Product || (int) $target->get_id() !== $target_id ) {
+					continue;
+				}
+
+				if ( 'optic_product' !== $target->get_type() ) {
+					wp_set_object_terms( $target_id, 'optic_product', 'product_type' );
+					$target = wc_get_product( $target_id );
+					if ( ! $target instanceof WC_Product || (int) $target->get_id() !== $target_id ) {
+						continue;
+					}
+				}
+
+				foreach ( $keys as $key ) {
+					$target->update_meta_data( $key, $source->get_meta( $key, true ) );
+				}
+
+				WC_Optic_SKU::sync_product_sku( $target );
+				$target->save();
+			}
+		} finally {
+			if ( $current_lang ) {
+				do_action( 'wpml_switch_language', $current_lang );
+			}
+			self::$syncing = false;
+		}
+	}
+
+	/**
+	 * Admin AJAX used with product editing; keep WCML currency context stable.
 	 *
 	 * @param string[] $actions Action names.
 	 * @return string[]
@@ -287,6 +479,13 @@ class WC_Optic_WPML {
 		$actions[] = 'wc_optic_preview_sku';
 		$actions[] = 'wc_optic_create_term';
 		$actions[] = 'wc_optic_delete_term';
+		$actions[] = 'wc_optic_wizard_product';
+		$actions[] = 'wc_optic_generate_product_children';
+		$actions[] = 'wc_optic_count_power_ranges';
+		$actions[] = 'wc_optic_save_power_template';
+		$actions[] = 'wc_optic_delete_power_template';
+		$actions[] = 'wc_optic_preview_convert';
+		$actions[] = 'wc_optic_run_convert_batch';
 		return array_values( array_unique( $actions ) );
 	}
 
@@ -301,6 +500,8 @@ class WC_Optic_WPML {
 		$map = array(
 			'_optic_child_configs'       => __( 'Optic internal products (JSON)', 'wc-optic' ),
 			'_optic_division'            => __( 'Optical division', 'wc-optic' ),
+			'_optic_identity_catalog'    => __( 'Optic identity catalog', 'wc-optic' ),
+			'_optic_power_ranges'        => __( 'Optic power ranges', 'wc-optic' ),
 			'_optic_default_qty_per_eye' => __( 'Quantity per eye default', 'wc-optic' ),
 		);
 
