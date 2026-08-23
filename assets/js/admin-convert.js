@@ -135,8 +135,12 @@
 
 	function collectIdentity() {
 		var catalog = {};
+		var division = $( '#wc_optic_wizard_division' ).val() || '';
 		$root.find( '#wc-optic-wizard-modal .wc-optic-identity-select' ).each( function () {
 			var type = $( this ).data( 'optic-type' );
+			if ( type === 'color' && ! divisionShowsColor( division ) ) {
+				return;
+			}
 			if ( type ) {
 				catalog[ type ] = $( this ).val() || '';
 			}
@@ -441,9 +445,13 @@
 					onSuccess();
 				}
 			}
-		).fail( function () {
+		).fail( function ( xhr ) {
 			$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
-			showAlert( wcOpticConvert.i18n.convertFailed );
+			var message = wcOpticConvert.i18n.convertFailed;
+			if ( xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message ) {
+				message = xhr.responseJSON.data.message;
+			}
+			showAlert( message );
 		} );
 	}
 

@@ -409,6 +409,11 @@ class WC_Optic_Converter {
 				return $prepared;
 			}
 
+			$validated = self::validate_product_args( $product, $args );
+			if ( is_wp_error( $validated ) ) {
+				return $validated;
+			}
+
 			$children = WC_Optic_SKU::build_children_from_ranges(
 				$prepared['division'],
 				$prepared['catalog'],
@@ -469,8 +474,8 @@ class WC_Optic_Converter {
 
 		$catalog = WC_Optic_SKU::normalize_identity_catalog( isset( $args['catalog'] ) ? $args['catalog'] : array() );
 		$has_lot_identity = true;
-		foreach ( $catalog as $id ) {
-			if ( $id < 1 ) {
+		foreach ( WC_Optic_SKU::get_required_identity_types( $division ) as $type ) {
+			if ( (int) ( $catalog[ $type ] ?? 0 ) < 1 ) {
 				$has_lot_identity = false;
 				break;
 			}
