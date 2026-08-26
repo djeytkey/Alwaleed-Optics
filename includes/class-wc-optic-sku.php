@@ -349,7 +349,7 @@ class WC_Optic_SKU {
 			$val = $row ? WC_Optic_Catalog::get_display_name( $row ) : '—';
 			$parts[] = strtoupper( $power ) . ' ' . $val;
 		}
-		return implode( ' · ', $parts );
+		return implode( ' | ', $parts );
 	}
 
 	/**
