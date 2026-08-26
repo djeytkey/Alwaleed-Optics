@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.6] — 2026-08-26
+
+### Corrigé
+
+- **Wizard Convert — double scrollbar** : un seul scroll sur les plages (étape Powers). `modal` / `modal-body` / `modal-content` en `overflow: hidden` + hauteur bornée au viewport ; cache CSS bustée via `filemtime`.
+
 ## [1.3.5] — 2026-08-26
 
 ### Ajouté

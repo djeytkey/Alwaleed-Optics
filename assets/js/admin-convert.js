@@ -543,6 +543,28 @@
 		}
 	}
 
+	function lockWizardScroll() {
+		var el = document.getElementById( 'wc-optic-wizard-modal' );
+		if ( ! el ) {
+			return;
+		}
+		el.style.overflow = 'hidden';
+		el.classList.remove( 'modal-dialog-scrollable' );
+		var dialog = el.querySelector( '.modal-dialog' );
+		if ( dialog ) {
+			dialog.classList.remove( 'modal-dialog-scrollable', 'modal-dialog-centered' );
+			dialog.style.overflow = 'hidden';
+		}
+		var body = el.querySelector( '.modal-body' );
+		if ( body ) {
+			body.style.overflow = 'hidden';
+		}
+		var content = el.querySelector( '.modal-content' );
+		if ( content ) {
+			content.style.overflow = 'hidden';
+		}
+	}
+
 	function startWizard() {
 		queue = selectedProductIds();
 		if ( ! queue.length ) {
@@ -550,9 +572,13 @@
 			return;
 		}
 		index = 0;
+		var modalEl = document.getElementById( 'wc-optic-wizard-modal' );
 		if ( ! modal ) {
-			modal = new window.bootstrap.Modal( document.getElementById( 'wc-optic-wizard-modal' ) );
+			modal = new window.bootstrap.Modal( modalEl );
+			modalEl.addEventListener( 'show.bs.modal', lockWizardScroll );
+			modalEl.addEventListener( 'shown.bs.modal', lockWizardScroll );
 		}
+		lockWizardScroll();
 		modal.show();
 		loadProduct();
 	}

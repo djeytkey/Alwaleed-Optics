@@ -125,17 +125,22 @@ class WC_Optic_Admin_Convert {
 			$style_deps[] = 'wc-optic-datatables';
 		}
 
+		$admin_css  = WC_OPTIC_PLUGIN_DIR . 'assets/css/admin.css';
+		$wizard_css = WC_OPTIC_PLUGIN_DIR . 'assets/css/admin-wizard.css';
+		$admin_ver  = is_readable( $admin_css ) ? (string) filemtime( $admin_css ) : WC_OPTIC_VERSION;
+		$wizard_ver = is_readable( $wizard_css ) ? (string) filemtime( $wizard_css ) : WC_OPTIC_VERSION;
+
 		wp_enqueue_style(
 			'wc-optic-admin',
 			WC_OPTIC_PLUGIN_URL . 'assets/css/admin.css',
 			$style_deps,
-			WC_OPTIC_VERSION
+			$admin_ver
 		);
 		wp_enqueue_style(
 			'wc-optic-admin-wizard',
 			WC_OPTIC_PLUGIN_URL . 'assets/css/admin-wizard.css',
 			array( 'wc-optic-admin' ),
-			WC_OPTIC_VERSION
+			$wizard_ver
 		);
 		wp_enqueue_script(
 			'wc-optic-bootstrap',
