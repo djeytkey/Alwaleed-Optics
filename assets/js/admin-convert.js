@@ -183,6 +183,24 @@
 		} );
 	}
 
+	function fillRanges( ranges ) {
+		if ( ! ranges ) {
+			return;
+		}
+		applyTemplateRanges( { ranges: ranges } );
+	}
+
+	function isRebuildMode() {
+		return !!( wcOpticConvert && wcOpticConvert.rebuildMode );
+	}
+
+	function isReplaceChecked() {
+		if ( $( '#wc_optic_wizard_replace_forced' ).length && $( '#wc_optic_wizard_replace_forced' ).val() === '1' ) {
+			return true;
+		}
+		return $( '#wc_optic_wizard_replace' ).is( ':checked' );
+	}
+
 	function refreshCount() {
 		var $count = $root.find( '#wc-optic-wizard-modal .wc-optic-range-count' );
 		var division = $( '#wc_optic_wizard_division' ).val() || '';
@@ -348,11 +366,20 @@
 				$( '#wc_optic_wizard_division' ).val( current.division || '' );
 				$( '#wc_optic_wizard_price' ).val( current.price || '' );
 				$( '#wc_optic_wizard_stock' ).val( '0' );
-				$( '#wc_optic_wizard_replace' ).prop( 'checked', false );
+				if ( isRebuildMode() ) {
+					$( '#wc_optic_wizard_replace' ).prop( 'checked', true );
+					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardRebuild || 'Rebuild product' );
+				} else {
+					$( '#wc_optic_wizard_replace' ).prop( 'checked', false );
+					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardConvert || 'Convert product' );
+				}
 				$( '#wc_optic_wizard_template' ).val( '' );
 				fillIdentity( current.identity || {} );
 				applyDivisionRanges( current.division || '' );
 				applyDivisionIdentityFields( current.division || '' );
+				if ( current.ranges ) {
+					fillRanges( current.ranges );
+				}
 				updateProgress();
 				setStep( 1 );
 				setTimeout( function () {
@@ -401,7 +428,11 @@
 		if ( ! current ) {
 			return;
 		}
-		if ( current.has_children && ! $( '#wc_optic_wizard_replace' ).is( ':checked' ) ) {
+		if ( isRebuildMode() ) {
+			if ( ! window.confirm( wcOpticConvert.i18n.confirmRebuild || wcOpticConvert.i18n.confirmReplace ) ) {
+				return;
+			}
+		} else if ( current.has_children && ! isReplaceChecked() ) {
 			if ( ! window.confirm( wcOpticConvert.i18n.confirmReplace ) ) {
 				return;
 			}
@@ -421,7 +452,7 @@
 				template_id: $( '#wc_optic_wizard_template' ).val() || '',
 				unit_price: $( '#wc_optic_wizard_price' ).val() || '',
 				stock_qty: $( '#wc_optic_wizard_stock' ).val() || 0,
-				replace: $( '#wc_optic_wizard_replace' ).is( ':checked' ) ? 1 : 0,
+				replace: isReplaceChecked() || isRebuildMode() ? 1 : 0,
 			},
 			function ( res ) {
 				$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
@@ -431,14 +462,27 @@
 				}
 				converted = true;
 				current.has_children = true;
+				current.child_count = res.data.child_count || 0;
+				current.division = $( '#wc_optic_wizard_division' ).val() || current.division;
 				if ( res.data.skipped ) {
 					showAlert( wcOpticConvert.i18n.skipped, true );
 				} else {
-					showAlert( sprintf( wcOpticConvert.i18n.converted, res.data.child_count || 0 ), true );
+					var msgTpl = isRebuildMode()
+						? ( wcOpticConvert.i18n.rebuilt || wcOpticConvert.i18n.converted )
+						: wcOpticConvert.i18n.converted;
+					showAlert( sprintf( msgTpl, res.data.child_count || 0 ), true );
 				}
-				$( '.wc-optic-convert-product[value="' + current.id + '"]' ).closest( 'tr' ).addClass( 'wc-optic-converted-row' );
+				var $row = $( '.wc-optic-convert-product[value="' + current.id + '"]' ).closest( 'tr' );
+				$row.addClass( 'wc-optic-converted-row' );
+				if ( $row.find( '.wc-optic-convert-child-count' ).length ) {
+					$row.find( '.wc-optic-convert-child-count' ).text( String( current.child_count ) ).attr( 'data-order', String( current.child_count ) );
+				}
+				if ( $row.find( '.wc-optic-convert-division' ).length ) {
+					var divLabel = $( '#wc_optic_wizard_division option:selected' ).text() || current.division || '';
+					$row.find( '.wc-optic-convert-division' ).text( divLabel ).attr( 'data-division', current.division || '' );
+				}
 				if ( convertTable ) {
-					convertTable.row( $( '.wc-optic-convert-product[value="' + current.id + '"]' ).closest( 'tr' ) ).invalidate();
+					convertTable.row( $row ).invalidate().draw( false );
 				}
 				updateNextLabel();
 				if ( typeof onSuccess === 'function' ) {

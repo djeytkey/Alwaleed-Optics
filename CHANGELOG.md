@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.5] — 2026-08-26
+
+### Ajouté
+
+- **Convert → onglet Converted** : liste des `optic_product` déjà convertis (division, nombre d’internes). Wizard **Rebuild** : changer division / identité / plages et **remplacer** tous les internes (ex. Color Lenses → Astigmatism Toric avec CYL+AXIS).
+
 ## [1.3.4] — 2026-08-26
 
 ### Corrigé

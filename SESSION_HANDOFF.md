@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.4 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.5 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -20,7 +20,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 3. **Sauvegarde produit** — `save_product()` ne lit plus `$_POST['_optic_child_configs']` ; applique seulement division + identité aux enfants existants. CRUD internes : `wc_optic_load_child` / `save_child` / `remove_child` / `list_children`.
 4. **Restyle notes panneau** — titres/aides (`.wc-optic-panel-heading` / `.wc-optic-panel-note`) : padding latéral `20px` homogène (plus de 2ᵉ ligne collée au bord du div à cause du `padding-left: 162px` WooCommerce sans label).
 5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
-6. **Version** — bump **1.3.4**.
+6. **Convert → onglet Converted** — rebuild des optic déjà convertis (replace internals) : changer division (ex. Color → Toric) + plages CYL/AXIS, régénérer tous les internes.
+7. **Version** — bump **1.3.5**.
 
 ### Session 2026-08-23 (précédente)
 
@@ -481,6 +482,24 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-product.php`, `admin-product.js`, `admin.css`.
 
+### 2.16 Convert — onglet Converted / rebuild (session 2026-08-26)
+
+**Besoin :** produit converti en mauvaise division (ex. Color Lenses au lieu de Toric) → CYL/AXIS absents ; trop lourd de corriger 150 internes à la main.
+
+**UI :** Alwaleed Optics → Convert → **Converted**
+
+| Élément | Comportement |
+|---------|----------------|
+| Liste | `optic_product` avec internes (originaux WPML) ; colonnes division + count |
+| Rebuild selected | Même wizard Convert en mode rebuild |
+| Replace | Forcé (case cochée + disabled) |
+| Préremplissage | Division, identité, plages stockées (`_optic_power_ranges`) |
+| Résultat | `convert_product( …, mode=replace )` régénère tous les enfants |
+
+**Méthodes :** `WC_Optic_Converter::is_converted()`, `get_converted_products()`, `get_converted_stats()` ; wizard payload + `ranges` / `child_count`.
+
+**Fichiers :** `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -746,6 +765,13 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Remove → ligne disparait ; Update produit (identité) ne détruit pas les internes
 - [ ] Nouveau produit : Add désactivé jusqu’au premier Save WP
 
+### Convert Rebuild (1.3.5)
+
+- [ ] Onglet **Converted** liste les optic avec internes (pas les simples)
+- [ ] Rebuild Color → Toric : plages CYL+AXIS ; confirmation replace ; nouveaux internes générés
+- [ ] Compteur Internals + colonne Division mis à jour dans la liste après rebuild
+- [ ] WPML : seules les fiches originales listées ; traductions sync après rebuild
+
 ### Activation plugin (1.2.5)
 
 - [ ] Désactiver puis réactiver le plugin : pas d’erreur fatale `WC_Optic_Catalog not found`
@@ -758,8 +784,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.4] — 2026-08-26**.
-4. **Version plugin** : **1.3.4** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.5] — 2026-08-26**.
+4. **Version plugin** : **1.3.5** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
