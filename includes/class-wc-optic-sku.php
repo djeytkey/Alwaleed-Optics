@@ -31,7 +31,7 @@ class WC_Optic_SKU {
 	const RANGES_META_KEY   = '_optic_power_ranges';
 	const GLOBAL_BACKORDER_ENABLED_OPTION  = 'wc_optic_backorder_enabled';
 	const GLOBAL_BACKORDER_QTY_OPTION      = 'wc_optic_backorder_qty';
-	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 200;
+	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 400;
 
 	/**
 	 * Product-level derived catalog index meta keys.
