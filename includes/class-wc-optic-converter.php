@@ -540,6 +540,10 @@ class WC_Optic_Converter {
 			}
 
 			$mode = isset( $args['mode'] ) ? sanitize_key( $args['mode'] ) : 'skip_if_has_children';
+			if ( 'append' === $mode ) {
+				return self::add_specifics_to_product( $product, $args, $wpml );
+			}
+
 			if ( 'replace' !== $mode && self::has_children( $product ) ) {
 				return array(
 					'product_id'  => $product->get_id(),
@@ -600,6 +604,77 @@ class WC_Optic_Converter {
 				WC_Optic_WPML::restore_language();
 			}
 		}
+	}
+
+	/**
+	 * Append extra power combinations to an already-converted optic product (no rebuild).
+	 *
+	 * Division stays the product's current division. Existing internals are kept;
+	 * duplicate power combinations from the posted ranges are skipped.
+	 *
+	 * @param WC_Product $product Product (already resolved).
+	 * @param array      $args    Posted args (ranges, catalog, price, stock).
+	 * @param bool       $wpml    Whether WPML sync is active for this request.
+	 * @return array|WP_Error
+	 */
+	protected static function add_specifics_to_product( WC_Product $product, array $args, $wpml ) {
+		if ( 'optic_product' !== $product->get_type() ) {
+			return new WP_Error( 'wc_optic_not_optic', __( 'Only converted optic products can receive additional powers.', 'wc-optic' ) );
+		}
+
+		$existing = WC_Optic_SKU::get_child_configs( $product );
+		if ( empty( $existing ) ) {
+			return new WP_Error( 'wc_optic_no_children', __( 'This product has no internals yet. Convert or rebuild it first.', 'wc-optic' ) );
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$divs     = WC_Optic_Plugin::get_divisions();
+		if ( ! $division || ! isset( $divs[ $division ] ) ) {
+			return new WP_Error( 'wc_optic_missing_division', __( 'This product has no optical division.', 'wc-optic' ) );
+		}
+
+		// Force product division — specifics never change division (use Rebuild for that).
+		$args['division'] = $division;
+
+		$prepared = self::prepare_args( $product, $args );
+		if ( is_wp_error( $prepared ) ) {
+			return $prepared;
+		}
+
+		$validated = self::validate_product_args( $product, $args );
+		if ( is_wp_error( $validated ) ) {
+			return $validated;
+		}
+
+		$merged = WC_Optic_SKU::merge_children_from_ranges(
+			$existing,
+			$prepared['division'],
+			$prepared['catalog'],
+			$prepared['ranges'],
+			$prepared['unit_price'],
+			$prepared['stock_qty']
+		);
+		if ( is_wp_error( $merged ) ) {
+			return $merged;
+		}
+
+		WC_Optic_SKU::persist_child_data( $product, $merged['children'] );
+		WC_Optic_SKU::sync_product_sku( $product );
+		$product->save();
+
+		if ( $wpml ) {
+			WC_Optic_WPML::sync_product_translations( $product->get_id() );
+		}
+
+		return array(
+			'product_id'         => $product->get_id(),
+			'skipped'            => false,
+			'appended'           => true,
+			'added'              => (int) $merged['added'],
+			'skipped_duplicates' => (int) $merged['skipped_duplicates'],
+			'candidates'         => (int) $merged['candidates'],
+			'child_count'        => count( $merged['children'] ),
+		);
 	}
 
 	/**

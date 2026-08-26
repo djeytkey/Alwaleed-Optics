@@ -61,9 +61,10 @@ class WC_Optic_Admin_Convert {
 			),
 			'maxChildren'       => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
 			'templates'         => WC_Optic_Power_Template::get_all(),
-			'convertTab'        => in_array( $tab, array( 'convert', 'converted' ), true ),
+			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),
 			'rebuildMode'       => 'converted' === $tab,
-			'dt'                => in_array( $tab, array( 'convert', 'converted' ), true ) ? self::get_datatables_i18n() : array(),
+			'specificsMode'     => 'specifics' === $tab,
+			'dt'                => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ) ? self::get_datatables_i18n() : array(),
 			'i18n'              => array(
 				'saveFailed'        => __( 'Could not save the template.', 'wc-optic' ),
 				'deleteConfirm'     => __( 'Delete this power range template?', 'wc-optic' ),
@@ -74,11 +75,13 @@ class WC_Optic_Admin_Convert {
 				'needPrice'         => __( 'This product has no price. Enter a unit price.', 'wc-optic' ),
 				'confirmReplace'    => __( 'This product already has internals. Replace them?', 'wc-optic' ),
 				'confirmRebuild'    => __( 'Rebuild will replace all existing internal products with the new division ranges. Continue?', 'wc-optic' ),
+				'confirmSpecifics'  => __( 'Add these power combinations to the existing internals? Duplicates will be skipped.', 'wc-optic' ),
 				'confirmClose'      => __( 'Close the wizard? Unsaved steps for this product will be lost.', 'wc-optic' ),
 				'convertFailed'     => __( 'Could not convert this product.', 'wc-optic' ),
 				'loadFailed'        => __( 'Could not load the product.', 'wc-optic' ),
 				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
 				'rebuilt'           => __( 'Rebuilt: %d internal products.', 'wc-optic' ),
+				'specificsAdded'    => __( 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.', 'wc-optic' ),
 				'skipped'           => __( 'Skipped: already has internal products.', 'wc-optic' ),
 				'nextProduct'       => __( 'Next product', 'wc-optic' ),
 				'nextStep'          => __( 'Next', 'wc-optic' ),
@@ -89,8 +92,10 @@ class WC_Optic_Admin_Convert {
 				'allProducts'       => __( 'All', 'wc-optic' ),
 				'wizardConvert'     => __( 'Convert product', 'wc-optic' ),
 				'wizardRebuild'     => __( 'Rebuild product', 'wc-optic' ),
+				'wizardSpecifics'   => __( 'Add specifics', 'wc-optic' ),
 				'startWizard'       => __( 'Start wizard', 'wc-optic' ),
 				'startRebuild'      => __( 'Rebuild selected', 'wc-optic' ),
+				'startSpecifics'    => __( 'Add specifics', 'wc-optic' ),
 			),
 		);
 	}
@@ -106,7 +111,7 @@ class WC_Optic_Admin_Convert {
 		}
 
 		$tab           = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$is_list_tab   = in_array( $tab, array( 'convert', 'converted' ), true );
+		$is_list_tab   = in_array( $tab, array( 'convert', 'converted', 'specifics' ), true );
 
 		wp_enqueue_style( 'woocommerce_admin_styles' );
 		wp_enqueue_script( 'selectWoo' );
@@ -176,7 +181,7 @@ class WC_Optic_Admin_Convert {
 		}
 
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! in_array( $tab, array( 'convert', 'converted' ), true ) ) {
+		if ( ! in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ) ) {
 			return;
 		}
 
@@ -223,7 +228,7 @@ class WC_Optic_Admin_Convert {
 		}
 
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'convert'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! in_array( $tab, array( 'convert', 'converted', 'templates' ), true ) ) {
+		if ( ! in_array( $tab, array( 'convert', 'converted', 'specifics', 'templates' ), true ) ) {
 			$tab = 'convert';
 		}
 
@@ -232,6 +237,7 @@ class WC_Optic_Admin_Convert {
 		echo '<h2 class="nav-tab-wrapper">';
 		self::nav_tab( 'convert', $tab, __( 'Convert', 'wc-optic' ) );
 		self::nav_tab( 'converted', $tab, __( 'Converted', 'wc-optic' ) );
+		self::nav_tab( 'specifics', $tab, __( 'Specifics', 'wc-optic' ) );
 		self::nav_tab( 'templates', $tab, __( 'Range templates', 'wc-optic' ) );
 		echo '</h2>';
 
@@ -239,6 +245,8 @@ class WC_Optic_Admin_Convert {
 			self::render_templates_tab();
 		} elseif ( 'converted' === $tab ) {
 			self::render_converted_tab();
+		} elseif ( 'specifics' === $tab ) {
+			self::render_specifics_tab();
 		} else {
 			self::render_convert_tab();
 		}
@@ -383,7 +391,7 @@ class WC_Optic_Admin_Convert {
 		echo '</tbody></table>';
 		echo '</div>';
 
-		self::render_wizard_modal( false );
+		self::render_wizard_modal( 'convert' );
 	}
 
 	/**
@@ -461,16 +469,107 @@ class WC_Optic_Admin_Convert {
 		echo '</tbody></table>';
 		echo '</div>';
 
-		self::render_wizard_modal( true );
+		self::render_wizard_modal( 'rebuild' );
+	}
+
+	/**
+	 * Specifics tab: add extra power combinations without rebuilding.
+	 */
+	protected static function render_specifics_tab() {
+		$stats    = WC_Optic_Converter::get_converted_stats();
+		$products = WC_Optic_Converter::get_converted_products(
+			array(
+				'limit' => WC_Optic_Converter::CONVERT_LIST_LIMIT,
+				'page'  => 1,
+			)
+		);
+		$divs = WC_Optic_Plugin::get_divisions();
+
+		echo '<p class="description">' . esc_html__( 'Add extra power combinations to already-converted products (for example SPH +0.00 with existing CYL/AXIS). Existing internals are kept; duplicate prescriptions are skipped.', 'wc-optic' ) . '</p>';
+		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
+			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. New internals are copied to translations after save.', 'wc-optic' ) . '</p>';
+		}
+
+		echo '<p class="wc-optic-convert-stats description" id="wc-optic-convert-stats"';
+		echo ' data-eligible="' . esc_attr( (string) $stats['converted'] ) . '"';
+		echo ' data-total-simple="' . esc_attr( (string) $stats['total_optic'] ) . '">';
+		echo esc_html(
+			sprintf(
+				/* translators: 1: converted count, 2: total optic products */
+				__( '%1$d converted products with internals (%2$d optic products in catalog).', 'wc-optic' ),
+				$stats['converted'],
+				$stats['total_optic']
+			)
+		);
+		if ( $stats['excluded_wpml'] > 0 ) {
+			echo ' ';
+			echo esc_html(
+				sprintf(
+					/* translators: %d: WPML translation count excluded */
+					__( '%d WPML translations excluded.', 'wc-optic' ),
+					$stats['excluded_wpml']
+				)
+			);
+		}
+		echo '</p>';
+
+		echo '<p class="wc-optic-convert-toolbar">';
+		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all matching rows', 'wc-optic' ) . '</label> ';
+		echo '<button type="button" class="button button-primary" id="wc-optic-start-wizard">' . esc_html__( 'Add specifics', 'wc-optic' ) . '</button>';
+		echo '</p>';
+
+		echo '<div class="wc-optic-datatable-wrap wc-optic-convert-datatable-wrap">';
+		echo '<table class="widefat wc-optic-convert-datatable display" id="wc-optic-convert-table" width="100%">';
+		echo '<thead><tr>';
+		echo '<th>' . esc_html__( 'Product', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'SKU (parent)', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Division', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Internals', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
+		echo '</tr></thead><tbody>';
+		foreach ( $products as $product ) {
+			$product_id = $product->get_id();
+			$division   = (string) $product->get_meta( '_optic_division', true );
+			$div_label  = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
+			$child_n    = count( WC_Optic_SKU::get_child_configs( $product ) );
+			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
+			echo '<td class="wc-optic-convert-product-name">';
+			echo '<label class="wc-optic-convert-product-label">';
+			echo '<input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product_id ) . '" /> ';
+			echo esc_html( $product->get_name() );
+			echo '</label></td>';
+			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
+			echo '<td class="wc-optic-convert-division" data-division="' . esc_attr( $division ) . '">' . esc_html( $div_label ) . '</td>';
+			echo '<td class="wc-optic-convert-child-count" data-order="' . esc_attr( (string) $child_n ) . '">' . esc_html( (string) $child_n ) . '</td>';
+			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table>';
+		echo '</div>';
+
+		self::render_wizard_modal( 'specifics' );
 	}
 
 	/**
 	 * Bootstrap modal (static backdrop) — one product at a time.
 	 *
-	 * @param bool $rebuild Rebuild mode (converted tab).
+	 * @param string $mode convert|rebuild|specifics.
 	 */
-	protected static function render_wizard_modal( $rebuild = false ) {
-		$title = $rebuild ? __( 'Rebuild product', 'wc-optic' ) : __( 'Convert product', 'wc-optic' );
+	protected static function render_wizard_modal( $mode = 'convert' ) {
+		if ( true === $mode ) {
+			$mode = 'rebuild';
+		} elseif ( false === $mode ) {
+			$mode = 'convert';
+		}
+		$mode = in_array( $mode, array( 'convert', 'rebuild', 'specifics' ), true ) ? $mode : 'convert';
+
+		if ( 'rebuild' === $mode ) {
+			$title = __( 'Rebuild product', 'wc-optic' );
+		} elseif ( 'specifics' === $mode ) {
+			$title = __( 'Add specifics', 'wc-optic' );
+		} else {
+			$title = __( 'Convert product', 'wc-optic' );
+		}
 
 		echo '<div class="modal fade wc-optic-bs" id="wc-optic-wizard-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="wc-optic-wizard-title" aria-hidden="true">';
 		echo '<div class="modal-dialog modal-lg wc-optic-wizard-dialog">';
@@ -496,16 +595,21 @@ class WC_Optic_Admin_Convert {
 
 		echo '<div class="wc-optic-wizard-pane" data-step="1">';
 		echo '<div class="wc-optic-wizard-product" id="wc-optic-wizard-product-card"></div>';
-		if ( $rebuild ) {
+		if ( 'rebuild' === $mode ) {
 			echo '<p class="description">' . esc_html__( 'Change the division if needed (for example Color Lenses → Astigmatism Toric), then continue. Internals will be rebuilt from the new ranges.', 'wc-optic' ) . '</p>';
+		} elseif ( 'specifics' === $mode ) {
+			echo '<p class="description">' . esc_html__( 'Division stays as on the product. Use Rebuild if you need to change division. Only new power combinations are added.', 'wc-optic' ) . '</p>';
 		}
 		echo '<p class="form-field"><label for="wc_optic_wizard_division">' . esc_html__( 'Optical division', 'wc-optic' ) . ' <abbr class="required">*</abbr></label>';
-		echo '<select id="wc_optic_wizard_division" class="wc-optic-select2 wc-optic-wizard-select">';
+		echo '<select id="wc_optic_wizard_division" class="wc-optic-select2 wc-optic-wizard-select"' . ( 'specifics' === $mode ? ' disabled="disabled"' : '' ) . '>';
 		echo '<option value="">' . esc_html__( '— Select —', 'wc-optic' ) . '</option>';
 		foreach ( WC_Optic_Plugin::get_visible_divisions() as $slug => $def ) {
 			echo '<option value="' . esc_attr( $slug ) . '">' . esc_html( $def['label'] ) . '</option>';
 		}
 		echo '</select></p>';
+		if ( 'specifics' === $mode ) {
+			echo '<input type="hidden" id="wc_optic_wizard_division_locked" value="1" />';
+		}
 		echo '</div>';
 
 		echo '<div class="wc-optic-wizard-pane" data-step="2" hidden>';
@@ -514,6 +618,9 @@ class WC_Optic_Admin_Convert {
 		echo '</div>';
 
 		echo '<div class="wc-optic-wizard-pane" data-step="3" hidden>';
+		if ( 'specifics' === $mode ) {
+			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 Step 0.25, and keep CYL/AXIS ranges for the combinations you need. Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
+		}
 		echo '<p><label for="wc_optic_wizard_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label><br />';
 		echo '<select id="wc_optic_wizard_template" class="wc-optic-wizard-select">';
 		echo '<option value="">' . esc_html__( 'Custom range', 'wc-optic' ) . '</option>';
@@ -523,14 +630,21 @@ class WC_Optic_Admin_Convert {
 		echo '</select></p>';
 		self::render_range_fields( '', array(), 'wizard_ranges', 'wc-optic-wizard-ranges' );
 		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it.', 'wc-optic' ) . '</p>';
-		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' ) . '</p>';
+		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' );
+		if ( 'specifics' === $mode ) {
+			echo ' <span class="description">(' . esc_html__( 'candidates before duplicate check', 'wc-optic' ) . ')</span>';
+		}
+		echo '</p>';
 		echo '<p><label for="wc_optic_wizard_price">' . esc_html__( 'Unit price', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_wizard_price" class="wc_input_price regular-text" /></p>';
 		echo '<p><label for="wc_optic_wizard_stock">' . esc_html__( 'Default stock', 'wc-optic' ) . '</label><br />';
 		echo '<input type="number" id="wc_optic_wizard_stock" min="0" step="1" value="0" /></p>';
-		if ( $rebuild ) {
+		if ( 'rebuild' === $mode ) {
 			echo '<p><label><input type="checkbox" id="wc_optic_wizard_replace" checked="checked" disabled="disabled" /> ' . esc_html__( 'Replace existing internals (required for rebuild)', 'wc-optic' ) . '</label></p>';
 			echo '<input type="hidden" id="wc_optic_wizard_replace_forced" value="1" />';
+		} elseif ( 'specifics' === $mode ) {
+			echo '<input type="hidden" id="wc_optic_wizard_mode" value="append" />';
+			echo '<p class="description">' . esc_html__( 'Existing internals are never replaced in this tab.', 'wc-optic' ) . '</p>';
 		} else {
 			echo '<p><label><input type="checkbox" id="wc_optic_wizard_replace" /> ' . esc_html__( 'Replace existing internals', 'wc-optic' ) . '</label></p>';
 		}

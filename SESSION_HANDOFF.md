@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.7 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -22,7 +22,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
 6. **Convert → onglet Converted** — rebuild des optic déjà convertis (replace internals) : changer division (ex. Color → Toric) + plages CYL/AXIS, régénérer tous les internes.
 7. **Wizard modal** — structure simple (plus de `pane-scroll` / `pane-fixed`) ; scroll naturel du `.modal`.
-8. **Version** — bump **1.3.7**.
+8. **Convert → onglet Specifics** — ajouter des puissances extras aux produits déjà convertis **sans rebuild** (mode `append`) ; doublons SPH/CYL/AXIS/ADD ignorés. Ex. SPH +0.00 × plages CYL/AXIS.
+9. **Version** — bump **1.3.8**.
 
 ### Session 2026-08-23 (précédente)
 
@@ -501,6 +502,24 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`.
 
+### 2.17 Convert — onglet Specifics / add-only (session 2026-08-26)
+
+**Besoin :** produit déjà converti sans certaines puissances (ex. SPH +0.00 manquant) → enrichir les internes **sans** tout régénérer.
+
+**UI :** Alwaleed Optics → Convert → **Specifics**
+
+| Élément | Comportement |
+|---------|----------------|
+| Liste | Même source que Converted (`get_converted_products`) |
+| Division | Verrouillée (inchangée) — rebuild pour changer de division |
+| Préremplissage plages | CYL/AXIS/ADD depuis le produit ; **SPH vide** pour forcer la saisie des extras |
+| Persist | `mode=append` → `merge_children_from_ranges()` : conserve l’existant, skip doublons |
+| Résultat | Message : ajoutés / doublons ignorés / total |
+
+**Méthodes :** `WC_Optic_SKU::merge_children_from_ranges()`, `WC_Optic_Converter::add_specifics_to_product()` ; AJAX `wc_optic_generate_product_children` avec `mode=append`.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -517,9 +536,9 @@ WC_Optic_Converter::convert_product() / preview()
 | Fichier | Rôle |
 |---------|------|
 | `admin/class-wc-optic-admin-menu.php` | Menu principal Alwaleed Optics + badge alertes stock + Convert |
-| `admin/class-wc-optic-admin-convert.php` | Gabarits + conversion ; DataTables footer ; compteur produits ; identité sans couleur si division |
+| `admin/class-wc-optic-admin-convert.php` | Gabarits + Convert / Converted / **Specifics** ; DataTables footer |
 | `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` |
-| `class-wc-optic-converter.php` | Simple → optic ; `get_convert_stats()`, `CONVERT_LIST_LIMIT = -1` |
+| `class-wc-optic-converter.php` | Simple → optic ; rebuild replace ; **append specifics** ; `CONVERT_LIST_LIMIT = -1` |
 | `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
 | `class-wc-optic-divisions.php` | Divisions ; `show_color` par division |
 | `class-wc-optic-plugin.php` | `division_shows_color()` |
@@ -530,7 +549,7 @@ WC_Optic_Converter::convert_product() / preview()
 | `admin/class-wc-optic-admin-product.php` | Liste compacte + éditeur AJAX ; save = identité seule |
 | `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `enumerate_power_range_values()` (force +0.00) |
 | `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
-| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; **upsert/remove child** ; **anti-doublon powers** |
+| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; upsert/remove ; anti-doublon ; **merge_children_from_ranges** |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
 | `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, `apply_child_stock_delta` |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
@@ -554,7 +573,7 @@ WC_Optic_Converter::convert_product() / preview()
 | `assets/js/cart.js` | Inchangé (sync qty) |
 | `assets/js/admin-settings.js` | Toggle visibilité champ backorder qty global |
 | `assets/js/admin-product.js` | Liste internes + Edit/Save/Remove AJAX ; anti-doublon UX |
-| `assets/js/admin-convert.js` | Wizard Convert ; From/To/Step acceptent `0` |
+| `assets/js/admin-convert.js` | Wizard Convert / Rebuild / Specifics ; From/To/Step acceptent `0` |
 | `assets/js/admin-stock.js` | Collapsible parent rows, recherche, expand/collapse, modal restock (+ reset backorder), badge low stock parent, DataTables (onglet alertes) |
 | `assets/vendor/datatables/dataTables.min.js` | **DataTables 2.1.8 core** (Convert + Stock alerts) |
 | `assets/vendor/datatables/dataTables.dataTables.min.css` | Styles DataTables |
@@ -773,6 +792,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Compteur Internals + colonne Division mis à jour dans la liste après rebuild
 - [ ] WPML : seules les fiches originales listées ; traductions sync après rebuild
 
+### Convert Specifics (1.3.8)
+
+- [ ] Onglet **Specifics** liste les mêmes produits convertis
+- [ ] Division non modifiable dans le wizard
+- [ ] SPH From/To/Step = 0 / 0 / 0.25 + CYL/AXIS préremplis → ajoute seulement les combos manquantes
+- [ ] Relancer les mêmes plages → erreur ou 0 ajout (tous doublons)
+- [ ] Compteur Internals mis à jour ; internes existants inchangés (prix/stock/SKU)
+
 ### Activation plugin (1.2.5)
 
 - [ ] Désactiver puis réactiver le plugin : pas d’erreur fatale `WC_Optic_Catalog not found`
@@ -785,8 +812,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.5] — 2026-08-26**.
-4. **Version plugin** : **1.3.5** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.8] — 2026-08-26**.
+4. **Version plugin** : **1.3.8** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.

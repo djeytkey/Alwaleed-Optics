@@ -1945,6 +1945,79 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Build internals from ranges and merge into existing children, skipping duplicate power combos.
+	 *
+	 * Does not replace existing rows. New children get unique ids and continue sort order.
+	 *
+	 * @param array              $existing   Current child configs.
+	 * @param string             $division   Division slug.
+	 * @param array<string, int> $catalog    Shared identity.
+	 * @param array              $ranges     Ranges keyed by power (extras to add).
+	 * @param mixed              $unit_price Unit price for new rows.
+	 * @param mixed              $stock_qty  Stock for new rows.
+	 * @return array|WP_Error {
+	 *     @type array $children            Merged list.
+	 *     @type int   $added               New internals count.
+	 *     @type int   $skipped_duplicates  Combos already present.
+	 *     @type int   $candidates          Combos generated from ranges before skip.
+	 * }
+	 */
+	public static function merge_children_from_ranges( array $existing, $division, array $catalog, array $ranges, $unit_price, $stock_qty ) {
+		$candidates = self::build_children_from_ranges( $division, $catalog, $ranges, $unit_price, $stock_qty );
+		if ( is_wp_error( $candidates ) ) {
+			return $candidates;
+		}
+
+		$merged   = array_values( $existing );
+		$added    = array();
+		$skipped  = 0;
+		$max_sort = -1;
+		foreach ( $merged as $row ) {
+			$max_sort = max( $max_sort, (int) ( $row['sort'] ?? 0 ) );
+		}
+
+		foreach ( $candidates as $candidate ) {
+			$dup = self::assert_unique_power_combination( array_merge( $merged, $added ), $candidate, $division, '' );
+			if ( is_wp_error( $dup ) ) {
+				++$skipped;
+				continue;
+			}
+
+			$candidate['id']   = 'child_' . wp_generate_password( 8, false, false );
+			$candidate['sort'] = ++$max_sort;
+			$added[]           = $candidate;
+		}
+
+		if ( empty( $added ) ) {
+			return new WP_Error(
+				'wc_optic_no_new_specifics',
+				__( 'No new internals to add: every combination from these ranges already exists on the product.', 'wc-optic' )
+			);
+		}
+
+		$total = count( $merged ) + count( $added );
+		if ( $total > self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+			return new WP_Error(
+				'wc_optic_too_many_children',
+				sprintf(
+					/* translators: 1: resulting total, 2: max allowed, 3: would-add count */
+					__( 'Adding these specifics would reach %1$d internals (maximum %2$d). Narrow the ranges (this batch would add %3$d).', 'wc-optic' ),
+					$total,
+					self::MAX_LEGACY_SYNTHETIC_CHILDREN,
+					count( $added )
+				)
+			);
+		}
+
+		return array(
+			'children'           => array_merge( $merged, $added ),
+			'added'              => count( $added ),
+			'skipped_duplicates' => $skipped,
+			'candidates'         => count( $candidates ),
+		);
+	}
+
+	/**
 	 * Expand selected powers into concrete child combinations.
 	 *
 	 * @param array<string, array<int, int>> $power_values Power value ids by type.

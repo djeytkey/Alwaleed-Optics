@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.8] — 2026-08-26
+
+### Ajouté
+
+- **Convert → onglet Specifics** : ajouter des puissances supplémentaires aux produits déjà convertis (ex. SPH +0.00 × CYL/AXIS existants) **sans rebuild**. Les combinaisons déjà présentes sont ignorées ; message `ajoutés / doublons ignorés / total`.
+
 ## [1.3.7] — 2026-08-26
 
 ### Modifié

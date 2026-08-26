@@ -168,8 +168,21 @@ class WC_Optic_Ajax {
 			'template_id' => isset( $_POST['template_id'] ) ? sanitize_key( wp_unslash( $_POST['template_id'] ) ) : '',
 			'unit_price'  => isset( $_POST['unit_price'] ) ? wc_format_decimal( wp_unslash( $_POST['unit_price'] ) ) : '',
 			'stock_qty'   => isset( $_POST['stock_qty'] ) ? absint( wp_unslash( $_POST['stock_qty'] ) ) : 0,
-			'mode'        => ! empty( $_POST['replace'] ) ? 'replace' : 'skip_if_has_children',
+			'mode'        => self::posted_convert_mode(),
 		);
+	}
+
+	/**
+	 * Convert / rebuild / append mode from POST.
+	 *
+	 * @return string
+	 */
+	protected static function posted_convert_mode() {
+		$mode = isset( $_POST['mode'] ) ? sanitize_key( wp_unslash( $_POST['mode'] ) ) : '';
+		if ( in_array( $mode, array( 'replace', 'append', 'skip_if_has_children' ), true ) ) {
+			return $mode;
+		}
+		return ! empty( $_POST['replace'] ) ? 'replace' : 'skip_if_has_children';
 	}
 
 	/**

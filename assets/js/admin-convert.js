@@ -190,11 +190,10 @@
 		applyTemplateRanges( { ranges: ranges } );
 	}
 
-	function isRebuildMode() {
-		return !!( wcOpticConvert && wcOpticConvert.rebuildMode );
-	}
-
 	function isReplaceChecked() {
+		if ( isSpecificsMode() ) {
+			return false;
+		}
 		if ( $( '#wc_optic_wizard_replace_forced' ).length && $( '#wc_optic_wizard_replace_forced' ).val() === '1' ) {
 			return true;
 		}
@@ -259,7 +258,9 @@
 		var args = Array.prototype.slice.call( arguments, 1 );
 		return String( template ).replace( /%(\d+)\$d/g, function ( _, n ) {
 			return args[ parseInt( n, 10 ) - 1 ];
-		} ).replace( '%d', args[ 0 ] );
+		} ).replace( /%d/g, function () {
+			return args.shift();
+		} );
 	}
 
 	function showAlert( message, success ) {
@@ -269,6 +270,31 @@
 			return;
 		}
 		$alert.text( message ).toggleClass( 'is-success', !! success ).removeAttr( 'hidden' );
+	}
+
+	function isRebuildMode() {
+		return !!( wcOpticConvert && wcOpticConvert.rebuildMode );
+	}
+
+	function isSpecificsMode() {
+		return !!( wcOpticConvert && wcOpticConvert.specificsMode );
+	}
+
+	function wizardDivisionValue() {
+		return $( '#wc_optic_wizard_division' ).val() || '';
+	}
+
+	function prepareSpecificsRanges( ranges ) {
+		var prepared = ranges ? $.extend( true, {}, ranges ) : {};
+		// Prefill CYL/AXIS/ADD from the product; leave SPH empty so the operator sets extras (e.g. 0.00).
+		if ( prepared.sph ) {
+			prepared.sph = {
+				from: '',
+				to: '',
+				step: prepared.sph.step || ( wcOpticConvert.defaultSteps && wcOpticConvert.defaultSteps.sph ) || '0.25',
+			};
+		}
+		return prepared;
 	}
 
 	function setStep( next ) {
@@ -366,7 +392,9 @@
 				$( '#wc_optic_wizard_division' ).val( current.division || '' );
 				$( '#wc_optic_wizard_price' ).val( current.price || '' );
 				$( '#wc_optic_wizard_stock' ).val( '0' );
-				if ( isRebuildMode() ) {
+				if ( isSpecificsMode() ) {
+					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardSpecifics || 'Add specifics' );
+				} else if ( isRebuildMode() ) {
 					$( '#wc_optic_wizard_replace' ).prop( 'checked', true );
 					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardRebuild || 'Rebuild product' );
 				} else {
@@ -377,7 +405,9 @@
 				fillIdentity( current.identity || {} );
 				applyDivisionRanges( current.division || '' );
 				applyDivisionIdentityFields( current.division || '' );
-				if ( current.ranges ) {
+				if ( isSpecificsMode() ) {
+					fillRanges( prepareSpecificsRanges( current.ranges || {} ) );
+				} else if ( current.ranges ) {
 					fillRanges( current.ranges );
 				}
 				updateProgress();
@@ -428,7 +458,11 @@
 		if ( ! current ) {
 			return;
 		}
-		if ( isRebuildMode() ) {
+		if ( isSpecificsMode() ) {
+			if ( ! window.confirm( wcOpticConvert.i18n.confirmSpecifics ) ) {
+				return;
+			}
+		} else if ( isRebuildMode() ) {
 			if ( ! window.confirm( wcOpticConvert.i18n.confirmRebuild || wcOpticConvert.i18n.confirmReplace ) ) {
 				return;
 			}
@@ -439,21 +473,28 @@
 			$( '#wc_optic_wizard_replace' ).prop( 'checked', true );
 		}
 
+		var payload = {
+			action: 'wc_optic_generate_product_children',
+			nonce: wcOpticConvert.nonce,
+			product_id: current.id,
+			division: wizardDivisionValue() || current.division || '',
+			catalog: collectIdentity(),
+			ranges: collectRanges(),
+			template_id: $( '#wc_optic_wizard_template' ).val() || '',
+			unit_price: $( '#wc_optic_wizard_price' ).val() || '',
+			stock_qty: $( '#wc_optic_wizard_stock' ).val() || 0,
+		};
+		if ( isSpecificsMode() ) {
+			payload.mode = 'append';
+			payload.replace = 0;
+		} else {
+			payload.replace = isReplaceChecked() || isRebuildMode() ? 1 : 0;
+		}
+
 		$( '#wc-optic-wizard-next' ).prop( 'disabled', true );
 		$.post(
 			wcOpticConvert.ajaxUrl,
-			{
-				action: 'wc_optic_generate_product_children',
-				nonce: wcOpticConvert.nonce,
-				product_id: current.id,
-				division: $( '#wc_optic_wizard_division' ).val() || '',
-				catalog: collectIdentity(),
-				ranges: collectRanges(),
-				template_id: $( '#wc_optic_wizard_template' ).val() || '',
-				unit_price: $( '#wc_optic_wizard_price' ).val() || '',
-				stock_qty: $( '#wc_optic_wizard_stock' ).val() || 0,
-				replace: isReplaceChecked() || isRebuildMode() ? 1 : 0,
-			},
+			payload,
 			function ( res ) {
 				$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
 				if ( ! res || ! res.success || ! res.data ) {
@@ -463,9 +504,19 @@
 				converted = true;
 				current.has_children = true;
 				current.child_count = res.data.child_count || 0;
-				current.division = $( '#wc_optic_wizard_division' ).val() || current.division;
+				current.division = wizardDivisionValue() || current.division;
 				if ( res.data.skipped ) {
 					showAlert( wcOpticConvert.i18n.skipped, true );
+				} else if ( isSpecificsMode() ) {
+					showAlert(
+						sprintf(
+							wcOpticConvert.i18n.specificsAdded || 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.',
+							res.data.added || 0,
+							res.data.skipped_duplicates || 0,
+							res.data.child_count || 0
+						),
+						true
+					);
 				} else {
 					var msgTpl = isRebuildMode()
 						? ( wcOpticConvert.i18n.rebuilt || wcOpticConvert.i18n.converted )
@@ -477,7 +528,7 @@
 				if ( $row.find( '.wc-optic-convert-child-count' ).length ) {
 					$row.find( '.wc-optic-convert-child-count' ).text( String( current.child_count ) ).attr( 'data-order', String( current.child_count ) );
 				}
-				if ( $row.find( '.wc-optic-convert-division' ).length ) {
+				if ( $row.find( '.wc-optic-convert-division' ).length && ! isSpecificsMode() ) {
 					var divLabel = $( '#wc_optic_wizard_division option:selected' ).text() || current.division || '';
 					$row.find( '.wc-optic-convert-division' ).text( divLabel ).attr( 'data-division', current.division || '' );
 				}
