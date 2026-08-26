@@ -4,6 +4,14 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.4] — 2026-08-26
+
+### Corrigé
+
+- **Identité optique → tous les internes** : changer Color / Brand / Pack / etc. (ou la division) applique immédiatement le catalogue + **regénère les SKU** de chaque interne (AJAX `wc_optic_sync_identity`). L’Update produit fait de même.
+- La synchro d’identité n’est **plus bloquée** par l’avertissement anti-doublon (ex. passage Toric → Color Lenses où plusieurs SPH se croisent).
+- Si la division masque la couleur, `color` est remis à 0 sur l’identité et tous les internes.
+
 ## [1.3.3] — 2026-08-26
 
 ### Ajouté

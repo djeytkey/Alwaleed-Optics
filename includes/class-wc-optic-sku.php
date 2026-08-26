@@ -548,6 +548,11 @@ class WC_Optic_SKU {
 			$product->update_meta_data( self::IDENTITY_META_KEY, $identity );
 		}
 
+		if ( $division && ! WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$identity['color'] = 0;
+			$product->update_meta_data( self::IDENTITY_META_KEY, $identity );
+		}
+
 		$children = self::get_child_configs( $product );
 		$raw_child['catalog'] = $identity;
 
@@ -1689,6 +1694,55 @@ class WC_Optic_SKU {
 			$out[]             = self::normalize_child_config( $config, $division, $index );
 		}
 		return $out;
+	}
+
+	/**
+	 * Persist division + identity on the product and rebuild every child catalog/SKU.
+	 *
+	 * Identity sync must not be blocked by duplicate-power warnings (e.g. after a
+	 * division change). Uniqueness is returned for UI notices only.
+	 *
+	 * @param WC_Product         $product  Product.
+	 * @param string             $division Division slug.
+	 * @param array<string, int> $identity Identity catalog map.
+	 * @return array{rows:array,count:int,unique:true|WP_Error}
+	 */
+	public static function sync_identity_on_product( WC_Product $product, $division, array $identity ) {
+		$divs = WC_Optic_Plugin::get_divisions();
+		$division = sanitize_key( (string) $division );
+		if ( $division && ! isset( $divs[ $division ] ) ) {
+			$division = '';
+		}
+
+		$identity = self::normalize_identity_catalog( $identity );
+		// When the division hides color, never keep a stale color on internals/SKUs.
+		if ( $division && ! WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$identity['color'] = 0;
+		}
+
+		$product->update_meta_data( '_optic_division', $division );
+		$product->update_meta_data( self::IDENTITY_META_KEY, $identity );
+
+		$children = self::get_child_configs( $product );
+		$unique   = true;
+
+		if ( ! empty( $children ) ) {
+			$children = self::apply_identity_to_children( $identity, $children, $division );
+			$unique   = self::validate_unique_power_combinations( $children, $division );
+			$children = self::preserve_child_backorder_consumed( $product, $children );
+			self::persist_child_data( $product, $children );
+		}
+
+		self::sync_product_sku( $product );
+		$product->save();
+
+		return array(
+			'rows'     => self::get_child_list_rows( $product ),
+			'count'    => count( self::get_child_configs( $product ) ),
+			'unique'   => $unique,
+			'identity' => $identity,
+			'division' => $division,
+		);
 	}
 
 	/**

@@ -511,6 +511,76 @@
 		}
 	}
 
+	var identitySyncTimer = null;
+	var identitySyncBusy = false;
+
+	function syncIdentityToAllChildren() {
+		var productId = getProductId();
+		if ( productId < 1 ) {
+			return;
+		}
+
+		if ( identitySyncBusy ) {
+			// Queue one more pass after the in-flight request.
+			window.clearTimeout( identitySyncTimer );
+			identitySyncTimer = window.setTimeout( syncIdentityToAllChildren, 200 );
+			return;
+		}
+
+		identitySyncBusy = true;
+		showNotice( i18n( 'identitySyncing', 'Updating internal SKUs…' ), false );
+
+		$.post(
+			wcOpticAdmin.ajaxUrl,
+			{
+				action: 'wc_optic_sync_identity',
+				nonce: wcOpticAdmin.nonce,
+				product_id: productId,
+				optic_division: getSelectedDivision(),
+				identity: collectParentIdentity(),
+			}
+		)
+			.done( function ( res ) {
+				if ( ! res || ! res.success || ! res.data ) {
+					showNotice(
+						( res && res.data && res.data.message ) || i18n( 'identitySyncing', 'Updating internal SKUs…' ),
+						true
+					);
+					return;
+				}
+				if ( res.data.rows ) {
+					renderRows( res.data.rows );
+				}
+				syncIdentityToEditor();
+				if ( ! getEditor().prop( 'hidden' ) ) {
+					refreshBlockSkuPreview( getEditorBlock() );
+				}
+				if ( res.data.warning ) {
+					showNotice( res.data.warning, true );
+				} else {
+					showNotice(
+						res.data.message || i18n( 'identitySynced', 'Optical identity applied to all internal products (SKUs updated).' ),
+						false
+					);
+				}
+			} )
+			.fail( function ( xhr ) {
+				var msg =
+					xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message
+						? xhr.responseJSON.data.message
+						: i18n( 'identitySyncing', 'Updating internal SKUs…' );
+				showNotice( msg, true );
+			} )
+			.always( function () {
+				identitySyncBusy = false;
+			} );
+	}
+
+	function scheduleIdentitySync() {
+		window.clearTimeout( identitySyncTimer );
+		identitySyncTimer = window.setTimeout( syncIdentityToAllChildren, 350 );
+	}
+
 	function closeEditor() {
 		var $editor = getEditor();
 		$editor.find( 'select.wc-optic-select2' ).each( function () {
@@ -799,12 +869,14 @@
 			if ( ! getEditor().prop( 'hidden' ) ) {
 				refreshBlockSkuPreview( getEditorBlock() );
 			}
+			scheduleIdentitySync();
 		} )
 		.on( 'change', '.wc-optic-identity-select', function () {
 			syncIdentityToEditor();
 			if ( ! getEditor().prop( 'hidden' ) ) {
 				refreshBlockSkuPreview( getEditorBlock() );
 			}
+			scheduleIdentitySync();
 		} )
 		.on( 'input', '#wc-optic-child-search', function () {
 			filterChildList();

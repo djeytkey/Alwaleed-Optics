@@ -31,6 +31,7 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_save_child', array( __CLASS__, 'save_child' ) );
 		add_action( 'wp_ajax_wc_optic_remove_child', array( __CLASS__, 'remove_child' ) );
 		add_action( 'wp_ajax_wc_optic_list_children', array( __CLASS__, 'list_children' ) );
+		add_action( 'wp_ajax_wc_optic_sync_identity', array( __CLASS__, 'sync_identity' ) );
 	}
 
 	/**
@@ -434,5 +435,29 @@ class WC_Optic_Ajax {
 				'count' => count( $rows ),
 			)
 		);
+	}
+
+	/**
+	 * Apply optical identity (+ division) to every internal and rebuild SKUs.
+	 */
+	public static function sync_identity() {
+		$product = self::require_optic_product_for_child_ajax();
+
+		$division = isset( $_POST['optic_division'] ) ? sanitize_key( wp_unslash( $_POST['optic_division'] ) ) : '';
+		$identity = isset( $_POST['identity'] ) && is_array( $_POST['identity'] ) ? wp_unslash( $_POST['identity'] ) : array();
+
+		$result = WC_Optic_SKU::sync_identity_on_product( $product, $division, $identity );
+
+		$payload = array(
+			'rows'    => $result['rows'],
+			'count'   => $result['count'],
+			'message' => __( 'Optical identity applied to all internal products (SKUs updated).', 'wc-optic' ),
+		);
+
+		if ( is_wp_error( $result['unique'] ) ) {
+			$payload['warning'] = $result['unique']->get_error_message();
+		}
+
+		wp_send_json_success( $payload );
 	}
 }

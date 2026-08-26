@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.4 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -19,7 +19,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 2. **Anti-doublon** — `assert_unique_power_combination()` / `validate_unique_power_combinations()` refusent toute combinaison SPH/CYL/AXIS/ADD déjà présente (même sur un interne désactivé). Message avec label conflictuel.
 3. **Sauvegarde produit** — `save_product()` ne lit plus `$_POST['_optic_child_configs']` ; applique seulement division + identité aux enfants existants. CRUD internes : `wc_optic_load_child` / `save_child` / `remove_child` / `list_children`.
 4. **Restyle notes panneau** — titres/aides (`.wc-optic-panel-heading` / `.wc-optic-panel-note`) : padding latéral `20px` homogène (plus de 2ᵉ ligne collée au bord du div à cause du `padding-left: 162px` WooCommerce sans label).
-5. **Version** — bump **1.3.3**.
+5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
+6. **Version** — bump **1.3.4**.
 
 ### Session 2026-08-23 (précédente)
 
@@ -757,8 +758,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.3] — 2026-08-26**.
-4. **Version plugin** : **1.3.3** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.4] — 2026-08-26**.
+4. **Version plugin** : **1.3.4** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
@@ -768,6 +769,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 11. **Autoload** : ne plus reporter `WC_Optic_Autoload::register()` après `plugins_loaded` — l’activation (et tout code avant ce hook) en a besoin.
 12. **Internes lazy (1.3.3)** : les champs éditeur utilisent le préfixe `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit) pour ne pas écraser la méta à l’Update WP. Doublon = même combinaison de puissances de la division, y compris internes désactivés.
 13. **Nouveau produit** : Add/Edit internes indisponibles tant que l’ID produit n’existe pas (premier Save WP requis).
+14. **Sync identité (1.3.4)** : un changement Toric → Color Lenses peut créer des doublons SPH ; l’identité/SKU sont quand même appliqués, avec warning UI — nettoyer les doublons à part.
 
 ---
 

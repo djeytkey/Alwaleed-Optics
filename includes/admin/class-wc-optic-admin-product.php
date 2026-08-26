@@ -237,7 +237,7 @@ class WC_Optic_Admin_Product {
 	}
 
 	/**
-	 * Save handler — division + identity only; internals are saved via AJAX.
+	 * Save handler — division + identity; push identity/SKU to every internal.
 	 *
 	 * @param WC_Product $product Product.
 	 */
@@ -253,29 +253,48 @@ class WC_Optic_Admin_Product {
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( isset( $_POST['_optic_identity'] ) ? wp_unslash( $_POST['_optic_identity'] ) : array() );
 
+		// Avoid a second $product->save() inside sync during the WooCommerce save cycle.
+		$result = self::sync_identity_during_product_save( $product, $division, $identity );
+
+		if ( is_wp_error( $result['unique'] ) ) {
+			WC_Admin_Notices::add_custom_notice(
+				'wc_optic_duplicate_powers',
+				$result['unique']->get_error_message()
+			);
+		}
+	}
+
+	/**
+	 * Same as sync_identity_on_product but without calling $product->save()
+	 * (WooCommerce already saves the object after this hook).
+	 *
+	 * @param WC_Product         $product  Product.
+	 * @param string             $division Division.
+	 * @param array<string, int> $identity Identity.
+	 * @return array{unique:true|WP_Error}
+	 */
+	protected static function sync_identity_during_product_save( WC_Product $product, $division, array $identity ) {
+		if ( $division && ! WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$identity['color'] = 0;
+		}
+		$identity = WC_Optic_SKU::normalize_identity_catalog( $identity );
+
 		$product->update_meta_data( '_optic_division', $division );
 		$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $identity );
 
 		$children = WC_Optic_SKU::get_child_configs( $product );
-		if ( empty( $children ) ) {
-			WC_Optic_SKU::sync_product_sku( $product );
-			return;
+		$unique   = true;
+
+		if ( ! empty( $children ) ) {
+			$children = WC_Optic_SKU::apply_identity_to_children( $identity, $children, $division );
+			$unique   = WC_Optic_SKU::validate_unique_power_combinations( $children, $division );
+			$children = WC_Optic_SKU::preserve_child_backorder_consumed( $product, $children );
+			WC_Optic_SKU::persist_child_data( $product, $children );
 		}
 
-		$children = WC_Optic_SKU::apply_identity_to_children( $identity, $children, $division );
-
-		$unique = WC_Optic_SKU::validate_unique_power_combinations( $children, $division );
-		if ( is_wp_error( $unique ) ) {
-			WC_Admin_Notices::add_custom_notice(
-				'wc_optic_duplicate_powers',
-				$unique->get_error_message()
-			);
-			return;
-		}
-
-		$children = WC_Optic_SKU::preserve_child_backorder_consumed( $product, $children );
-		WC_Optic_SKU::persist_child_data( $product, $children );
 		WC_Optic_SKU::sync_product_sku( $product );
+
+		return array( 'unique' => $unique );
 	}
 
 	/**
@@ -347,6 +366,8 @@ class WC_Optic_Admin_Product {
 					'emptyList'         => __( 'No internal products yet.', 'wc-optic' ),
 					'noSearchResults'   => __( 'No internal products match your search.', 'wc-optic' ),
 					'duplicatePowers'   => __( 'This prescription combination already exists. Each combination must be unique.', 'wc-optic' ),
+					'identitySynced'    => __( 'Optical identity applied to all internal products (SKUs updated).', 'wc-optic' ),
+					'identitySyncing'   => __( 'Updating internal SKUs…', 'wc-optic' ),
 					'enabled'           => __( 'Enabled', 'wc-optic' ),
 					'disabled'          => __( 'Disabled', 'wc-optic' ),
 					'backorderAllowed'  => __( 'Backorder allowed', 'wc-optic' ),
