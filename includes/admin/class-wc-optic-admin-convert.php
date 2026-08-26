@@ -485,7 +485,7 @@ class WC_Optic_Admin_Convert {
 		);
 		$divs = WC_Optic_Plugin::get_divisions();
 
-		echo '<p class="description">' . esc_html__( 'Add extra power combinations to already-converted products (for example SPH +0.00 with existing CYL/AXIS). Existing internals are kept; duplicate prescriptions are skipped.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Add extra power combinations to already-converted products. SPH +0.00 creates a single no-power lens (no CYL / AXIS / ADD). Existing internals are kept; duplicate prescriptions are skipped.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
 			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. New internals are copied to translations after save.', 'wc-optic' ) . '</p>';
 		}
@@ -619,7 +619,7 @@ class WC_Optic_Admin_Convert {
 
 		echo '<div class="wc-optic-wizard-pane" data-step="3" hidden>';
 		if ( 'specifics' === $mode ) {
-			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 Step 0.25, and keep CYL/AXIS ranges for the combinations you need. Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 Step 0.25 creates one no-power internal (no CYL / AXIS / ADD). Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
 		}
 		echo '<p><label for="wc_optic_wizard_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label><br />';
 		echo '<select id="wc_optic_wizard_template" class="wc-optic-wizard-select">';
@@ -629,7 +629,8 @@ class WC_Optic_Admin_Convert {
 		}
 		echo '</select></p>';
 		self::render_range_fields( '', array(), 'wizard_ranges', 'wc-optic-wizard-ranges' );
-		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it.', 'wc-optic' ) . '</p>';
+		echo '<p class="description" id="wc-optic-wizard-nopower-note" hidden>' . esc_html__( 'SPH +0.00 = lens without power: CYL, AXIS and ADD are ignored. One internal product will be created.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it. That +0.00 row is a no-power lens (not crossed with CYL / AXIS / ADD).', 'wc-optic' ) . '</p>';
 		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' );
 		if ( 'specifics' === $mode ) {
 			echo ' <span class="description">(' . esc_html__( 'candidates before duplicate check', 'wc-optic' ) . ')</span>';

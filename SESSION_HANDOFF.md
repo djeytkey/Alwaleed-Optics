@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.9 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -22,8 +22,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
 6. **Convert → onglet Converted** — rebuild des optic déjà convertis (replace internals) : changer division (ex. Color → Toric) + plages CYL/AXIS, régénérer tous les internes.
 7. **Wizard modal** — structure simple (plus de `pane-scroll` / `pane-fixed`) ; scroll naturel du `.modal`.
-8. **Convert → onglet Specifics** — ajouter des puissances extras aux produits déjà convertis **sans rebuild** (mode `append`) ; doublons SPH/CYL/AXIS/ADD ignorés. Ex. SPH +0.00 × plages CYL/AXIS.
-9. **Version** — bump **1.3.8**.
+8. **Convert → onglet Specifics** — ajouter des puissances extras aux produits déjà convertis **sans rebuild** (mode `append`) ; doublons SPH/CYL/AXIS/ADD ignorés.
+9. **SPH +0.00 = no-power** — ne croise plus CYL/AXIS/ADD (génération + validation + wizard). Specifics SPH `0`→`0` → **1** interne sans puissance.
+10. **Version** — bump **1.3.9**.
 
 ### Session 2026-08-23 (précédente)
 
@@ -513,10 +514,13 @@ WC_Optic_Converter::convert_product() / preview()
 | Liste | Même source que Converted (`get_converted_products`) |
 | Division | Verrouillée (inchangée) — rebuild pour changer de division |
 | Préremplissage plages | CYL/AXIS/ADD depuis le produit ; **SPH vide** pour forcer la saisie des extras |
+| SPH +0.00 | **1** interne no-power (pas de croisement CYL/AXIS/ADD) ; UI masque les autres plages |
 | Persist | `mode=append` → `merge_children_from_ranges()` : conserve l’existant, skip doublons |
 | Résultat | Message : ajoutés / doublons ignorés / total |
 
-**Méthodes :** `WC_Optic_SKU::merge_children_from_ranges()`, `WC_Optic_Converter::add_specifics_to_product()` ; AJAX `wc_optic_generate_product_children` avec `mode=append`.
+**Règle SPH +0.00 (globale, aussi Convert/Rebuild) :** `expand_power_combinations()` / `count_children_from_ranges()` / `normalize_child_config()` — plano isolé ; clé anti-doublon `nopower|{sph_id}`.
+
+**Méthodes :** `WC_Optic_SKU::merge_children_from_ranges()`, `partition_sph_ids()`, `config_has_zero_sph()`, `WC_Optic_Converter::add_specifics_to_product()` ; AJAX `mode=append`.
 
 **Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`.
 
@@ -792,12 +796,13 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Compteur Internals + colonne Division mis à jour dans la liste après rebuild
 - [ ] WPML : seules les fiches originales listées ; traductions sync après rebuild
 
-### Convert Specifics (1.3.8)
+### Convert Specifics (1.3.8 / 1.3.9)
 
 - [ ] Onglet **Specifics** liste les mêmes produits convertis
 - [ ] Division non modifiable dans le wizard
-- [ ] SPH From/To/Step = 0 / 0 / 0.25 + CYL/AXIS préremplis → ajoute seulement les combos manquantes
-- [ ] Relancer les mêmes plages → erreur ou 0 ajout (tous doublons)
+- [ ] SPH From/To = 0 / 0 → compteur **1** ; CYL/AXIS masqués ; un interne « No power (SPH +0.00) »
+- [ ] Relancer SPH 0 → 0 → refus / 0 ajout (doublon no-power)
+- [ ] Plage SPH mixte (−1 → +1) + CYL : +0.00 **non** croisé avec CYL ; les SPH ≠ 0 oui
 - [ ] Compteur Internals mis à jour ; internes existants inchangés (prix/stock/SKU)
 
 ### Activation plugin (1.2.5)
@@ -812,8 +817,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.8] — 2026-08-26**.
-4. **Version plugin** : **1.3.8** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.9] — 2026-08-26**.
+4. **Version plugin** : **1.3.9** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.

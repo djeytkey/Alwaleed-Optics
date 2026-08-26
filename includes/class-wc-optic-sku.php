@@ -300,6 +300,8 @@ class WC_Optic_SKU {
 	/**
 	 * Whether all division power selects are filled (price not required).
 	 *
+	 * SPH +0.00 is a no-power lens: only SPH is required (no CYL / AXIS / ADD).
+	 *
 	 * @param array  $config   Child config.
 	 * @param string $division Division slug.
 	 * @return bool
@@ -307,6 +309,9 @@ class WC_Optic_SKU {
 	public static function child_powers_complete( array $config, $division ) {
 		if ( ! $division ) {
 			return false;
+		}
+		if ( self::config_has_zero_sph( $config ) ) {
+			return (int) ( $config['powers']['sph'] ?? 0 ) > 0;
 		}
 		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
 			if ( empty( $config['powers'][ $power ] ) ) {
@@ -317,7 +322,23 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Whether the child SPH catalog term is plano / +0.00 (lens without power).
+	 *
+	 * @param array $config Child config.
+	 * @return bool
+	 */
+	public static function config_has_zero_sph( array $config ) {
+		$sph_id = isset( $config['powers']['sph'] ) ? (int) $config['powers']['sph'] : 0;
+		if ( $sph_id < 1 ) {
+			return false;
+		}
+		return WC_Optic_Catalog::sph_term_is_zero_power( WC_Optic_Catalog::get_valid_term( $sph_id, 'sph' ) );
+	}
+
+	/**
 	 * Stable key for a child's power combination, or empty when incomplete.
+	 *
+	 * No-power (+0.00) keys on SPH only so CYL/AXIS/ADD never create duplicate planos.
 	 *
 	 * @param array  $config   Child config.
 	 * @param string $division Division slug.
@@ -326,6 +347,9 @@ class WC_Optic_SKU {
 	public static function get_power_combination_key( array $config, $division ) {
 		if ( ! self::child_powers_complete( $config, $division ) ) {
 			return '';
+		}
+		if ( self::config_has_zero_sph( $config ) ) {
+			return 'nopower|' . (string) (int) ( $config['powers']['sph'] ?? 0 );
 		}
 		$parts = array();
 		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
@@ -342,6 +366,16 @@ class WC_Optic_SKU {
 	 * @return string
 	 */
 	public static function format_child_powers_label( array $config, $division ) {
+		if ( self::config_has_zero_sph( $config ) ) {
+			$id  = (int) ( $config['powers']['sph'] ?? 0 );
+			$row = $id ? WC_Optic_Catalog::get_term( $id ) : null;
+			$val = $row ? WC_Optic_Catalog::get_display_name( $row ) : '+0.00';
+			return sprintf(
+				/* translators: %s: SPH display value (usually +0.00) */
+				__( 'No power (SPH %s)', 'wc-optic' ),
+				$val
+			);
+		}
 		$parts = array();
 		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
 			$id  = (int) ( $config['powers'][ $power ] ?? 0 );
@@ -723,6 +757,10 @@ class WC_Optic_SKU {
 					if ( ! in_array( $type, $allowed_powers, true ) ) {
 						continue;
 					}
+					// SPH +0.00 = no-power lens: CYL / AXIS / ADD must stay empty.
+					if ( self::config_has_zero_sph( $config ) && 'sph' !== $type ) {
+						continue;
+					}
 					$value = isset( $config['powers'][ $type ] ) ? (int) $config['powers'][ $type ] : 0;
 				} else {
 					if ( ! in_array( $type, self::get_required_identity_types( $division ), true ) ) {
@@ -779,8 +817,9 @@ class WC_Optic_SKU {
 				'inStock' => $in_stock,
 			);
 
-			if ( self::child_is_no_power( $config, $division ) ) {
-				if ( null === $no_power_child ) {
+			if ( self::config_has_zero_sph( $config ) ) {
+				// Never include plano in the powered prescription cascade.
+				if ( self::child_is_no_power( $config, $division ) && null === $no_power_child ) {
 					$no_power_child = $child_row;
 				}
 				continue;
@@ -847,12 +886,7 @@ class WC_Optic_SKU {
 			return false;
 		}
 
-		$sph_id = isset( $config['powers']['sph'] ) ? (int) $config['powers']['sph'] : 0;
-		if ( $sph_id < 1 ) {
-			return false;
-		}
-
-		return WC_Optic_Catalog::sph_term_is_zero_power( WC_Optic_Catalog::get_valid_term( $sph_id, 'sph' ) );
+		return self::config_has_zero_sph( $config );
 	}
 
 	/**
@@ -1130,6 +1164,15 @@ class WC_Optic_SKU {
 			}
 		}
 
+		// SPH +0.00 = lens without power: strip CYL / AXIS / ADD.
+		if ( self::config_has_zero_sph( $out ) ) {
+			foreach ( $out['powers'] as $type => $id_value ) {
+				if ( 'sph' !== $type ) {
+					$out['powers'][ $type ] = 0;
+				}
+			}
+		}
+
 		$out['sku'] = self::build_for_child_config( $out, $division );
 
 		return $out;
@@ -1199,13 +1242,7 @@ class WC_Optic_SKU {
 			return false;
 		}
 
-		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
-			if ( empty( $config['powers'][ $power ] ) ) {
-				return false;
-			}
-		}
-
-		return true;
+		return self::child_powers_complete( $config, $division );
 	}
 
 	/**
@@ -1337,6 +1374,9 @@ class WC_Optic_SKU {
 	 * @return string
 	 */
 	public static function child_display_label( array $config, $division ) {
+		if ( self::config_has_zero_sph( $config ) ) {
+			return self::format_child_powers_label( $config, $division );
+		}
 		$bits = array();
 		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
 			$id  = isset( $config['powers'][ $power ] ) ? (int) $config['powers'][ $power ] : 0;
@@ -1772,21 +1812,139 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Split SPH catalog IDs into plano (+0.00) vs powered.
+	 *
+	 * @param int[] $sph_ids SPH term ids.
+	 * @return array{zero:int[],powered:int[]}
+	 */
+	public static function partition_sph_ids( array $sph_ids ) {
+		$zero    = array();
+		$powered = array();
+		foreach ( $sph_ids as $id ) {
+			$id = (int) $id;
+			if ( $id < 1 ) {
+				continue;
+			}
+			$row = WC_Optic_Catalog::get_valid_term( $id, 'sph' );
+			if ( WC_Optic_Catalog::sph_term_is_zero_power( $row ) ) {
+				$zero[] = $id;
+			} else {
+				$powered[] = $id;
+			}
+		}
+		return array(
+			'zero'    => array_values( array_unique( $zero ) ),
+			'powered' => array_values( array_unique( $powered ) ),
+		);
+	}
+
+	/**
 	 * Count cartesian combinations for power ID lists.
+	 *
+	 * SPH +0.00 does not multiply with CYL / AXIS / ADD (one no-power internal each).
 	 *
 	 * @param array<string, array<int, int>> $power_values Power value ids by type.
 	 * @return int
 	 */
 	public static function count_power_combinations( array $power_values ) {
-		$count = 1;
-		foreach ( $power_values as $ids ) {
+		if ( empty( $power_values['sph'] ) ) {
+			$count = 1;
+			foreach ( $power_values as $ids ) {
+				$n = count( $ids );
+				if ( $n < 1 ) {
+					return 0;
+				}
+				$count *= $n;
+			}
+			return (int) $count;
+		}
+
+		$parts      = self::partition_sph_ids( (array) $power_values['sph'] );
+		$zero_count = count( $parts['zero'] );
+		$powered_n  = count( $parts['powered'] );
+
+		if ( $powered_n < 1 ) {
+			return $zero_count;
+		}
+
+		$powered = $power_values;
+		$powered['sph'] = $parts['powered'];
+		$count          = 1;
+		foreach ( $powered as $ids ) {
 			$n = count( $ids );
 			if ( $n < 1 ) {
-				return 0;
+				return $zero_count;
 			}
 			$count *= $n;
 		}
-		return (int) $count;
+
+		return (int) ( $zero_count + $count );
+	}
+
+	/**
+	 * Expand selected powers into concrete child combinations.
+	 *
+	 * Plano SPH (+0.00) yields a single combo without CYL / AXIS / ADD.
+	 *
+	 * @param array<string, array<int, int>> $power_values Power value ids by type.
+	 * @return array<int, array<string, int>>
+	 */
+	public static function expand_power_combinations( array $power_values ) {
+		if ( empty( $power_values['sph'] ) ) {
+			return self::expand_power_combinations_cartesian( $power_values );
+		}
+
+		$parts   = self::partition_sph_ids( (array) $power_values['sph'] );
+		$combos  = array();
+
+		foreach ( $parts['zero'] as $sph_id ) {
+			$combos[] = array( 'sph' => (int) $sph_id );
+			if ( count( $combos ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+				return $combos;
+			}
+		}
+
+		if ( empty( $parts['powered'] ) ) {
+			return $combos;
+		}
+
+		$powered         = $power_values;
+		$powered['sph']  = $parts['powered'];
+		$powered_combos  = self::expand_power_combinations_cartesian( $powered );
+		foreach ( $powered_combos as $combo ) {
+			$combos[] = $combo;
+			if ( count( $combos ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+				return $combos;
+			}
+		}
+
+		return $combos;
+	}
+
+	/**
+	 * Classic cartesian expansion (no plano special-case).
+	 *
+	 * @param array<string, array<int, int>> $power_values Power value ids by type.
+	 * @return array<int, array<string, int>>
+	 */
+	protected static function expand_power_combinations_cartesian( array $power_values ) {
+		$combinations = array( array() );
+
+		foreach ( $power_values as $power => $ids ) {
+			$next = array();
+			foreach ( $combinations as $combination ) {
+				foreach ( $ids as $id ) {
+					$combination[ $power ] = (int) $id;
+					$next[]                = $combination;
+					if ( count( $next ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+						return $next;
+					}
+				}
+			}
+			$combinations = $next;
+		}
+
+		return $combinations;
 	}
 
 	/**
@@ -1808,7 +1966,33 @@ class WC_Optic_SKU {
 		$filtered = array();
 		foreach ( $allowed as $power ) {
 			$ids = isset( $power_values[ $power ] ) ? array_values( array_filter( array_map( 'absint', (array) $power_values[ $power ] ) ) ) : array();
-			if ( empty( $ids ) ) {
+			$filtered[ $power ] = $ids;
+		}
+
+		$only_no_power = false;
+		if ( in_array( 'sph', $allowed, true ) ) {
+			$parts = self::partition_sph_ids( $filtered['sph'] ?? array() );
+			if ( empty( $parts['zero'] ) && empty( $parts['powered'] ) ) {
+				return new WP_Error(
+					'wc_optic_missing_power_range',
+					sprintf(
+						/* translators: %s: power type label */
+						__( 'A range is required for %s.', 'wc-optic' ),
+						WC_Optic_Catalog::get_type_label( 'sph' )
+					)
+				);
+			}
+			$only_no_power = empty( $parts['powered'] ) && ! empty( $parts['zero'] );
+			$filtered['sph'] = array_merge( $parts['zero'], $parts['powered'] );
+		}
+
+		foreach ( $allowed as $power ) {
+			if ( $only_no_power && 'sph' !== $power ) {
+				// No-power lens: ignore CYL / AXIS / ADD ranges entirely.
+				unset( $filtered[ $power ] );
+				continue;
+			}
+			if ( empty( $filtered[ $power ] ) ) {
 				return new WP_Error(
 					'wc_optic_missing_power_range',
 					sprintf(
@@ -1818,7 +2002,6 @@ class WC_Optic_SKU {
 					)
 				);
 			}
-			$filtered[ $power ] = $ids;
 		}
 
 		$count = self::count_power_combinations( $filtered );
@@ -1893,24 +2076,68 @@ class WC_Optic_SKU {
 	/**
 	 * Count internals a range set would create, without writing catalog terms.
 	 *
+	 * SPH +0.00 counts as one no-power internal (not crossed with CYL / AXIS / ADD).
+	 *
 	 * @param string $division Division slug.
 	 * @param array  $ranges   Ranges keyed by power.
 	 * @return int|WP_Error
 	 */
 	public static function count_children_from_ranges( $division, array $ranges ) {
-		$ranges = self::normalize_power_ranges( $ranges, $division );
-		$count  = 1;
+		$ranges  = self::normalize_power_ranges( $ranges, $division );
+		$allowed = WC_Optic_Plugin::get_powers_for_division( $division );
+		if ( empty( $allowed ) ) {
+			return 0;
+		}
+
+		$zero_n    = 0;
+		$powered_n = 0;
+		$has_sph   = in_array( 'sph', $allowed, true ) && isset( $ranges['sph'] );
+
+		if ( $has_sph ) {
+			$values = WC_Optic_Catalog::enumerate_power_range_values(
+				'sph',
+				$ranges['sph']['from'],
+				$ranges['sph']['to'],
+				$ranges['sph']['step']
+			);
+			if ( is_wp_error( $values ) ) {
+				return $values;
+			}
+			foreach ( $values as $number ) {
+				if ( WC_Optic_Catalog::power_number_is_zero( $number ) ) {
+					++$zero_n;
+				} else {
+					++$powered_n;
+				}
+			}
+			if ( $zero_n < 1 && $powered_n < 1 ) {
+				return 0;
+			}
+			if ( $powered_n < 1 ) {
+				return $zero_n;
+			}
+		}
+
+		$other = 1;
 		foreach ( $ranges as $power => $range ) {
+			if ( 'sph' === $power ) {
+				continue;
+			}
 			$n = WC_Optic_Catalog::count_power_range( $power, $range['from'], $range['to'], $range['step'] );
 			if ( is_wp_error( $n ) ) {
 				return $n;
 			}
 			if ( $n < 1 ) {
-				return 0;
+				return $has_sph ? $zero_n : 0;
 			}
-			$count *= (int) $n;
+			$other *= (int) $n;
 		}
-		return (int) $count;
+
+		if ( ! $has_sph ) {
+			return (int) $other;
+		}
+
+		return (int) ( $zero_n + ( $powered_n * $other ) );
 	}
 
 	/**
@@ -1925,9 +2152,34 @@ class WC_Optic_SKU {
 	 */
 	public static function build_children_from_ranges( $division, array $catalog, array $ranges, $unit_price, $stock_qty ) {
 		$ranges       = self::normalize_power_ranges( $ranges, $division );
+		$allowed      = WC_Optic_Plugin::get_powers_for_division( $division );
 		$power_values = array();
 
+		// Detect SPH-only no-power request early so CYL/AXIS/ADD ranges are not required.
+		$only_no_power = false;
+		if ( in_array( 'sph', $allowed, true ) && isset( $ranges['sph'] ) ) {
+			$sph_ids = WC_Optic_Catalog::resolve_power_range(
+				'sph',
+				$ranges['sph']['from'],
+				$ranges['sph']['to'],
+				$ranges['sph']['step'],
+				self::MAX_LEGACY_SYNTHETIC_CHILDREN
+			);
+			if ( is_wp_error( $sph_ids ) ) {
+				return $sph_ids;
+			}
+			$parts         = self::partition_sph_ids( $sph_ids );
+			$only_no_power = empty( $parts['powered'] ) && ! empty( $parts['zero'] );
+			$power_values['sph'] = $sph_ids;
+		}
+
 		foreach ( $ranges as $power => $range ) {
+			if ( 'sph' === $power ) {
+				continue;
+			}
+			if ( $only_no_power ) {
+				continue;
+			}
 			$ids = WC_Optic_Catalog::resolve_power_range(
 				$power,
 				$range['from'],
@@ -2015,31 +2267,5 @@ class WC_Optic_SKU {
 			'skipped_duplicates' => $skipped,
 			'candidates'         => count( $candidates ),
 		);
-	}
-
-	/**
-	 * Expand selected powers into concrete child combinations.
-	 *
-	 * @param array<string, array<int, int>> $power_values Power value ids by type.
-	 * @return array<int, array<string, int>>
-	 */
-	public static function expand_power_combinations( array $power_values ) {
-		$combinations = array( array() );
-
-		foreach ( $power_values as $power => $ids ) {
-			$next = array();
-			foreach ( $combinations as $combination ) {
-				foreach ( $ids as $id ) {
-					$combination[ $power ] = (int) $id;
-					$next[]                = $combination;
-					if ( count( $next ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
-						return $next;
-					}
-				}
-			}
-			$combinations = $next;
-		}
-
-		return $combinations;
 	}
 }

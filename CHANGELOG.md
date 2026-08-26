@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.9] — 2026-08-26
+
+### Modifié
+
+- **SPH +0.00 = lentille sans puissance** : ne croise plus CYL / AXIS / ADD à la génération (Convert, Rebuild, Specifics). Un seul interne plano ; les autres puissances sont ignorées / vidées. Compteur et wizard masquent CYL/AXIS/ADD si SPH From=To=0.
+
 ## [1.3.8] — 2026-08-26
 
 ### Ajouté
