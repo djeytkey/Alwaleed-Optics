@@ -298,7 +298,123 @@ class WC_Optic_SKU {
 	}
 
 	/**
-	 * Ensure no two enabled complete children share the same power combination.
+	 * Whether all division power selects are filled (price not required).
+	 *
+	 * @param array  $config   Child config.
+	 * @param string $division Division slug.
+	 * @return bool
+	 */
+	public static function child_powers_complete( array $config, $division ) {
+		if ( ! $division ) {
+			return false;
+		}
+		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
+			if ( empty( $config['powers'][ $power ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Stable key for a child's power combination, or empty when incomplete.
+	 *
+	 * @param array  $config   Child config.
+	 * @param string $division Division slug.
+	 * @return string
+	 */
+	public static function get_power_combination_key( array $config, $division ) {
+		if ( ! self::child_powers_complete( $config, $division ) ) {
+			return '';
+		}
+		$parts = array();
+		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
+			$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
+		}
+		return implode( '|', $parts );
+	}
+
+	/**
+	 * Human-readable power summary (e.g. SPH +1.00 · CYL +1.25 · AXIS 125).
+	 *
+	 * @param array  $config   Child config.
+	 * @param string $division Division slug.
+	 * @return string
+	 */
+	public static function format_child_powers_label( array $config, $division ) {
+		$parts = array();
+		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
+			$id  = (int) ( $config['powers'][ $power ] ?? 0 );
+			$row = $id ? WC_Optic_Catalog::get_term( $id ) : null;
+			$val = $row ? WC_Optic_Catalog::get_display_name( $row ) : '—';
+			$parts[] = strtoupper( $power ) . ' ' . $val;
+		}
+		return implode( ' · ', $parts );
+	}
+
+	/**
+	 * Find another child that already uses the same power combination.
+	 *
+	 * @param array  $child_configs All children.
+	 * @param array  $candidate     Candidate config (normalized).
+	 * @param string $division      Division slug.
+	 * @param string $exclude_id    Child id to ignore (the one being saved).
+	 * @return array|null Conflicting child, or null.
+	 */
+	public static function find_duplicate_power_child( array $child_configs, array $candidate, $division, $exclude_id = '' ) {
+		$key = self::get_power_combination_key( $candidate, $division );
+		if ( '' === $key ) {
+			return null;
+		}
+
+		$exclude_id = sanitize_key( (string) $exclude_id );
+		foreach ( $child_configs as $config ) {
+			if ( ! is_array( $config ) ) {
+				continue;
+			}
+			$other_id = sanitize_key( (string) ( $config['id'] ?? '' ) );
+			if ( $exclude_id && $other_id === $exclude_id ) {
+				continue;
+			}
+			if ( self::get_power_combination_key( $config, $division ) === $key ) {
+				return $config;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Reject saving a child whose prescription already exists on another internal.
+	 *
+	 * @param array  $child_configs All children (before replacing candidate).
+	 * @param array  $candidate     Candidate config.
+	 * @param string $division      Division slug.
+	 * @param string $exclude_id    Id of the child being updated.
+	 * @return true|WP_Error
+	 */
+	public static function assert_unique_power_combination( array $child_configs, array $candidate, $division, $exclude_id = '' ) {
+		$dup = self::find_duplicate_power_child( $child_configs, $candidate, $division, $exclude_id );
+		if ( ! $dup ) {
+			return true;
+		}
+
+		$label  = ! empty( $dup['label'] ) ? (string) $dup['label'] : __( 'Product', 'wc-optic' );
+		$powers = self::format_child_powers_label( $candidate, $division );
+
+		return new WP_Error(
+			'wc_optic_duplicate_powers',
+			sprintf(
+				/* translators: 1: internal product label, 2: power combination */
+				__( 'Duplicate internal product: « %1$s » already uses %2$s. Each prescription combination must be unique.', 'wc-optic' ),
+				$label,
+				$powers
+			)
+		);
+	}
+
+	/**
+	 * Ensure no two children share the same power combination (enabled or not).
 	 *
 	 * @param array  $child_configs Normalized child configs.
 	 * @param string $division      Division slug.
@@ -309,29 +425,222 @@ class WC_Optic_SKU {
 			return true;
 		}
 
-		$required = WC_Optic_Plugin::get_powers_for_division( $division );
-		$seen     = array();
+		$seen = array();
 
 		foreach ( $child_configs as $config ) {
-			if ( ! self::child_is_enabled( $config ) || ! self::child_is_complete( $config, $division ) ) {
+			if ( ! is_array( $config ) ) {
 				continue;
 			}
-
-			$parts = array();
-			foreach ( $required as $power ) {
-				$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
+			$key = self::get_power_combination_key( $config, $division );
+			if ( '' === $key ) {
+				continue;
 			}
-			$key = implode( '|', $parts );
 			if ( isset( $seen[ $key ] ) ) {
+				$first = $seen[ $key ];
+				$label = ! empty( $config['label'] ) ? (string) $config['label'] : __( 'Product', 'wc-optic' );
+				$other = ! empty( $first['label'] ) ? (string) $first['label'] : __( 'Product', 'wc-optic' );
+				$powers = self::format_child_powers_label( $config, $division );
 				return new WP_Error(
 					'wc_optic_duplicate_powers',
-					__( 'Two or more internal products use the same prescription combination. Each sellable combination must be unique.', 'wc-optic' )
+					sprintf(
+						/* translators: 1: first label, 2: second label, 3: powers */
+						__( 'Duplicate internals « %1$s » and « %2$s » share %3$s. Each prescription combination must be unique.', 'wc-optic' ),
+						$other,
+						$label,
+						$powers
+					)
 				);
 			}
-			$seen[ $key ] = true;
+			$seen[ $key ] = $config;
 		}
 
 		return true;
+	}
+
+	/**
+	 * Get one child config by id.
+	 *
+	 * @param WC_Product $product  Product.
+	 * @param string     $child_id Child id.
+	 * @return array|null
+	 */
+	public static function get_child_config_by_id( WC_Product $product, $child_id ) {
+		$child_id = sanitize_key( (string) $child_id );
+		if ( '' === $child_id ) {
+			return null;
+		}
+		foreach ( self::get_child_configs( $product ) as $config ) {
+			if ( sanitize_key( (string) ( $config['id'] ?? '' ) ) === $child_id ) {
+				return $config;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Compact list rows for the admin product screen.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function get_child_list_rows( WC_Product $product ) {
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$rows     = array();
+		foreach ( self::get_child_configs( $product ) as $index => $config ) {
+			$rows[] = self::build_child_list_row( $config, $division, $index );
+		}
+		return $rows;
+	}
+
+	/**
+	 * One list row payload.
+	 *
+	 * @param array  $config   Child config.
+	 * @param string $division Division.
+	 * @param int    $index    Sort index.
+	 * @return array<string, mixed>
+	 */
+	public static function build_child_list_row( array $config, $division, $index = 0 ) {
+		$stock = self::get_child_stock_qty( $config );
+		return array(
+			'id'       => (string) ( $config['id'] ?? '' ),
+			'label'    => (string) ( $config['label'] ?? '' ),
+			'powers'   => self::format_child_powers_label( $config, $division ),
+			'price'    => (string) ( $config['unit_price'] ?? '' ),
+			'stock'    => null === $stock ? '' : (string) $stock,
+			'enabled'  => ! empty( $config['enabled'] ),
+			'sku'      => (string) ( $config['sku'] ?? '' ),
+			'sort'     => isset( $config['sort'] ) ? (int) $config['sort'] : (int) $index,
+			'search'   => strtolower(
+				implode(
+					' ',
+					array(
+						(string) ( $config['label'] ?? '' ),
+						self::format_child_powers_label( $config, $division ),
+						(string) ( $config['sku'] ?? '' ),
+					)
+				)
+			),
+		);
+	}
+
+	/**
+	 * Insert or update one child on a product (with duplicate-power guard).
+	 *
+	 * @param WC_Product $product   Product.
+	 * @param array      $raw_child Raw child payload.
+	 * @param array|null $identity  Optional identity override (applied to all children).
+	 * @return array{config:array,rows:array}|WP_Error
+	 */
+	public static function upsert_child_on_product( WC_Product $product, array $raw_child, $identity = null ) {
+		$division = (string) $product->get_meta( '_optic_division', true );
+		if ( ! $division ) {
+			return new WP_Error(
+				'wc_optic_missing_division',
+				__( 'Optical division is required. Save the product division first.', 'wc-optic' )
+			);
+		}
+
+		if ( null === $identity ) {
+			$identity = self::get_identity_catalog( $product );
+		} else {
+			$identity = self::normalize_identity_catalog( $identity );
+			$product->update_meta_data( self::IDENTITY_META_KEY, $identity );
+		}
+
+		$children = self::get_child_configs( $product );
+		$raw_child['catalog'] = $identity;
+
+		$existing_index = null;
+		$child_id       = isset( $raw_child['id'] ) ? sanitize_key( (string) $raw_child['id'] ) : '';
+		foreach ( $children as $i => $existing ) {
+			if ( $child_id && sanitize_key( (string) ( $existing['id'] ?? '' ) ) === $child_id ) {
+				$existing_index = $i;
+				if ( isset( $existing['backorder_consumed'] ) && ! isset( $raw_child['backorder_consumed'] ) ) {
+					$raw_child['backorder_consumed'] = $existing['backorder_consumed'];
+				}
+				break;
+			}
+		}
+
+		$index  = null !== $existing_index ? (int) $existing_index : count( $children );
+		$config = self::normalize_child_config( $raw_child, $division, $index );
+
+		$complete = self::validate_child_configs_complete( array( $config ), $division, array( $raw_child ) );
+		if ( is_wp_error( $complete ) ) {
+			return $complete;
+		}
+
+		$unique = self::assert_unique_power_combination( $children, $config, $division, $config['id'] );
+		if ( is_wp_error( $unique ) ) {
+			return $unique;
+		}
+
+		if ( null !== $existing_index ) {
+			$children[ $existing_index ] = $config;
+		} else {
+			$children[] = $config;
+		}
+
+		$children = self::apply_identity_to_children( $identity, $children, $division );
+		$unique   = self::validate_unique_power_combinations( $children, $division );
+		if ( is_wp_error( $unique ) ) {
+			return $unique;
+		}
+
+		$children = self::preserve_child_backorder_consumed( $product, $children );
+		self::persist_child_data( $product, $children );
+		self::sync_product_sku( $product );
+		$product->save();
+
+		$saved = self::get_child_config_by_id( $product, $config['id'] );
+		return array(
+			'config' => $saved ? $saved : $config,
+			'row'    => self::build_child_list_row( $saved ? $saved : $config, $division, $index ),
+			'rows'   => self::get_child_list_rows( $product ),
+			'count'  => count( self::get_child_configs( $product ) ),
+		);
+	}
+
+	/**
+	 * Remove one child by id.
+	 *
+	 * @param WC_Product $product  Product.
+	 * @param string     $child_id Child id.
+	 * @return array{rows:array,count:int}|WP_Error
+	 */
+	public static function remove_child_from_product( WC_Product $product, $child_id ) {
+		$child_id = sanitize_key( (string) $child_id );
+		if ( '' === $child_id ) {
+			return new WP_Error( 'wc_optic_missing_child', __( 'Internal product not found.', 'wc-optic' ) );
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$children = self::get_child_configs( $product );
+		$found    = false;
+		$kept     = array();
+		foreach ( $children as $config ) {
+			if ( sanitize_key( (string) ( $config['id'] ?? '' ) ) === $child_id ) {
+				$found = true;
+				continue;
+			}
+			$kept[] = $config;
+		}
+
+		if ( ! $found ) {
+			return new WP_Error( 'wc_optic_missing_child', __( 'Internal product not found.', 'wc-optic' ) );
+		}
+
+		$identity = self::get_identity_catalog( $product );
+		$kept     = self::apply_identity_to_children( $identity, $kept, $division );
+		self::persist_child_data( $product, $kept );
+		self::sync_product_sku( $product );
+		$product->save();
+
+		return array(
+			'rows'  => self::get_child_list_rows( $product ),
+			'count' => count( $kept ),
+		);
 	}
 
 	/**

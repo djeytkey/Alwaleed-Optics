@@ -4,6 +4,17 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.3] — 2026-08-26
+
+### Ajouté
+
+- **Fiche produit admin — internes à la demande** : liste compacte (label, puissances, prix, stock, statut) + panneau d’édition AJAX (Edit / Add / Remove / Save). Plus de rendu des N blocs Select2 au chargement.
+- **Anti-doublon prescriptions** : sauvegarde d’un interne refusée si SPH/CYL/AXIS/ADD (selon division) existe déjà sur un autre interne (même désactivé). Message avec le label conflictuel.
+
+### Modifié
+
+- Sauvegarde produit WooCommerce : division + identité uniquement ; les internes sont persistés via AJAX (`wc_optic_load_child`, `wc_optic_save_child`, `wc_optic_remove_child`, `wc_optic_list_children`).
+
 ## [1.3.2] — 2026-08-23
 
 ### Corrigé

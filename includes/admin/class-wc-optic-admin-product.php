@@ -56,6 +56,8 @@ class WC_Optic_Admin_Product {
 			return;
 		}
 
+		$product_id = $product->get_id() ? (int) $product->get_id() : 0;
+
 		woocommerce_wp_select(
 			array(
 				'id'                => '_optic_division',
@@ -75,41 +77,59 @@ class WC_Optic_Admin_Product {
 		$division      = (string) $product->get_meta( '_optic_division', true );
 		$identity      = WC_Optic_SKU::get_identity_catalog( $product );
 		$child_configs = WC_Optic_SKU::get_child_configs( $product );
-		if ( empty( $child_configs ) ) {
-			$child_configs[] = WC_Optic_SKU::normalize_child_config(
-				array(
-					'enabled' => true,
-					'catalog' => $identity,
-				),
-				$division,
-				0
-			);
-		}
+		$child_count   = count( $child_configs );
 
 		echo '<p class="form-field"><strong>' . esc_html__( 'Optical identity', 'wc-optic' ) . '</strong></p>';
 		echo '<p class="form-field description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
 		WC_Optic_Admin_Convert::render_identity_fields( $identity, '_optic_identity', true, $division );
 
-		echo '<p class="form-field description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add one internal product at a time below.', 'wc-optic' ) . '</p>';
+		echo '<p class="form-field description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add or edit one internal product at a time below.', 'wc-optic' ) . '</p>';
 
-		echo '<div class="wc-optic-child-configs">';
-		echo '<p class="form-field"><strong>' . esc_html__( 'Internal products', 'wc-optic' ) . '</strong></p>';
+		echo '<div class="wc-optic-child-configs" data-product-id="' . esc_attr( (string) $product_id ) . '">';
+		echo '<p class="form-field"><strong>' . esc_html__( 'Internal products', 'wc-optic' ) . '</strong> ';
+		echo '<span class="wc-optic-child-count" id="wc-optic-child-count">(' . esc_html( (string) $child_count ) . ')</span></p>';
 		echo '<p class="form-field wc-optic-sku-powers-hint description">';
-		echo esc_html__( 'Each sellable power combination is one internal product (price, stock, SKU).', 'wc-optic' );
+		echo esc_html__( 'The list loads instantly. Open an internal product only when you need to edit it (price, stock, powers). Duplicate prescriptions are blocked.', 'wc-optic' );
 		echo '</p>';
-		echo '<div id="wc-optic-child-config-list">';
-		foreach ( array_values( $child_configs ) as $index => $config ) {
-			self::render_child_config_block( $config, (string) $index, $division );
+
+		if ( $product_id < 1 ) {
+			echo '<p class="form-field description">' . esc_html__( 'Save the product first, then add or edit internal products.', 'wc-optic' ) . '</p>';
 		}
-		echo '</div>';
-		echo '<p class="wc-optic-child-actions">';
-		echo '<button type="button" class="button button-secondary" id="wc-optic-add-child">+</button> ';
+
+		echo '<div class="wc-optic-child-list-toolbar">';
+		echo '<label class="screen-reader-text" for="wc-optic-child-search">' . esc_html__( 'Search internal products', 'wc-optic' ) . '</label>';
+		echo '<input type="search" id="wc-optic-child-search" class="wc-optic-child-search" placeholder="' . esc_attr__( 'Search label, powers, SKU…', 'wc-optic' ) . '" ' . disabled( $product_id < 1, true, false ) . ' />';
+		echo '<button type="button" class="button button-secondary" id="wc-optic-add-child" ' . disabled( $product_id < 1, true, false ) . '>+</button>';
 		echo '<span class="description">' . esc_html__( 'Add another internal product.', 'wc-optic' ) . '</span>';
-		echo '</p>';
+		echo '</div>';
+
+		echo '<div class="wc-optic-child-list-wrap">';
+		echo '<table class="widefat striped wc-optic-child-list" id="wc-optic-child-list-table">';
+		echo '<thead><tr>';
+		echo '<th>' . esc_html__( 'Label', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Powers', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Stock', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Status', 'wc-optic' ) . '</th>';
+		echo '<th class="wc-optic-child-list__actions">' . esc_html__( 'Actions', 'wc-optic' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody id="wc-optic-child-list-body">';
+		if ( empty( $child_configs ) ) {
+			echo '<tr class="wc-optic-child-list-empty"><td colspan="6">' . esc_html__( 'No internal products yet.', 'wc-optic' ) . '</td></tr>';
+		} else {
+			foreach ( array_values( $child_configs ) as $index => $config ) {
+				self::render_child_list_row( WC_Optic_SKU::build_child_list_row( $config, $division, $index ) );
+			}
+		}
+		echo '</tbody></table></div>';
+
+		echo '<div id="wc-optic-child-editor" class="wc-optic-child-editor" hidden></div>';
+		echo '<p id="wc-optic-child-editor-notice" class="wc-optic-child-editor-notice" hidden></p>';
+
 		echo '</div>';
 
 		echo '<script type="text/html" id="wc-optic-child-config-template">';
-		self::render_child_config_block(
+		self::render_child_editor(
 			WC_Optic_SKU::normalize_child_config(
 				array(
 					'enabled' => true,
@@ -117,13 +137,62 @@ class WC_Optic_Admin_Product {
 				$division,
 				0
 			),
-			'__INDEX__',
 			$division,
 			true
 		);
 		echo '</script>';
 
 		echo '</div>';
+	}
+
+	/**
+	 * Public wrapper used by AJAX to render one editor block.
+	 *
+	 * @param array  $config      Child config.
+	 * @param string $division    Division.
+	 * @param bool   $is_template Template placeholder.
+	 */
+	public static function render_child_editor( array $config, $division, $is_template = false ) {
+		self::render_child_config_block( $config, $is_template ? '__INDEX__' : 'edit', $division, $is_template );
+	}
+
+	/**
+	 * One compact list row.
+	 *
+	 * @param array $row List row payload.
+	 */
+	public static function render_child_list_row( array $row ) {
+		$id      = (string) ( $row['id'] ?? '' );
+		$enabled = ! empty( $row['enabled'] );
+		$search  = (string) ( $row['search'] ?? '' );
+
+		echo '<tr class="wc-optic-child-list-row" data-child-id="' . esc_attr( $id ) . '" data-search="' . esc_attr( $search ) . '">';
+		echo '<td class="wc-optic-child-list__label">' . esc_html( (string) ( $row['label'] ?? '' ) ) . '</td>';
+		echo '<td class="wc-optic-child-list__powers"><code dir="ltr">' . esc_html( (string) ( $row['powers'] ?? '' ) ) . '</code></td>';
+		echo '<td class="wc-optic-child-list__price">' . esc_html( (string) ( $row['price'] ?? '' ) ) . '</td>';
+		echo '<td class="wc-optic-child-list__stock">' . esc_html( (string) ( $row['stock'] ?? '' ) ) . '</td>';
+		echo '<td class="wc-optic-child-list__status">';
+		echo $enabled
+			? '<span class="wc-optic-child-status wc-optic-child-status--on">' . esc_html__( 'Enabled', 'wc-optic' ) . '</span>'
+			: '<span class="wc-optic-child-status wc-optic-child-status--off">' . esc_html__( 'Disabled', 'wc-optic' ) . '</span>';
+		echo '</td>';
+		echo '<td class="wc-optic-child-list__actions">';
+		echo '<button type="button" class="button button-small wc-optic-edit-child">' . esc_html__( 'Edit', 'wc-optic' ) . '</button> ';
+		echo '<button type="button" class="button-link-delete wc-optic-remove-child-row">' . esc_html__( 'Remove', 'wc-optic' ) . '</button>';
+		echo '</td>';
+		echo '</tr>';
+	}
+
+	/**
+	 * HTML for one list row (AJAX / JS).
+	 *
+	 * @param array $row Row payload.
+	 * @return string
+	 */
+	public static function get_child_list_row_html( array $row ) {
+		ob_start();
+		self::render_child_list_row( $row );
+		return (string) ob_get_clean();
 	}
 
 	/**
@@ -168,7 +237,7 @@ class WC_Optic_Admin_Product {
 	}
 
 	/**
-	 * Save handler.
+	 * Save handler — division + identity only; internals are saved via AJAX.
 	 *
 	 * @param WC_Product $product Product.
 	 */
@@ -184,25 +253,16 @@ class WC_Optic_Admin_Product {
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( isset( $_POST['_optic_identity'] ) ? wp_unslash( $_POST['_optic_identity'] ) : array() );
 
-		$raw_children = isset( $_POST['_optic_child_configs'] ) && is_array( $_POST['_optic_child_configs'] ) ? wp_unslash( $_POST['_optic_child_configs'] ) : array();
-		foreach ( $raw_children as $key => $raw_child ) {
-			if ( is_array( $raw_child ) ) {
-				$raw_children[ $key ]['catalog'] = $identity;
-			}
-		}
-		$children = WC_Optic_SKU::normalize_child_configs( $raw_children, $division );
+		$product->update_meta_data( '_optic_division', $division );
+		$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $identity );
 
-		$complete = WC_Optic_SKU::validate_child_configs_complete( $children, $division, $raw_children );
-		if ( is_wp_error( $complete ) ) {
-			WC_Admin_Notices::add_custom_notice(
-				'wc_optic_incomplete_child',
-				$complete->get_error_message()
-			);
+		$children = WC_Optic_SKU::get_child_configs( $product );
+		if ( empty( $children ) ) {
+			WC_Optic_SKU::sync_product_sku( $product );
 			return;
 		}
 
-		$product->update_meta_data( '_optic_division', $division );
-		$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $identity );
+		$children = WC_Optic_SKU::apply_identity_to_children( $identity, $children, $division );
 
 		$unique = WC_Optic_SKU::validate_unique_power_combinations( $children, $division );
 		if ( is_wp_error( $unique ) ) {
@@ -260,12 +320,13 @@ class WC_Optic_Admin_Product {
 			'wc-optic-admin-product',
 			'wcOpticAdmin',
 			array(
-				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
-				'nonce'          => wp_create_nonce( 'wc_optic_admin' ),
-				'isNewProduct'   => self::is_new_product_screen(),
-				'divisionPowers' => $division_powers,
-				'divisionShowColor' => $division_colors,
-				'powerTypes'     => WC_Optic_Catalog::get_power_types(),
+				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
+				'nonce'              => wp_create_nonce( 'wc_optic_admin' ),
+				'productId'          => ( isset( $GLOBALS['post']->ID ) ? (int) $GLOBALS['post']->ID : 0 ),
+				'isNewProduct'       => self::is_new_product_screen(),
+				'divisionPowers'     => $division_powers,
+				'divisionShowColor'  => $division_colors,
+				'powerTypes'         => WC_Optic_Catalog::get_power_types(),
 				'backorderEnabled'   => WC_Optic_SKU::is_backorder_enabled(),
 				'globalBackorderQty' => WC_Optic_SKU::get_global_backorder_qty(),
 				'alertEnabled'       => WC_Optic_Stock::is_alert_enabled(),
@@ -273,6 +334,21 @@ class WC_Optic_Admin_Product {
 				'i18n'               => array(
 					'product'           => __( 'Product', 'wc-optic' ),
 					'remove'            => __( 'Remove', 'wc-optic' ),
+					'edit'              => __( 'Edit', 'wc-optic' ),
+					'saveChild'         => __( 'Save internal product', 'wc-optic' ),
+					'cancelEdit'        => __( 'Cancel', 'wc-optic' ),
+					'saving'            => __( 'Saving…', 'wc-optic' ),
+					'loading'           => __( 'Loading…', 'wc-optic' ),
+					'saved'             => __( 'Internal product saved.', 'wc-optic' ),
+					'removed'           => __( 'Internal product removed.', 'wc-optic' ),
+					'confirmRemove'     => __( 'Remove this internal product?', 'wc-optic' ),
+					'confirmDiscard'    => __( 'Discard unsaved changes to this internal product?', 'wc-optic' ),
+					'saveProductFirst'  => __( 'Save the product first, then manage internal products.', 'wc-optic' ),
+					'emptyList'         => __( 'No internal products yet.', 'wc-optic' ),
+					'noSearchResults'   => __( 'No internal products match your search.', 'wc-optic' ),
+					'duplicatePowers'   => __( 'This prescription combination already exists. Each combination must be unique.', 'wc-optic' ),
+					'enabled'           => __( 'Enabled', 'wc-optic' ),
+					'disabled'          => __( 'Disabled', 'wc-optic' ),
 					'backorderAllowed'  => __( 'Backorder allowed', 'wc-optic' ),
 					'backorderGlobal'   => __( 'Global', 'wc-optic' ),
 					'backorderCustom'   => __( 'Custom', 'wc-optic' ),
@@ -301,7 +377,7 @@ class WC_Optic_Admin_Product {
 			? $custom_qty
 			: ( $backorder_enabled ? (string) WC_Optic_SKU::get_global_backorder_qty() : '0' );
 		$consumed          = WC_Optic_SKU::get_child_backorder_consumed( $config );
-		$pf                = '_optic_child_configs[' . $index_token . ']';
+		$pf                = 'wc_optic_edit_child';
 		$row_class         = 'wc-optic-child-backorder-card wc-optic-child-backorder-row';
 		if ( ! $backorder_enabled ) {
 			$row_class .= ' wc-optic-backorder-disabled';
@@ -372,7 +448,7 @@ class WC_Optic_Admin_Product {
 		$display_qty   = $alert_custom
 			? $custom_qty
 			: ( $alert_enabled ? (string) WC_Optic_Stock::get_alert_qty() : '0' );
-		$pf            = '_optic_child_configs[' . $index_token . ']';
+		$pf            = 'wc_optic_edit_child';
 		$row_class     = 'wc-optic-child-backorder-card wc-optic-child-alert-card wc-optic-child-alert-row';
 		if ( ! $alert_enabled ) {
 			$row_class .= ' wc-optic-backorder-disabled';
@@ -428,35 +504,39 @@ class WC_Optic_Admin_Product {
 	}
 
 	/**
-	 * Render one repeatable child config block.
+	 * Render one repeatable child config block (editor pane — not posted with product save).
 	 *
 	 * @param array  $config      Child config.
-	 * @param string $index_token Field index token.
+	 * @param string $index_token Field index token (ids only).
 	 * @param string $division    Parent division.
 	 * @param bool   $is_template Template mode.
 	 */
 	protected static function render_child_config_block( array $config, $index_token, $division, $is_template = false ) {
 		$power_types = WC_Optic_Catalog::get_power_types();
 		$title       = ! empty( $config['label'] ) ? (string) $config['label'] : __( 'Product', 'wc-optic' );
+		$pf          = 'wc_optic_edit_child';
 
-		echo '<div class="wc-optic-child-config" data-child-index="' . esc_attr( $index_token ) . '">';
+		echo '<div class="wc-optic-child-config" data-child-index="' . esc_attr( $index_token ) . '" data-child-id="' . esc_attr( (string) ( $config['id'] ?? '' ) ) . '">';
 		echo '<div class="wc-optic-child-config__header">';
 		echo '<h4 class="wc-optic-child-config__title">' . esc_html( $title ) . '</h4>';
-		echo '<button type="button" class="button-link-delete wc-optic-remove-child">' . esc_html__( 'Remove', 'wc-optic' ) . '</button>';
+		echo '<div class="wc-optic-child-config__header-actions">';
+		echo '<button type="button" class="button button-primary wc-optic-save-child">' . esc_html__( 'Save internal product', 'wc-optic' ) . '</button> ';
+		echo '<button type="button" class="button wc-optic-cancel-child">' . esc_html__( 'Cancel', 'wc-optic' ) . '</button>';
+		echo '</div>';
 		echo '</div>';
 
-		echo '<input type="hidden" class="wc-optic-child-id" name="' . esc_attr( '_optic_child_configs[' . $index_token . '][id]' ) . '" value="' . esc_attr( (string) ( $config['id'] ?? '' ) ) . '" />';
-		echo '<input type="hidden" class="wc-optic-child-sort" name="' . esc_attr( '_optic_child_configs[' . $index_token . '][sort]' ) . '" value="' . esc_attr( (string) ( $config['sort'] ?? 0 ) ) . '" />';
+		echo '<input type="hidden" class="wc-optic-child-id" name="' . esc_attr( $pf ) . '[id]" value="' . esc_attr( (string) ( $config['id'] ?? '' ) ) . '" />';
+		echo '<input type="hidden" class="wc-optic-child-sort" name="' . esc_attr( $pf ) . '[sort]" value="' . esc_attr( (string) ( $config['sort'] ?? 0 ) ) . '" />';
 
 		echo '<p class="form-field form-field-wide wc-optic-child-enabled">';
 		echo '<label>';
-		echo '<input type="checkbox" name="' . esc_attr( '_optic_child_configs[' . $index_token . '][enabled]' ) . '" value="1" ' . checked( ! empty( $config['enabled'] ), true, false ) . ' />';
+		echo '<input type="checkbox" class="wc-optic-child-enabled-input" name="' . esc_attr( $pf ) . '[enabled]" value="1" ' . checked( ! empty( $config['enabled'] ), true, false ) . ' />';
 		echo ' ' . esc_html__( 'Enabled', 'wc-optic' );
 		echo '</label>';
 		echo '</p>';
 
 		self::render_child_text_input(
-			'_optic_child_configs[' . $index_token . '][label]',
+			$pf . '[label]',
 			'wc_optic_child_' . $index_token . '_label',
 			__( 'Label', 'wc-optic' ),
 			(string) ( $config['label'] ?? '' ),
@@ -467,7 +547,7 @@ class WC_Optic_Admin_Product {
 		);
 
 		self::render_child_text_input(
-			'_optic_child_configs[' . $index_token . '][unit_price]',
+			$pf . '[unit_price]',
 			'wc_optic_child_' . $index_token . '_unit_price',
 			__( 'Unit price', 'wc-optic' ),
 			(string) ( $config['unit_price'] ?? '' ),
@@ -478,7 +558,7 @@ class WC_Optic_Admin_Product {
 		);
 
 		self::render_child_text_input(
-			'_optic_child_configs[' . $index_token . '][stock_qty]',
+			$pf . '[stock_qty]',
 			'wc_optic_child_' . $index_token . '_stock_qty',
 			__( 'Stock quantity', 'wc-optic' ),
 			(string) ( $config['stock_qty'] ?? '' ),
@@ -501,7 +581,7 @@ class WC_Optic_Admin_Product {
 			$is_power = in_array( $type, $power_types, true );
 			$value    = $is_power ? (int) ( $config['powers'][ $type ] ?? 0 ) : (int) ( $config['catalog'][ $type ] ?? 0 );
 			if ( ! $is_power ) {
-				echo '<input type="hidden" class="wc-optic-child-identity-value" data-optic-type="' . esc_attr( $type ) . '" name="' . esc_attr( '_optic_child_configs[' . $index_token . '][catalog][' . $type . ']' ) . '" value="' . esc_attr( (string) $value ) . '" />';
+				echo '<input type="hidden" class="wc-optic-child-identity-value" data-optic-type="' . esc_attr( $type ) . '" name="' . esc_attr( $pf . '[catalog][' . $type . ']' ) . '" value="' . esc_attr( (string) $value ) . '" />';
 				continue;
 			}
 			self::render_child_select_field(
@@ -527,6 +607,11 @@ class WC_Optic_Admin_Product {
 		echo '</div>';
 		echo '<p class="description">' . esc_html__( 'Admin only — scan during order preparation. Not shown to customers.', 'wc-optic' ) . '</p>';
 		echo '</div>';
+
+		echo '<p class="wc-optic-child-config__footer">';
+		echo '<button type="button" class="button button-primary wc-optic-save-child">' . esc_html__( 'Save internal product', 'wc-optic' ) . '</button> ';
+		echo '<button type="button" class="button wc-optic-cancel-child">' . esc_html__( 'Cancel', 'wc-optic' ) . '</button>';
+		echo '</p>';
 
 		echo '</div>';
 	}
@@ -574,7 +659,8 @@ class WC_Optic_Admin_Product {
 	 * @param string $division    Parent division.
 	 */
 	protected static function render_child_select_field( $index_token, $type, $selected, $is_power, $division ) {
-		$name = $is_power ? '_optic_child_configs[' . $index_token . '][powers][' . $type . ']' : '_optic_child_configs[' . $index_token . '][catalog][' . $type . ']';
+		$pf   = 'wc_optic_edit_child';
+		$name = $is_power ? $pf . '[powers][' . $type . ']' : $pf . '[catalog][' . $type . ']';
 		$id   = 'wc_optic_child_' . $index_token . '_' . $type;
 
 		$wrapper = 'form-field form-field-wide wc-optic-child-field';

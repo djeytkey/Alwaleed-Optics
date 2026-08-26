@@ -183,6 +183,85 @@
 	margin-top: 1.5em;
 }
 
+#optic_product_data_panel .wc-optic-child-list-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0 0 1rem;
+	padding: 0 12px;
+}
+
+#optic_product_data_panel .wc-optic-child-search {
+	min-width: 220px;
+	flex: 1 1 220px;
+	max-width: 360px;
+}
+
+#optic_product_data_panel .wc-optic-child-list-wrap {
+	margin: 0 12px 1rem;
+	max-height: 420px;
+	overflow: auto;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
+#optic_product_data_panel .wc-optic-child-list {
+	margin: 0;
+	border: 0;
+	box-shadow: none;
+}
+
+#optic_product_data_panel .wc-optic-child-list th,
+#optic_product_data_panel .wc-optic-child-list td {
+	vertical-align: middle;
+}
+
+#optic_product_data_panel .wc-optic-child-list__powers code {
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+#optic_product_data_panel .wc-optic-child-list__actions {
+	white-space: nowrap;
+	width: 1%;
+}
+
+#optic_product_data_panel .wc-optic-child-list-row.is-editing {
+	background: #f0f6fc;
+}
+
+#optic_product_data_panel .wc-optic-child-status--on {
+	color: #007017;
+	font-weight: 600;
+}
+
+#optic_product_data_panel .wc-optic-child-status--off {
+	color: #646970;
+}
+
+#optic_product_data_panel .wc-optic-child-editor {
+	margin: 0 12px 1rem;
+}
+
+#optic_product_data_panel .wc-optic-child-editor-notice {
+	margin: 0 12px 1rem;
+	padding: 8px 12px;
+	border-left: 4px solid #72aee6;
+	background: #f0f6fc;
+}
+
+#optic_product_data_panel .wc-optic-child-editor-notice.notice-error {
+	border-left-color: #d63638;
+	background: #fcf0f1;
+}
+
+#optic_product_data_panel .wc-optic-child-editor-notice.notice-success {
+	border-left-color: #00a32a;
+	background: #edfaef;
+}
+
 #optic_product_data_panel .wc-optic-child-config {
 	margin: 0 0 1.25em;
 	padding: 1em 1.25em;
@@ -197,6 +276,20 @@
 	justify-content: space-between;
 	gap: 1rem;
 	margin-bottom: 0.75em;
+}
+
+#optic_product_data_panel .wc-optic-child-config__header-actions,
+#optic_product_data_panel .wc-optic-child-config__footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+#optic_product_data_panel .wc-optic-child-config__footer {
+	margin-top: 1rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid #dcdcde;
 }
 
 #optic_product_data_panel .wc-optic-child-config__header h4 {

@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-08-23 (dernière mise à jour)  
+**Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,14 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-08-23 (courante)
+### Session 2026-08-26 (courante)
+
+1. **Admin fiche produit — chargement rapide des internes** — plus de rendu des N blocs complets (Select2 × puissances + QR) au load. Liste compacte + édition AJAX à la demande (modèle variations WooCommerce).
+2. **Anti-doublon** — `assert_unique_power_combination()` / `validate_unique_power_combinations()` refusent toute combinaison SPH/CYL/AXIS/ADD déjà présente (même sur un interne désactivé). Message avec label conflictuel.
+3. **Sauvegarde produit** — `save_product()` ne lit plus `$_POST['_optic_child_configs']` ; applique seulement division + identité aux enfants existants. CRUD internes : `wc_optic_load_child` / `save_child` / `remove_child` / `list_children`.
+4. **Version** — bump **1.3.3**.
+
+### Session 2026-08-23 (précédente)
 
 1. **Convert — DataTable jQuery (fix)** — les fichiers **`dataTables.min.js`** et **`dataTables.dataTables.min.css`** manquaient dans `assets/vendor/datatables/` (404 → tableau HTML brut). Ajout vendor 2.1.8 + chargement footer identique à Stock (`print_scripts` prio 20 : DataTables → config → `admin-convert.js`). Pagination, recherche, compteur « Showing _START_–_END_ of _TOTAL_ products ».
 2. **Convert — Select2 wizard** — dropdown mal placé / hors modal : `dropdownParent` était `#wc-optic-wizard-modal` + règle CSS `width:100%` sur tous les `.select2-container` du modal (stretch du dropdown) + overflow scrollable. Correctif : `dropdownParent: body`, z-index au-dessus du modal, width limité à `select + .select2-container`.
@@ -446,6 +453,32 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-converter.php`, `class-wc-optic-divisions.php`, `class-wc-optic-plugin.php`, `class-wc-optic-sku.php`, `admin/class-wc-optic-admin-convert.php`, `admin/class-wc-optic-admin-settings.php`, `admin/class-wc-optic-admin-product.php`, `admin-convert.js`, `admin-product.js`, `admin-settings.js`.
 
+### 2.15 Admin — internes lazy + anti-doublon (session 2026-08-26)
+
+**Problème :** un Toric (ex. SPH×CYL×AXIS = 150) rendait 150 blocs complets + ~450 Select2 → fiche produit admin très lente.
+
+**Comportement :**
+
+| Étape | Détail |
+|-------|--------|
+| Load | Tableau compact (label, powers texte, prix, stock, enabled) + recherche client |
+| Edit | AJAX `wc_optic_load_child` → un seul formulaire (Select2 + QR) |
+| Save interne | AJAX `wc_optic_save_child` → upsert unitaire |
+| Add | Template client + Save AJAX (nouvel `id`) |
+| Remove | AJAX `wc_optic_remove_child` |
+| Save produit WC | Division + identité seulement ; `apply_identity_to_children()` ; **ne poste plus** les N enfants |
+
+**Anti-doublon :**
+
+- Clé = ids catalogue des puissances de la division (`get_power_combination_key`).
+- Contrôle sur **tous** les internes (enabled ou non), dès que les puissances sont complètes.
+- `assert_unique_power_combination()` à l’upsert ; `validate_unique_power_combinations()` au save produit.
+- HTTP 409 + message avec label conflictuel et résumé des puissances.
+
+**Méthodes :** `WC_Optic_SKU::upsert_child_on_product()`, `remove_child_from_product()`, `get_child_list_rows()`, `format_child_powers_label()`, `child_powers_complete()`.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-product.php`, `admin-product.js`, `admin.css`.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -470,12 +503,12 @@ WC_Optic_Converter::convert_product() / preview()
 | `class-wc-optic-plugin.php` | `division_shows_color()` |
 | `admin/class-wc-optic-admin-stock.php` | **Nouveau (2026-06-11)** — page Stock (gestion + alertes) |
 | `class-wc-optic-stock.php` | **Nouveau (2026-06-11)** — inventaire, alertes, restock |
-| `class-wc-optic-ajax.php` | + `wc_optic_restock_child` |
+| `class-wc-optic-ajax.php` | Restock + Convert + **load/save/remove/list child** |
 | `admin/class-wc-optic-admin-import.php` | Import catalogue ; hook screen sous menu Alwaleed Optics |
-| `admin/class-wc-optic-admin-product.php` | Fiche produit ; identité couleur selon division |
+| `admin/class-wc-optic-admin-product.php` | Liste compacte + éditeur AJAX ; save = identité seule |
 | `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `enumerate_power_range_values()` (force +0.00) |
 | `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
-| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; `get_required_identity_types()` |
+| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; **upsert/remove child** ; **anti-doublon powers** |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
 | `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, `apply_child_stock_delta` |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
@@ -498,14 +531,14 @@ WC_Optic_Converter::convert_product() / preview()
 | `assets/js/frontend.js` | Power mode, prix défaut, pas de range |
 | `assets/js/cart.js` | Inchangé (sync qty) |
 | `assets/js/admin-settings.js` | Toggle visibilité champ backorder qty global |
-| `assets/js/admin-product.js` | Toggle Custom backorder, identité, plages, Generate internals |
+| `assets/js/admin-product.js` | Liste internes + Edit/Save/Remove AJAX ; anti-doublon UX |
 | `assets/js/admin-convert.js` | Wizard Convert ; From/To/Step acceptent `0` |
 | `assets/js/admin-stock.js` | Collapsible parent rows, recherche, expand/collapse, modal restock (+ reset backorder), badge low stock parent, DataTables (onglet alertes) |
 | `assets/vendor/datatables/dataTables.min.js` | **DataTables 2.1.8 core** (Convert + Stock alerts) |
 | `assets/vendor/datatables/dataTables.dataTables.min.css` | Styles DataTables |
 | `assets/vendor/datatables/rowGroup.dataTables.min.js` | Extension RowGroup (bundled) |
 | `assets/css/frontend.css` | Pill Eyewa power mode, line-summary total, qty centrées, labels grille |
-| `assets/css/admin.css` | Backorder admin, Settings 2 colonnes, **stock tables + modal restock + badge low stock**, `.wc-optic-is-hidden` |
+| `assets/css/admin.css` | Backorder admin, Settings 2 colonnes, stock, **liste/éditeur internes lazy** |
 | `assets/css/flatsome-cart-checkout.css` | Styles panier/checkout Flatsome |
 
 ---
@@ -701,6 +734,16 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Changer la couleur identité + Update → SKU de tous les internes mis à jour
 - [ ] Fiche boutique : cascade inchangée
 
+### Admin internes lazy (1.3.3)
+
+- [ ] Produit Toric ~150 internes : ouverture fiche **rapide** (liste, pas 150 formulaires)
+- [ ] Recherche filtre la liste (label / puissances / SKU)
+- [ ] Edit → charge un seul panneau ; Save met à jour prix/stock ; liste rafraîchie
+- [ ] Add avec même SPH/CYL/AXIS qu’un existant → **refus** (message doublon)
+- [ ] Modifier un interne vers une combinaison déjà prise → **refus**
+- [ ] Remove → ligne disparait ; Update produit (identité) ne détruit pas les internes
+- [ ] Nouveau produit : Add désactivé jusqu’au premier Save WP
+
 ### Activation plugin (1.2.5)
 
 - [ ] Désactiver puis réactiver le plugin : pas d’erreur fatale `WC_Optic_Catalog not found`
@@ -713,8 +756,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.2] — 2026-08-23**.
-4. **Version plugin** : **1.3.2** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.3] — 2026-08-26**.
+4. **Version plugin** : **1.3.3** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
@@ -722,6 +765,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 9. **Backorder désactivé globalement** : champs Custom masqués en admin produit ; `get_child_backorder_qty()` retourne 0.
 10. **`backorder_consumed`** est conservé à la sauvegarde produit via `preserve_child_backorder_consumed()` — ne pas supprimer le hidden field admin.
 11. **Autoload** : ne plus reporter `WC_Optic_Autoload::register()` après `plugins_loaded` — l’activation (et tout code avant ce hook) en a besoin.
+12. **Internes lazy (1.3.3)** : les champs éditeur utilisent le préfixe `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit) pour ne pas écraser la méta à l’Update WP. Doublon = même combinaison de puissances de la division, y compris internes désactivés.
+13. **Nouveau produit** : Add/Edit internes indisponibles tant que l’ID produit n’existe pas (premier Save WP requis).
 
 ---
 
