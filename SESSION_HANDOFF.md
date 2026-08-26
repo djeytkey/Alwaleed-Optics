@@ -2,7 +2,7 @@
 
 **Date :** 2026-08-26 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.6 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.3.7 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -21,8 +21,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 4. **Restyle notes panneau** — titres/aides (`.wc-optic-panel-heading` / `.wc-optic-panel-note`) : padding latéral `20px` homogène (plus de 2ᵉ ligne collée au bord du div à cause du `padding-left: 162px` WooCommerce sans label).
 5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
 6. **Convert → onglet Converted** — rebuild des optic déjà convertis (replace internals) : changer division (ex. Color → Toric) + plages CYL/AXIS, régénérer tous les internes.
-7. **Wizard scroll** — un seul scrollbar : `.wc-optic-wizard-pane-scroll`. Modal/body/content `overflow:hidden` + max-height viewport. Cache CSS : `filemtime` (1.3.6).
-8. **Version** — bump **1.3.6**.
+7. **Wizard modal** — structure simple (plus de `pane-scroll` / `pane-fixed`) ; scroll naturel du `.modal`.
+8. **Version** — bump **1.3.7**.
 
 ### Session 2026-08-23 (précédente)
 

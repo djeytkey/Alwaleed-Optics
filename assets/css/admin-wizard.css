@@ -8,7 +8,8 @@
 	display: none;
 	width: 100%;
 	height: 100%;
-	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: auto;
 	outline: 0;
 }
 
@@ -41,85 +42,19 @@
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
-/*
- * Wizard layout — ONE scrollbar only (.wc-optic-wizard-pane-scroll).
- * Never scroll .modal / .modal-body / .modal-content (that caused the double bar).
- */
-#wc-optic-wizard-modal.modal {
-	overflow: hidden !important;
-}
-
+/* Normal wizard modal: one flow, overlay scrolls if content is tall. */
 #wc-optic-wizard-modal .wc-optic-wizard-dialog {
-	display: flex;
-	margin: 0.75rem auto;
+	margin: 1.75rem auto;
 	max-width: 800px;
-	max-height: calc(100vh - 1.5rem);
-	height: auto;
-}
-
-#wc-optic-wizard-modal .modal-content {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-	max-height: calc(100vh - 1.5rem);
-	overflow: hidden !important;
 }
 
 #wc-optic-wizard-modal .modal-header,
 #wc-optic-wizard-modal .modal-footer {
-	flex: 0 0 auto;
+	flex-shrink: 0;
 }
 
 #wc-optic-wizard-modal .modal-body {
-	display: flex;
-	flex-direction: column;
-	flex: 1 1 auto;
-	min-height: 0;
-	max-height: none;
-	overflow: hidden !important;
 	padding: 16px 18px 8px;
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-bar,
-#wc-optic-wizard-modal .wc-optic-wizard-steps,
-#wc-optic-wizard-modal .wc-optic-wizard-alert {
-	flex: 0 0 auto;
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-pane {
-	display: none;
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-pane:not([hidden]) {
-	display: block;
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-x: hidden;
-	overflow-y: auto; /* steps 1–2 only if needed */
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-pane[data-step="3"]:not([hidden]) {
-	display: flex;
-	flex-direction: column;
-	overflow: hidden !important; /* no pane scroll — only .pane-scroll */
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-pane-scroll {
-	flex: 1 1 auto;
-	min-height: 0;
-	max-height: none;
-	overflow-x: hidden;
-	overflow-y: auto !important;
-	margin: 0 0 12px;
-	padding: 0 4px 8px 0;
-	border-bottom: 1px solid #dcdcde;
-	-webkit-overflow-scrolling: touch;
-}
-
-#wc-optic-wizard-modal .wc-optic-wizard-pane-fixed {
-	flex: 0 0 auto;
-	padding-top: 4px;
-	overflow: visible;
 }
 
 .modal-header {
@@ -157,12 +92,6 @@
 .btn-close::before {
 	content: "\00d7";
 }
-
-.modal-body {
-	padding: 16px 18px 8px;
-}
-
-/* Wizard body padding is owned by #wc-optic-wizard-modal .modal-body */
 
 .modal-footer {
 	display: flex;

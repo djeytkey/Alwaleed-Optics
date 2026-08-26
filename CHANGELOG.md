@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.7] — 2026-08-26
+
+### Modifié
+
+- **Wizard Convert / Converted** : modal simple sans `pane-scroll` / `pane-fixed` — un seul flux (plages + prix + stock), scroll naturel du modal.
+
 ## [1.3.6] — 2026-08-26
 
 ### Corrigé
