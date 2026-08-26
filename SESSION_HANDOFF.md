@@ -18,7 +18,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 1. **Admin fiche produit — chargement rapide des internes** — plus de rendu des N blocs complets (Select2 × puissances + QR) au load. Liste compacte + édition AJAX à la demande (modèle variations WooCommerce).
 2. **Anti-doublon** — `assert_unique_power_combination()` / `validate_unique_power_combinations()` refusent toute combinaison SPH/CYL/AXIS/ADD déjà présente (même sur un interne désactivé). Message avec label conflictuel.
 3. **Sauvegarde produit** — `save_product()` ne lit plus `$_POST['_optic_child_configs']` ; applique seulement division + identité aux enfants existants. CRUD internes : `wc_optic_load_child` / `save_child` / `remove_child` / `list_children`.
-4. **Version** — bump **1.3.3**.
+4. **Restyle notes panneau** — titres/aides (`.wc-optic-panel-heading` / `.wc-optic-panel-note`) : padding latéral `20px` homogène (plus de 2ᵉ ligne collée au bord du div à cause du `padding-left: 162px` WooCommerce sans label).
+5. **Version** — bump **1.3.3**.
 
 ### Session 2026-08-23 (précédente)
 

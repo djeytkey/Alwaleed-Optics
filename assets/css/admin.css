@@ -146,6 +146,32 @@
 	display: none;
 }
 
+/*
+ * Standalone headings / help text (no label column).
+ * WooCommerce `.form-field` uses padding-left: 162px for labels; without a label,
+ * wrapped lines can visually hug the panel edge. Reset to the panel side padding.
+ */
+#optic_product_data_panel p.form-field.wc-optic-panel-heading,
+#optic_product_data_panel p.form-field.wc-optic-panel-note {
+	float: none;
+	clear: both;
+	width: auto;
+	max-width: none;
+	margin: 0;
+	padding: 5px 20px !important;
+	box-sizing: border-box;
+}
+
+#optic_product_data_panel p.form-field.wc-optic-panel-heading {
+	margin-top: 0.75em;
+	padding-bottom: 0 !important;
+}
+
+#optic_product_data_panel p.form-field.wc-optic-panel-note {
+	color: #646970;
+	line-height: 1.5;
+}
+
 #optic_product_data_panel .wc-optic-sku-powers-hint {
 	margin-top: 0;
 }
@@ -189,7 +215,7 @@
 	align-items: center;
 	gap: 0.75rem;
 	margin: 0 0 1rem;
-	padding: 0 12px;
+	padding: 0 20px;
 }
 
 #optic_product_data_panel .wc-optic-child-search {
@@ -199,7 +225,7 @@
 }
 
 #optic_product_data_panel .wc-optic-child-list-wrap {
-	margin: 0 12px 1rem;
+	margin: 0 20px 1rem;
 	max-height: 420px;
 	overflow: auto;
 	border: 1px solid #dcdcde;
@@ -242,11 +268,11 @@
 }
 
 #optic_product_data_panel .wc-optic-child-editor {
-	margin: 0 12px 1rem;
+	margin: 0 20px 1rem;
 }
 
 #optic_product_data_panel .wc-optic-child-editor-notice {
-	margin: 0 12px 1rem;
+	margin: 0 20px 1rem;
 	padding: 8px 12px;
 	border-left: 4px solid #72aee6;
 	background: #f0f6fc;

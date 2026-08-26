@@ -79,21 +79,21 @@ class WC_Optic_Admin_Product {
 		$child_configs = WC_Optic_SKU::get_child_configs( $product );
 		$child_count   = count( $child_configs );
 
-		echo '<p class="form-field"><strong>' . esc_html__( 'Optical identity', 'wc-optic' ) . '</strong></p>';
-		echo '<p class="form-field description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
+		echo '<p class="form-field wc-optic-panel-heading"><strong>' . esc_html__( 'Optical identity', 'wc-optic' ) . '</strong></p>';
+		echo '<p class="form-field wc-optic-panel-note description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
 		WC_Optic_Admin_Convert::render_identity_fields( $identity, '_optic_identity', true, $division );
 
-		echo '<p class="form-field description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add or edit one internal product at a time below.', 'wc-optic' ) . '</p>';
+		echo '<p class="form-field wc-optic-panel-note description">' . esc_html__( 'To generate power internals from a range, use Alwaleed Optics → Convert (wizard). You can still add or edit one internal product at a time below.', 'wc-optic' ) . '</p>';
 
 		echo '<div class="wc-optic-child-configs" data-product-id="' . esc_attr( (string) $product_id ) . '">';
-		echo '<p class="form-field"><strong>' . esc_html__( 'Internal products', 'wc-optic' ) . '</strong> ';
+		echo '<p class="form-field wc-optic-panel-heading"><strong>' . esc_html__( 'Internal products', 'wc-optic' ) . '</strong> ';
 		echo '<span class="wc-optic-child-count" id="wc-optic-child-count">(' . esc_html( (string) $child_count ) . ')</span></p>';
-		echo '<p class="form-field wc-optic-sku-powers-hint description">';
+		echo '<p class="form-field wc-optic-panel-note wc-optic-sku-powers-hint description">';
 		echo esc_html__( 'The list loads instantly. Open an internal product only when you need to edit it (price, stock, powers). Duplicate prescriptions are blocked.', 'wc-optic' );
 		echo '</p>';
 
 		if ( $product_id < 1 ) {
-			echo '<p class="form-field description">' . esc_html__( 'Save the product first, then add or edit internal products.', 'wc-optic' ) . '</p>';
+			echo '<p class="form-field wc-optic-panel-note description">' . esc_html__( 'Save the product first, then add or edit internal products.', 'wc-optic' ) . '</p>';
 		}
 
 		echo '<div class="wc-optic-child-list-toolbar">';
