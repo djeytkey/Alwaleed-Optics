@@ -21,7 +21,7 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 4. **Restyle notes panneau** — titres/aides (`.wc-optic-panel-heading` / `.wc-optic-panel-note`) : padding latéral `20px` homogène (plus de 2ᵉ ligne collée au bord du div à cause du `padding-left: 162px` WooCommerce sans label).
 5. **Identité → tous les internes + SKU** — changement de select identité / division → AJAX `wc_optic_sync_identity` (debounce 350ms) : recopie catalogue + rebuild SKU sur chaque enfant. Update produit idem. Synchro **non bloquée** par l’avertissement anti-doublon. Couleur forcée à 0 si division sans couleur.
 6. **Convert → onglet Converted** — rebuild des optic déjà convertis (replace internals) : changer division (ex. Color → Toric) + plages CYL/AXIS, régénérer tous les internes.
-7. **Wizard scroll** — `modal-body` ne scroll plus en entier ; étape Powers : scroll uniquement `.wc-optic-wizard-pane-scroll` ; prix/stock + footer toujours visibles.
+7. **Wizard scroll** — un seul scrollbar : `.wc-optic-wizard-pane-scroll` (max 42vh). Pas de scroll sur `modal` / `modal-body` / `modal-content` (évite le double scroll).
 8. **Version** — bump **1.3.5**.
 
 ### Session 2026-08-23 (précédente)

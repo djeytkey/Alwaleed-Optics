@@ -38,7 +38,6 @@
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	max-height: calc(100vh - 2rem);
 	pointer-events: auto;
 	background: #fff;
 	border: 1px solid rgba(0, 0, 0, 0.15);
@@ -49,14 +48,12 @@
 #wc-optic-wizard-modal .wc-optic-wizard-dialog {
 	margin: 1rem auto;
 	max-width: 800px;
-	max-height: calc(100vh - 2rem);
-	display: flex;
 }
 
 #wc-optic-wizard-modal .modal-content {
-	max-height: calc(100vh - 2rem);
-	width: 100%;
-	overflow: hidden;
+	/* Grow with content; do not force a second scrollbar on the dialog. */
+	max-height: none;
+	overflow: visible;
 }
 
 #wc-optic-wizard-modal .modal-header,
@@ -64,44 +61,25 @@
 	flex-shrink: 0;
 }
 
-/*
- * Body must NOT scroll as a whole (that hid price/stock/footer again).
- * Progress + steps stay put; each step pane manages its own overflow.
- */
 #wc-optic-wizard-modal .modal-body {
-	display: flex;
-	flex-direction: column;
-	flex: 1 1 auto;
+	flex: 0 1 auto;
 	min-height: 0;
 	max-height: none;
-	overflow: hidden;
+	overflow: visible;
 	padding: 16px 18px 8px;
 }
 
-#wc-optic-wizard-modal .wc-optic-wizard-bar,
-#wc-optic-wizard-modal .wc-optic-wizard-steps,
-#wc-optic-wizard-modal .wc-optic-wizard-alert {
-	flex-shrink: 0;
-}
-
 #wc-optic-wizard-modal .wc-optic-wizard-pane:not([hidden]) {
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-y: auto;
-	-webkit-overflow-scrolling: touch;
+	overflow: visible;
 }
 
-/* Step 3: only ranges scroll; price/stock/replace stay pinned above the footer. */
-#wc-optic-wizard-modal .wc-optic-wizard-pane[data-step="3"]:not([hidden]) {
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-
+/*
+ * Same as Convert page: ONE scrollbar only — the power ranges block.
+ * Price / stock / replace stay under it; footer stays under the content.
+ */
 #wc-optic-wizard-modal .wc-optic-wizard-pane-scroll {
-	flex: 1 1 auto;
-	min-height: 0;
-	max-height: none;
+	max-height: min(42vh, 360px);
+	overflow-x: hidden;
 	overflow-y: auto;
 	margin: 0 0 12px;
 	padding: 0 4px 8px 0;
@@ -112,6 +90,21 @@
 #wc-optic-wizard-modal .wc-optic-wizard-pane-fixed {
 	flex-shrink: 0;
 	padding-top: 4px;
+	overflow: visible;
+}
+
+/* Kill Bootstrap / WP overrides that re-enable modal scrolling. */
+#wc-optic-wizard-modal.modal,
+#wc-optic-wizard-modal .modal-dialog,
+#wc-optic-wizard-modal.modal-dialog-scrollable .modal-body,
+#wc-optic-wizard-modal .modal-dialog-scrollable .modal-body {
+	overflow: hidden !important;
+}
+
+#wc-optic-wizard-modal .modal-dialog-scrollable .modal-content,
+#wc-optic-wizard-modal.modal-dialog-scrollable .modal-content {
+	max-height: none !important;
+	overflow: visible !important;
 }
 
 .modal-header {
