@@ -49,10 +49,14 @@
 #wc-optic-wizard-modal .wc-optic-wizard-dialog {
 	margin: 1rem auto;
 	max-width: 800px;
+	max-height: calc(100vh - 2rem);
+	display: flex;
 }
 
 #wc-optic-wizard-modal .modal-content {
 	max-height: calc(100vh - 2rem);
+	width: 100%;
+	overflow: hidden;
 }
 
 #wc-optic-wizard-modal .modal-header,
@@ -60,17 +64,44 @@
 	flex-shrink: 0;
 }
 
+/*
+ * Body must NOT scroll as a whole (that hid price/stock/footer again).
+ * Progress + steps stay put; each step pane manages its own overflow.
+ */
 #wc-optic-wizard-modal .modal-body {
+	display: flex;
+	flex-direction: column;
 	flex: 1 1 auto;
 	min-height: 0;
-	max-height: calc(100vh - 9rem);
+	max-height: none;
+	overflow: hidden;
+	padding: 16px 18px 8px;
+}
+
+#wc-optic-wizard-modal .wc-optic-wizard-bar,
+#wc-optic-wizard-modal .wc-optic-wizard-steps,
+#wc-optic-wizard-modal .wc-optic-wizard-alert {
+	flex-shrink: 0;
+}
+
+#wc-optic-wizard-modal .wc-optic-wizard-pane:not([hidden]) {
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 }
 
-/* Step 3: scroll only the range fields; price/stock stay visible below. */
+/* Step 3: only ranges scroll; price/stock/replace stay pinned above the footer. */
+#wc-optic-wizard-modal .wc-optic-wizard-pane[data-step="3"]:not([hidden]) {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
 #wc-optic-wizard-modal .wc-optic-wizard-pane-scroll {
-	max-height: min(42vh, 360px);
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none;
 	overflow-y: auto;
 	margin: 0 0 12px;
 	padding: 0 4px 8px 0;
@@ -122,6 +153,8 @@
 .modal-body {
 	padding: 16px 18px 8px;
 }
+
+/* Wizard body padding is owned by #wc-optic-wizard-modal .modal-body */
 
 .modal-footer {
 	display: flex;
