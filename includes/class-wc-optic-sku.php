@@ -1506,6 +1506,72 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Remove every internal product and all product-level optic data, then set type to simple.
+	 *
+	 * Wipes child configs (with their section/brand/powers identities) and parent optic meta.
+	 * Does not touch plugin Settings (global catalog, divisions, range templates, global options).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array{removed:int, reverted:bool}
+	 */
+	public static function revert_to_simple_product( WC_Product $product ) {
+		if ( 'optic_product' !== $product->get_type() ) {
+			return array(
+				'removed'  => 0,
+				'reverted' => false,
+			);
+		}
+
+		$removed = count( self::get_child_configs( $product ) );
+		self::strip_optic_product_meta( $product );
+
+		wp_set_object_terms( $product->get_id(), 'simple', 'product_type' );
+
+		self::sync_product_sku( $product );
+		$product->save();
+
+		$reloaded = wc_get_product( $product->get_id() );
+
+		return array(
+			'removed'  => $removed,
+			'reverted' => $reloaded instanceof WC_Product && 'simple' === $reloaded->get_type(),
+		);
+	}
+
+	/**
+	 * Delete all product-level optic meta (internals + identities). Settings catalog is untouched.
+	 *
+	 * @param WC_Product $product Product.
+	 */
+	public static function strip_optic_product_meta( WC_Product $product ) {
+		self::persist_child_data( $product, array() );
+
+		$product->delete_meta_data( '_optic_division' );
+		$product->delete_meta_data( self::IDENTITY_META_KEY );
+		$product->delete_meta_data( self::RANGES_META_KEY );
+		$product->delete_meta_data( '_optic_selector_ui' );
+
+		foreach ( self::META_KEYS as $meta_key ) {
+			$product->delete_meta_data( $meta_key );
+		}
+		foreach ( self::INDEX_META_KEYS as $meta_key ) {
+			$product->delete_meta_data( $meta_key );
+		}
+	}
+
+	/**
+	 * Remove every internal product from one optic parent (keeps division / identity / ranges).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return int Number of internals removed.
+	 */
+	public static function clear_child_data( WC_Product $product ) {
+		$removed = count( self::get_child_configs( $product ) );
+		self::persist_child_data( $product, array() );
+		return $removed;
+	}
+
+	/**
 	 * Build derived catalog indexes from children.
 	 *
 	 * @param array $child_configs Child configs.

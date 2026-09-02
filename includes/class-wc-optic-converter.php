@@ -777,4 +777,180 @@ class WC_Optic_Converter {
 
 		return true;
 	}
+
+	/**
+	 * Query all optic products (originals only with WPML).
+	 *
+	 * @param array $args Query args.
+	 * @return WC_Product[]
+	 */
+	public static function get_optic_products( array $args = array() ) {
+		$defaults = array(
+			'limit'  => -1,
+			'page'   => 1,
+			'search' => '',
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
+		$limit = (int) $args['limit'];
+		if ( -1 !== $limit ) {
+			$limit = max( 1, absint( $limit ) );
+		}
+
+		$query_args = array(
+			'type'    => 'optic_product',
+			'status'  => array( 'publish', 'draft', 'private' ),
+			'limit'   => $limit,
+			'page'    => max( 1, absint( $args['page'] ) ),
+			'orderby' => 'title',
+			'order'   => 'ASC',
+			'return'  => 'objects',
+		);
+
+		$search = trim( (string) $args['search'] );
+		if ( '' !== $search ) {
+			$query_args['s'] = $search;
+		}
+
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
+		}
+
+		try {
+			$products = wc_get_products( $query_args );
+			if ( ! is_array( $products ) ) {
+				return array();
+			}
+
+			$out = array();
+			foreach ( $products as $product ) {
+				if ( ! $product instanceof WC_Product ) {
+					continue;
+				}
+				if ( $wpml && ! WC_Optic_WPML::is_original_product( $product->get_id() ) ) {
+					continue;
+				}
+				$out[] = $product;
+			}
+
+			return $out;
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
+	}
+
+	/**
+	 * Whether the current user may reset all internals (WordPress administrator).
+	 *
+	 * @return bool
+	 */
+	public static function current_user_can_reset_all_internals() {
+		return current_user_can( 'manage_options' );
+	}
+
+	/**
+	 * Verify the logged-in administrator's account password.
+	 *
+	 * @param string $password Plain password.
+	 * @return true|WP_Error
+	 */
+	public static function verify_admin_password( $password ) {
+		if ( ! self::current_user_can_reset_all_internals() ) {
+			return new WP_Error(
+				'wc_optic_forbidden',
+				__( 'Only a site administrator can perform this action.', 'wc-optic' )
+			);
+		}
+
+		$user = wp_get_current_user();
+		if ( ! $user instanceof WP_User || ! $user->exists() ) {
+			return new WP_Error(
+				'wc_optic_not_logged_in',
+				__( 'You must be logged in.', 'wc-optic' )
+			);
+		}
+
+		$password = (string) $password;
+		if ( '' === $password ) {
+			return new WP_Error(
+				'wc_optic_missing_password',
+				__( 'Enter your account password to confirm.', 'wc-optic' )
+			);
+		}
+
+		if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+			return new WP_Error(
+				'wc_optic_invalid_password',
+				__( 'Incorrect password.', 'wc-optic' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Remove all internal products and revert every optic parent to a simple product.
+	 *
+	 * Plugin Settings only (global catalog, divisions, range templates, global options) are untouched.
+	 * All product-level optic data is removed: internals, identities, division, saved ranges.
+	 *
+	 * @param string $password Administrator account password (confirmation).
+	 * @return array|WP_Error {
+	 *     @type int $products   Products reverted to simple.
+	 *     @type int $internals  Internal rows removed.
+	 * }
+	 */
+	public static function reset_all_internals( $password ) {
+		$check = self::verify_admin_password( $password );
+		if ( is_wp_error( $check ) ) {
+			return $check;
+		}
+
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
+		}
+
+		try {
+			$products = self::get_optic_products(
+				array(
+					'limit' => -1,
+					'page'  => 1,
+				)
+			);
+
+			$reverted_products = 0;
+			$removed_internals = 0;
+
+			foreach ( $products as $product ) {
+				if ( ! $product instanceof WC_Product ) {
+					continue;
+				}
+
+				$result = WC_Optic_SKU::revert_to_simple_product( $product );
+				if ( empty( $result['reverted'] ) ) {
+					continue;
+				}
+
+				if ( $wpml ) {
+					WC_Optic_WPML::revert_product_translations_to_simple( $product->get_id() );
+				}
+
+				++$reverted_products;
+				$removed_internals += (int) ( $result['removed'] ?? 0 );
+			}
+
+			return array(
+				'products'  => $reverted_products,
+				'internals' => $removed_internals,
+			);
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
+	}
 }

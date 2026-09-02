@@ -10,6 +10,7 @@
 	var $root = null;
 	var convertTable = null;
 	var dtLang = {};
+	var resetAllModal = null;
 
 	function getAllowedPowers( division ) {
 		if ( ! division || ! wcOpticConvert.divisionPowers || ! wcOpticConvert.divisionPowers[ division ] ) {
@@ -798,5 +799,78 @@
 				}
 			);
 		} );
+
+		if ( wcOpticConvert.canResetAll ) {
+			initResetAllPanel();
+		}
 	} );
+
+	function showResetAlert( message, success ) {
+		var $alert = $( '#wc-optic-reset-all-alert' );
+		if ( ! message ) {
+			$alert.attr( 'hidden', 'hidden' ).text( '' ).removeClass( 'is-success' );
+			return;
+		}
+		$alert.text( message ).toggleClass( 'is-success', !! success ).removeAttr( 'hidden' );
+	}
+
+	function initResetAllPanel() {
+		var $modal = $( '#wc-optic-reset-all-modal' );
+		if ( ! $modal.length || ! window.bootstrap ) {
+			return;
+		}
+
+		resetAllModal = new window.bootstrap.Modal( document.getElementById( 'wc-optic-reset-all-modal' ) );
+
+		$root.on( 'click', '#wc-optic-reset-all-open', function ( e ) {
+			e.preventDefault();
+			showResetAlert( '' );
+			$( '#wc_optic_reset_all_password' ).val( '' );
+			$( '#wc_optic_reset_all_confirm' ).prop( 'checked', false );
+			resetAllModal.show();
+		} );
+
+		$root.on( 'click', '#wc-optic-reset-all-submit', function ( e ) {
+			e.preventDefault();
+			showResetAlert( '' );
+
+			var password = $( '#wc_optic_reset_all_password' ).val() || '';
+			if ( ! password ) {
+				showResetAlert( wcOpticConvert.i18n.resetAllNeedPass );
+				return;
+			}
+			if ( ! $( '#wc_optic_reset_all_confirm' ).is( ':checked' ) ) {
+				showResetAlert( wcOpticConvert.i18n.resetAllNeedCheck );
+				return;
+			}
+
+			var $btn = $( '#wc-optic-reset-all-submit' );
+			$btn.prop( 'disabled', true );
+
+			$.post(
+				wcOpticConvert.ajaxUrl,
+				{
+					action: 'wc_optic_reset_all_internals',
+					nonce: wcOpticConvert.nonce,
+					password: password,
+				},
+				function ( res ) {
+					$btn.prop( 'disabled', false );
+					if ( ! res || ! res.success || ! res.data ) {
+						showResetAlert( ( res && res.data && res.data.message ) || wcOpticConvert.i18n.resetAllFailed );
+						return;
+					}
+					window.alert( res.data.message || sprintf( wcOpticConvert.i18n.resetAllSuccess, res.data.products || 0, res.data.internals || 0 ) );
+					window.location.reload();
+				}
+			).fail( function ( xhr ) {
+				$btn.prop( 'disabled', false );
+				var message = wcOpticConvert.i18n.resetAllFailed;
+				if ( xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message ) {
+					message = xhr.responseJSON.data.message;
+				}
+				showResetAlert( message );
+			} );
+		} );
+	}
 }( jQuery ) );

@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-08-26 (dernière mise à jour)  
+**Date :** 2026-09-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.3.9 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,17 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-08-26 (courante)
+### Session 2026-09-02 (courante)
+
+1. **Convert — Reset all (clarification)** : internes + identités **produit** effacés intégralement ; parent **simple**. **Settings** (catalogue, divisions, gabarits, options globales) **non modifiés**.
+2. **Version** — bump **1.4.3**.
+
+### Session 2026-09-02 (précédente — reset v1.4.2)
+
+1. **Convert — Reset all internals** — zone Danger : mot de passe admin + case à cocher.
+2. **Version** — **1.4.0**.
+
+### Session 2026-08-26 (précédente)
 
 1. **Admin fiche produit — chargement rapide des internes** — plus de rendu des N blocs complets (Select2 × puissances + QR) au load. Liste compacte + édition AJAX à la demande (modèle variations WooCommerce).
 2. **Anti-doublon** — `assert_unique_power_combination()` / `validate_unique_power_combinations()` refusent toute combinaison SPH/CYL/AXIS/ADD déjà présente (même sur un interne désactivé). Message avec label conflictuel.
@@ -522,7 +532,20 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Méthodes :** `WC_Optic_SKU::merge_children_from_ranges()`, `partition_sph_ids()`, `config_has_zero_sph()`, `WC_Optic_Converter::add_specifics_to_product()` ; AJAX `mode=append`.
 
-**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`.
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css`.
+
+### 2.18 Convert — reset global des internes (session 2026-09-02)
+
+**UI :** Alwaleed Optics → Convert → **Danger zone** (visible seulement si `manage_options`)
+
+| Élément | Comportement |
+|---------|----------------|
+| Bouton | Ouvre modal : mot de passe compte WP + case « je comprends » |
+| Backend | `strip_optic_product_meta()` + type `simple` |
+| Supprimé (produit) | Internes + identités (section, brand, puissances), division, plages, index |
+| Conservé (Settings) | Catalogue DB (`wc_optic_catalog`), divisions, gabarits, backorder/alertes globales |
+
+**Méthodes :** `strip_optic_product_meta()`, `revert_to_simple_product()`, `get_optic_products()`, `WC_Optic_WPML::revert_product_translations_to_simple()`.
 
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
@@ -804,6 +827,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Relancer SPH 0 → 0 → refus / 0 ajout (doublon no-power)
 - [ ] Plage SPH mixte (−1 → +1) + CYL : +0.00 **non** croisé avec CYL ; les SPH ≠ 0 oui
 - [ ] Compteur Internals mis à jour ; internes existants inchangés (prix/stock/SKU)
+
+### Convert Reset all (1.4.0 / 1.4.1)
+
+- [ ] Utilisateur **shop manager** : pas de Danger zone
+- [ ] Administrateur : mauvais mot de passe → refus
+- [ ] Administrateur : internes + meta optique produit supprimés ; parents **simple**
+- [ ] **Settings** (catalogue, divisions, gabarits) inchangés
+- [ ] WPML : traductions aussi repassées simple
 
 ### Activation plugin (1.2.5)
 

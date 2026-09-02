@@ -470,6 +470,57 @@ class WC_Optic_WPML {
 	}
 
 	/**
+	 * Revert WPML/WCML product translations to simple (strip optic meta, same as source reset).
+	 *
+	 * @param int $product_id Source product id (already reverted).
+	 */
+	public static function revert_product_translations_to_simple( $product_id ) {
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::is_active() || self::$syncing ) {
+			return;
+		}
+
+		$trid = apply_filters( 'wpml_element_trid', null, $product_id, 'post_product' );
+		if ( ! $trid ) {
+			return;
+		}
+
+		$translations = apply_filters( 'wpml_get_element_translations', null, $trid, 'post_product' );
+		if ( ! is_array( $translations ) ) {
+			return;
+		}
+
+		self::$syncing = true;
+		$current_lang = apply_filters( 'wpml_current_language', null );
+
+		try {
+			foreach ( $translations as $translation ) {
+				$target_id = isset( $translation->element_id ) ? (int) $translation->element_id : 0;
+				if ( $target_id < 1 || $target_id === $product_id ) {
+					continue;
+				}
+
+				$lang = isset( $translation->language_code ) ? (string) $translation->language_code : '';
+				if ( $lang ) {
+					do_action( 'wpml_switch_language', $lang );
+				}
+
+				$target = wc_get_product( $target_id );
+				if ( ! $target instanceof WC_Product || (int) $target->get_id() !== $target_id ) {
+					continue;
+				}
+
+				WC_Optic_SKU::revert_to_simple_product( $target );
+			}
+		} finally {
+			if ( $current_lang ) {
+				do_action( 'wpml_switch_language', $current_lang );
+			}
+			self::$syncing = false;
+		}
+	}
+
+	/**
 	 * Admin AJAX used with product editing; keep WCML currency context stable.
 	 *
 	 * @param string[] $actions Action names.

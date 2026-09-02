@@ -64,6 +64,8 @@ class WC_Optic_Admin_Convert {
 			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),
 			'rebuildMode'       => 'converted' === $tab,
 			'specificsMode'     => 'specifics' === $tab,
+			'canResetAll'       => WC_Optic_Converter::current_user_can_reset_all_internals(),
+			'resetStats'        => WC_Optic_Converter::current_user_can_reset_all_internals() ? WC_Optic_Converter::get_converted_stats() : array(),
 			'dt'                => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ) ? self::get_datatables_i18n() : array(),
 			'i18n'              => array(
 				'saveFailed'        => __( 'Could not save the template.', 'wc-optic' ),
@@ -96,6 +98,15 @@ class WC_Optic_Admin_Convert {
 				'startWizard'       => __( 'Start wizard', 'wc-optic' ),
 				'startRebuild'      => __( 'Rebuild selected', 'wc-optic' ),
 				'startSpecifics'    => __( 'Add specifics', 'wc-optic' ),
+				'resetAllTitle'     => __( 'Reset all internal products', 'wc-optic' ),
+				'resetAllIntro'     => __( 'Permanently delete every internal product (with its identities) and revert parents to simple products. Values in Settings (catalog, divisions, templates) are not changed.', 'wc-optic' ),
+				'resetAllPassword'  => __( 'Your account password', 'wc-optic' ),
+				'resetAllConfirm'   => __( 'I understand that all internal products and product-level optic data will be deleted; Settings will not be changed.', 'wc-optic' ),
+				'resetAllButton'    => __( 'Reset and revert to simple', 'wc-optic' ),
+				'resetAllNeedPass'  => __( 'Enter your account password.', 'wc-optic' ),
+				'resetAllNeedCheck' => __( 'Confirm that you understand this action.', 'wc-optic' ),
+				'resetAllFailed'    => __( 'Could not reset internal products.', 'wc-optic' ),
+				'resetAllSuccess'   => __( 'Removed %2$d internal products and reverted %1$d products to simple.', 'wc-optic' ),
 			),
 		);
 	}
@@ -251,7 +262,58 @@ class WC_Optic_Admin_Convert {
 			self::render_convert_tab();
 		}
 
+		if ( WC_Optic_Converter::current_user_can_reset_all_internals() ) {
+			self::render_reset_all_panel();
+		}
+
 		echo '</div>';
+	}
+
+	/**
+	 * Danger zone: wipe all internals on every converted optic product (administrator only).
+	 */
+	protected static function render_reset_all_panel() {
+		$stats = WC_Optic_Converter::get_converted_stats();
+
+		echo '<div class="wc-optic-danger-zone" id="wc-optic-reset-all-panel">';
+		echo '<h2>' . esc_html__( 'Danger zone', 'wc-optic' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Administrators only. Deletes every internal product with its identities and all optic data on the parent, then reverts to simple. Settings (catalog, divisions, templates, global options) are not changed.', 'wc-optic' ) . '</p>';
+		echo '<p class="wc-optic-danger-zone-stats description">';
+		echo esc_html(
+			sprintf(
+				/* translators: 1: converted product count, 2: total optic products */
+				__( '%1$d converted products with internals (%2$d optic products will be reverted to simple).', 'wc-optic' ),
+				(int) $stats['converted'],
+				(int) $stats['total_optic']
+			)
+		);
+		echo '</p>';
+		echo '<p><button type="button" class="button button-link-delete" id="wc-optic-reset-all-open">' . esc_html__( 'Reset internals and revert to simple…', 'wc-optic' ) . '</button></p>';
+		echo '</div>';
+
+		echo '<div class="modal fade wc-optic-bs" id="wc-optic-reset-all-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="wc-optic-reset-all-title" aria-hidden="true">';
+		echo '<div class="modal-dialog">';
+		echo '<div class="modal-content">';
+
+		echo '<div class="modal-header">';
+		echo '<h5 class="modal-title" id="wc-optic-reset-all-title">' . esc_html__( 'Reset internals and revert to simple', 'wc-optic' ) . '</h5>';
+		echo '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="' . esc_attr__( 'Close', 'wc-optic' ) . '"></button>';
+		echo '</div>';
+
+		echo '<div class="modal-body">';
+		echo '<div class="wc-optic-wizard-alert" id="wc-optic-reset-all-alert" hidden></div>';
+		echo '<p class="description">' . esc_html__( 'All internal products and their identities will be deleted. Parents become simple products. Settings (catalog, divisions, templates) stay unchanged.', 'wc-optic' ) . '</p>';
+		echo '<p><label for="wc_optic_reset_all_password">' . esc_html__( 'Your account password', 'wc-optic' ) . ' <abbr class="required">*</abbr></label><br />';
+		echo '<input type="password" id="wc_optic_reset_all_password" class="regular-text" autocomplete="current-password" /></p>';
+		echo '<p><label><input type="checkbox" id="wc_optic_reset_all_confirm" /> ' . esc_html__( 'I understand that all internal products and product-level optic data will be deleted; Settings will not be changed.', 'wc-optic' ) . '</label></p>';
+		echo '</div>';
+
+		echo '<div class="modal-footer">';
+		echo '<button type="button" class="button" data-bs-dismiss="modal">' . esc_html__( 'Cancel', 'wc-optic' ) . '</button>';
+		echo '<button type="button" class="button button-link-delete" id="wc-optic-reset-all-submit">' . esc_html__( 'Reset and revert to simple', 'wc-optic' ) . '</button>';
+		echo '</div>';
+
+		echo '</div></div></div>';
 	}
 
 	/**

@@ -1169,3 +1169,25 @@
 .wc-optic-template-form .wc-optic-power-ranges {
 	max-width: 640px;
 }
+
+.wc-optic-danger-zone {
+	margin-top: 32px;
+	padding: 16px 20px;
+	border: 1px solid #d63638;
+	border-left-width: 4px;
+	background: #fff;
+	max-width: 720px;
+}
+
+.wc-optic-danger-zone h2 {
+	margin-top: 0;
+	color: #b32d2e;
+}
+
+.wc-optic-danger-zone .button-link-delete {
+	color: #b32d2e;
+}
+
+#wc-optic-reset-all-modal .button-link-delete {
+	color: #b32d2e;
+}

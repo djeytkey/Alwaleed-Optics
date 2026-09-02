@@ -4,6 +4,30 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.3] — 2026-09-02
+
+### Corrigé
+
+- **Convert — Reset all** : supprime intégralement les internes **et** leurs identités au niveau produit (division, meta optique) ; repasse en simple. **Settings** (catalogue global, divisions, gabarits, options) inchangés.
+
+## [1.4.2] — 2026-09-02
+
+### Corrigé
+
+- **Convert — Reset all** : ne supprime plus l’identité produit (section, brand, pack, …), la division ni les plages enregistrées — seulement les **internes** ; le parent repasse en **simple** pour reconstruire à zéro.
+
+## [1.4.1] — 2026-09-02
+
+### Modifié
+
+- **Convert — Reset all** : supprime tous les internes **et** repasse chaque parent `optic_product` en **produit simple** (meta optique produit effacée). Les **Settings** du plugin (catalogue, divisions, gabarits, options globales) ne sont pas modifiés.
+
+## [1.4.0] — 2026-09-02
+
+### Ajouté
+
+- **Convert — Danger zone** : bouton **Reset all internal products** (administrateurs WordPress uniquement, `manage_options`). Confirmation par mot de passe du compte + case à cocher. Supprime tous les internes des `optic_product` convertis ; division, identité et plages conservées. Sync WPML.
+
 ## [1.3.9] — 2026-08-26
 
 ### Modifié

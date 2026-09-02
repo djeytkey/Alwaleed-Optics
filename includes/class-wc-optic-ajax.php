@@ -32,6 +32,7 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_remove_child', array( __CLASS__, 'remove_child' ) );
 		add_action( 'wp_ajax_wc_optic_list_children', array( __CLASS__, 'list_children' ) );
 		add_action( 'wp_ajax_wc_optic_sync_identity', array( __CLASS__, 'sync_identity' ) );
+		add_action( 'wp_ajax_wc_optic_reset_all_internals', array( __CLASS__, 'reset_all_internals' ) );
 	}
 
 	/**
@@ -472,5 +473,35 @@ class WC_Optic_Ajax {
 		}
 
 		wp_send_json_success( $payload );
+	}
+
+	/**
+	 * Delete every internal product on all converted optic parents (administrator + password).
+	 */
+	public static function reset_all_internals() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! WC_Optic_Converter::current_user_can_reset_all_internals() ) {
+			wp_send_json_error( array( 'message' => __( 'Only a site administrator can perform this action.', 'wc-optic' ) ), 403 );
+		}
+
+		$password = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
+		$result   = WC_Optic_Converter::reset_all_internals( $password );
+		if ( is_wp_error( $result ) ) {
+			$status = ( 'wc_optic_invalid_password' === $result->get_error_code() ) ? 403 : 400;
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), $status );
+		}
+
+		wp_send_json_success(
+			array(
+				'products'  => (int) $result['products'],
+				'internals' => (int) $result['internals'],
+				'message'   => sprintf(
+					/* translators: 1: product count, 2: internal count */
+					__( 'Removed %2$d internal products and reverted %1$d products to simple.', 'wc-optic' ),
+					(int) $result['products'],
+					(int) $result['internals']
+				),
+			)
+		);
 	}
 }
