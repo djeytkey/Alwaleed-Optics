@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.10 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,8 +15,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-02 (courante)
 
-1. **Panier no-power (v1.4.8)** : `build_eye_payload_from_child()` → `config_has_zero_sph()` (plus `child_is_no_power` / color_lenses only).
-2. **Version** — bump **1.4.8**.
+1. **Panier — fusion No power (v1.4.10)** : réutilise la clé panier existante si même `child_id` + `no_power`.
+2. **Version** — bump **1.4.10**.
 
 ### Session 2026-09-02 (précédente — reset v1.4.2)
 
@@ -197,6 +197,16 @@ Dans le résumé HTML client (`WC_Optic_Cart::render_line_eye_column()`), chaque
 - Classe CSS : `wc-optic-line-summary__meta-row--total`
 
 `get_eye_admin_summary()` retourne désormais `line_total`.
+
+**Fusion des lignes identiques (v1.4.9–1.4.10)**
+
+- Filtre `woocommerce_cart_id` → `WC_Optic_Cart::filter_cart_id()`.
+- Identité prescription via `payload_cart_identity()` **sans** qty / totaux (`line_qty`, `qty_single`, etc.).
+- **Mode Power :** division + `power_mode` + `same_power` + `qty_mode` + œil(s) (`child_id` + map `powers`).
+- **Mode No power (v1.4.10) :** identité réduite à `division` + `power_mode: no_power` + `child_id` (interne plano).
+- Si une ligne existante a la même identité, `find_matching_cart_item_key()` **réutilise sa clé panier** → WooCommerce cumule la quantité (évite les écarts entre anciennes clés et hash prescription).
+
+**Tests manuels :** vider le panier, ajouter No power qty 1 puis qty 5 → **une** ligne qty 6. Idem en mode Power avec la même prescription.
 
 ---
 
@@ -584,7 +594,7 @@ WC_Optic_Converter::convert_product() / preview()
 | `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
 | `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; upsert/remove ; anti-doublon ; **merge_children_from_ranges** |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
-| `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, `apply_child_stock_delta` |
+| `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, fusion lignes (`filter_cart_id`, `payload_cart_identity`) |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
 | `class-wc-optic-flatsome.php` | Détection Flatsome + assets panier/checkout |
 | `class-wc-optic-plugin.php` | `WC_Optic_Admin_Menu::hooks()`, Flatsome, etc. |

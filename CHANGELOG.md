@@ -4,6 +4,18 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.10] — 2026-09-02
+
+### Corrigé
+
+- **Panier — No power** : fusion des lignes identiques (recherche par prescription + identité `child_id` dédiée au mode no_power).
+
+## [1.4.9] — 2026-09-02
+
+### Corrigé
+
+- **Panier** : lignes identiques (même interne / No power) fusionnées — `woocommerce_cart_id` ignore qty et totaux.
+
 ## [1.4.8] — 2026-09-02
 
 ### Corrigé

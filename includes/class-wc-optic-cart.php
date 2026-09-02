@@ -26,6 +26,7 @@ class WC_Optic_Cart {
 	 */
 	public static function hooks() {
 		add_filter( 'woocommerce_add_cart_item_data', array( __CLASS__, 'add_cart_item_data' ), 10, 4 );
+		add_filter( 'woocommerce_cart_id', array( __CLASS__, 'filter_cart_id' ), 10, 5 );
 		add_filter( 'woocommerce_add_to_cart_validation', array( __CLASS__, 'validate_add_to_cart' ), 10, 6 );
 		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_cart_item_after_add' ), 20, 6 );
 		add_filter( 'woocommerce_get_cart_item_from_session', array( __CLASS__, 'sync_cart_item_from_session' ), 20, 3 );
@@ -240,6 +241,154 @@ class WC_Optic_Cart {
 		}
 		$cart_item_data[ self::CART_KEY ] = $parsed;
 		return $cart_item_data;
+	}
+
+	/**
+	 * Build a deterministic cart id from an optic payload (prescription only).
+	 *
+	 * @param int   $product_id   Product id.
+	 * @param int   $variation_id Variation id.
+	 * @param array $payload      Optic payload.
+	 * @return string
+	 */
+	protected static function build_cart_id_from_payload( $product_id, $variation_id, array $payload ) {
+		$identity = self::payload_cart_identity( $payload );
+		$parts    = array( (int) $product_id, (int) $variation_id, wp_json_encode( $identity ) );
+
+		return md5( implode( '_', $parts ) );
+	}
+
+	/**
+	 * Compare two optic prescription identities.
+	 *
+	 * @param array $a Identity A.
+	 * @param array $b Identity B.
+	 * @return bool
+	 */
+	protected static function cart_identities_match( array $a, array $b ) {
+		return wp_json_encode( $a ) === wp_json_encode( $b );
+	}
+
+	/**
+	 * Find an existing cart line key with the same optic prescription.
+	 *
+	 * @param int   $product_id   Product id.
+	 * @param array $payload      Optic payload being added.
+	 * @return string Empty when no match.
+	 */
+	protected static function find_matching_cart_item_key( $product_id, array $payload ) {
+		if ( ! WC()->cart ) {
+			return '';
+		}
+
+		$target = self::payload_cart_identity( $payload );
+
+		foreach ( WC()->cart->get_cart() as $cart_item_key => $item ) {
+			if ( (int) ( $item['product_id'] ?? 0 ) !== (int) $product_id ) {
+				continue;
+			}
+			if ( empty( $item[ self::CART_KEY ] ) || ! is_array( $item[ self::CART_KEY ] ) ) {
+				continue;
+			}
+			if ( self::cart_identities_match( $target, self::payload_cart_identity( $item[ self::CART_KEY ] ) ) ) {
+				return (string) $cart_item_key;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Stable WooCommerce cart line id — prescription identity only (ignore qty / totals).
+	 *
+	 * @param string $cart_id         Default cart id hash.
+	 * @param int    $product_id      Product id.
+	 * @param int    $variation_id    Variation id.
+	 * @param array  $variation       Variation attributes.
+	 * @param array  $cart_item_data  Cart item data.
+	 * @return string
+	 */
+	public static function filter_cart_id( $cart_id, $product_id, $variation_id, $variation, $cart_item_data ) {
+		if ( empty( $cart_item_data[ self::CART_KEY ] ) || ! is_array( $cart_item_data[ self::CART_KEY ] ) ) {
+			return $cart_id;
+		}
+
+		$payload = $cart_item_data[ self::CART_KEY ];
+
+		$existing_key = self::find_matching_cart_item_key( $product_id, $payload );
+		if ( '' !== $existing_key ) {
+			return $existing_key;
+		}
+
+		return self::build_cart_id_from_payload( $product_id, $variation_id, $payload );
+	}
+
+	/**
+	 * Prescription fields that define cart line identity (quantities excluded for single-eye / same-power lines).
+	 *
+	 * @param array $payload Optic payload.
+	 * @return array<string, mixed>
+	 */
+	protected static function payload_cart_identity( array $payload ) {
+		$payload = self::normalize_payload_same_eyes( $payload );
+
+		$power_mode = isset( $payload['power_mode'] ) ? (string) $payload['power_mode'] : 'power';
+
+		// No power: one internal child only — match on child id (not empty power maps).
+		if ( 'no_power' === $power_mode ) {
+			$eye = isset( $payload['left'] ) && is_array( $payload['left'] ) ? $payload['left'] : array();
+			if ( empty( $eye ) && isset( $payload['right'] ) && is_array( $payload['right'] ) ) {
+				$eye = $payload['right'];
+			}
+
+			return array(
+				'division'   => isset( $payload['division'] ) ? (string) $payload['division'] : '',
+				'power_mode' => 'no_power',
+				'child_id'   => isset( $eye['child_id'] ) ? (string) $eye['child_id'] : '',
+			);
+		}
+
+		$identity = array(
+			'division'   => isset( $payload['division'] ) ? (string) $payload['division'] : '',
+			'power_mode' => $power_mode,
+			'same_power' => ! empty( $payload['same_power'] ),
+			'qty_mode'   => isset( $payload['qty_mode'] ) ? (string) $payload['qty_mode'] : 'single',
+			'left'       => self::eye_cart_identity( isset( $payload['left'] ) && is_array( $payload['left'] ) ? $payload['left'] : array() ),
+			'right'      => self::eye_cart_identity( isset( $payload['right'] ) && is_array( $payload['right'] ) ? $payload['right'] : array() ),
+		);
+
+		// Different per-eye quantities are a distinct cart configuration.
+		if ( 'dual' === $identity['qty_mode'] && ! $identity['same_power'] ) {
+			$identity['qty_left']  = max( 0, (int) ( $payload['qty_left'] ?? 0 ) );
+			$identity['qty_right'] = max( 0, (int) ( $payload['qty_right'] ?? 0 ) );
+		}
+
+		return $identity;
+	}
+
+	/**
+	 * Eye payload subset used for cart line matching.
+	 *
+	 * @param array $eye Eye payload.
+	 * @return array<string, mixed>
+	 */
+	protected static function eye_cart_identity( array $eye ) {
+		if ( empty( $eye ) ) {
+			return array();
+		}
+
+		$powers = array();
+		if ( ! empty( $eye['powers'] ) && is_array( $eye['powers'] ) ) {
+			foreach ( $eye['powers'] as $type => $row ) {
+				$powers[ (string) $type ] = is_array( $row ) && isset( $row['id'] ) ? (int) $row['id'] : 0;
+			}
+			ksort( $powers );
+		}
+
+		return array(
+			'child_id' => isset( $eye['child_id'] ) ? (string) $eye['child_id'] : '',
+			'powers'   => $powers,
+		);
 	}
 
 	/**
