@@ -15,9 +15,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-02 (courante)
 
-1. **Specifics + storefront no-power (v1.4.7)** : SPH 0→0 sans step ; toggle No power/Power si stock plano ; `supportsNoPowerMode` basé sur stock réel.
-2. **Convert — Specifics wizard (v1.4.6)** : skip étape Identité.
-3. **Version** — bump **1.4.7**.
+1. **Specifics + storefront no-power (v1.4.7)** : SPH 0→0 sans step ; toggle si stock plano.
+2. **Panier no-power (diagnostic en cours)** : erreur « incomplete » — `build_eye_payload_from_child()` exige CYL/AXIS si division ≠ `color_lenses` (`child_is_no_power` trop restrictif). Correctif v1.4.8 rollback.
+3. **Version** — **1.4.7** (rollback v1.4.8).
 
 ### Session 2026-09-02 (précédente — reset v1.4.2)
 
