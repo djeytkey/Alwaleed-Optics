@@ -133,7 +133,7 @@
 			ranges[ power ] = {
 				from: rangeFieldValue( $row.find( '.wc-optic-range-from' ).val() ),
 				to: rangeFieldValue( $row.find( '.wc-optic-range-to' ).val() ),
-				step: rangeFieldValue( $row.find( '.wc-optic-range-step' ).val() ),
+				step: noPowerOnly && power === 'sph' ? '' : rangeFieldValue( $row.find( '.wc-optic-range-step' ).val() ),
 			};
 		} );
 		return ranges;
@@ -165,6 +165,7 @@
 			var $row = $( this );
 			var power = $row.data( 'power' );
 			if ( power === 'sph' ) {
+				$row.find( '.wc-optic-range-step' ).closest( '.wc-optic-power-range__field' ).toggle( ! noPower );
 				return;
 			}
 			var show = allowed.indexOf( power ) !== -1 && ! noPower;
@@ -553,9 +554,17 @@
 		if ( ! keys.length ) {
 			return false;
 		}
+		var noPowerOnly = isSphNoPowerOnly();
 		var ok = true;
-		$.each( ranges, function ( _, range ) {
-			if ( ! rangeFieldFilled( range.from ) || ! rangeFieldFilled( range.to ) || ! rangeFieldFilled( range.step ) ) {
+		$.each( ranges, function ( power, range ) {
+			if ( ! rangeFieldFilled( range.from ) || ! rangeFieldFilled( range.to ) ) {
+				ok = false;
+				return;
+			}
+			if ( noPowerOnly && power === 'sph' ) {
+				return;
+			}
+			if ( ! rangeFieldFilled( range.step ) ) {
 				ok = false;
 			}
 		} );

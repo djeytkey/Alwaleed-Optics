@@ -688,7 +688,7 @@ class WC_Optic_Admin_Convert {
 
 		echo '<div class="wc-optic-wizard-pane" data-step="3" hidden>';
 		if ( 'specifics' === $mode ) {
-			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 Step 0.25 creates one no-power internal (no CYL / AXIS / ADD). Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 (no step) creates one no-power internal (no CYL / AXIS / ADD). Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
 		}
 		echo '<p><label for="wc_optic_wizard_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label><br />';
 		echo '<select id="wc_optic_wizard_template" class="wc-optic-wizard-select">';

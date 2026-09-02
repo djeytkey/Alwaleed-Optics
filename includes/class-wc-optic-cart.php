@@ -93,7 +93,7 @@ class WC_Optic_Cart {
 
 		$divisions  = WC_Optic_Plugin::get_divisions();
 		$power_mode = 'power';
-		if ( WC_Optic_SKU::division_supports_no_power_mode( $division ) ) {
+		if ( WC_Optic_SKU::product_supports_no_power_mode( $product ) ) {
 			$posted_mode = isset( $_POST['wc_optic_power_mode'] ) ? sanitize_key( wp_unslash( $_POST['wc_optic_power_mode'] ) ) : 'no_power';
 			$power_mode  = 'power' === $posted_mode ? 'power' : 'no_power';
 		}

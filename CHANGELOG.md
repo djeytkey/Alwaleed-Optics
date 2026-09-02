@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.7] — 2026-09-02
+
+### Corrigé
+
+- **Specifics — SPH +0.00** : pas de champ Step requis (From/To = 0 suffit) ; step masqué dans le wizard.
+- **Storefront — No power / Power** : toggle affiché seulement si un interne plano (+0.00) est en stock ; détection plano renforcée ; +0.00 retiré du dropdown Power.
+
 ## [1.4.6] — 2026-09-02
 
 ### Modifié

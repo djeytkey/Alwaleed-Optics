@@ -17,7 +17,7 @@ if ( ! $division ) {
 }
 
 $storefront_matrix    = WC_Optic_SKU::get_storefront_matrix( $product );
-$supports_no_power    = WC_Optic_SKU::division_supports_no_power_mode( $division );
+$supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] );
 $can_choose_different = count( $storefront_matrix['children'] ?? array() ) > 1;
 
 if ( ! WC_Optic_Frontend::has_child_options( $product ) ) {

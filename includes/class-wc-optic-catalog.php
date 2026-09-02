@@ -630,6 +630,11 @@ class WC_Optic_Catalog {
 			}
 		}
 
+		$parsed = self::parse_power_number_from_row( $row );
+		if ( null !== $parsed && self::power_number_is_zero( $parsed ) ) {
+			return true;
+		}
+
 		/**
 		 * Filter whether an SPH catalog row is treated as zero power (+0.00).
 		 *

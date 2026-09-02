@@ -332,7 +332,14 @@ class WC_Optic_SKU {
 		if ( $sph_id < 1 ) {
 			return false;
 		}
-		return WC_Optic_Catalog::sph_term_is_zero_power( WC_Optic_Catalog::get_valid_term( $sph_id, 'sph' ) );
+
+		$row = WC_Optic_Catalog::get_valid_term( $sph_id, 'sph' );
+		if ( WC_Optic_Catalog::sph_term_is_zero_power( $row ) ) {
+			return true;
+		}
+
+		$parsed = WC_Optic_Catalog::parse_power_number_from_row( $row );
+		return null !== $parsed && WC_Optic_Catalog::power_number_is_zero( $parsed );
 	}
 
 	/**
@@ -819,7 +826,7 @@ class WC_Optic_SKU {
 
 			if ( self::config_has_zero_sph( $config ) ) {
 				// Never include plano in the powered prescription cascade.
-				if ( self::child_is_no_power( $config, $division ) && null === $no_power_child ) {
+				if ( null === $no_power_child || ( $in_stock && empty( $no_power_child['inStock'] ) ) ) {
 					$no_power_child = $child_row;
 				}
 				continue;
@@ -855,13 +862,24 @@ class WC_Optic_SKU {
 
 		return array(
 			'division'            => $division,
-			'supportsNoPowerMode' => self::division_supports_no_power_mode( $division ),
+			'supportsNoPowerMode' => ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] ),
 			'noPowerChild'        => $no_power_child,
 			'powers'              => $powers,
 			'children'            => $children,
 			'terms'               => $terms,
 			'labels'              => $labels,
 		);
+	}
+
+	/**
+	 * Whether the storefront should offer the No power / Power toggle.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	public static function product_supports_no_power_mode( WC_Product $product ) {
+		$matrix = self::get_storefront_matrix( $product );
+		return ! empty( $matrix['supportsNoPowerMode'] );
 	}
 
 	/**
@@ -897,12 +915,9 @@ class WC_Optic_SKU {
 	 */
 	public static function find_no_power_child( WC_Product $product ) {
 		$division = (string) $product->get_meta( '_optic_division', true );
-		if ( ! self::division_supports_no_power_mode( $division ) ) {
-			return null;
-		}
 
 		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
-			if ( self::child_is_no_power( $config, $division ) && self::child_is_complete( $config, $division ) ) {
+			if ( self::config_has_zero_sph( $config ) && self::child_is_complete( $config, $division ) ) {
 				return $config;
 			}
 		}
