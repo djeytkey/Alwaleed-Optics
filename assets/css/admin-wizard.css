@@ -234,6 +234,11 @@ body > .select2-container--open {
 	z-index: 100060 !important;
 }
 
+body > .select2-container--open .select2-search--dropdown .select2-search__field {
+	pointer-events: auto;
+	min-height: 28px;
+}
+
 .wc-optic-converted-row {
 	background: #edfaef !important;
 }

@@ -291,7 +291,27 @@
 				args.dropdownParent = $( document.body );
 			}
 			$el.selectWoo( args ).addClass( 'enhanced' );
+			if ( $el.closest( '#wc-optic-wizard-modal' ).length ) {
+				$el.off( 'select2:open.wcOpticWizard' ).on( 'select2:open.wcOpticWizard', function () {
+					setTimeout( function () {
+						$( '.select2-container--open .select2-search__field' ).trigger( 'focus' );
+					}, 0 );
+				} );
+			}
 		} );
+	}
+
+	// Bootstrap modal focus trap blocks keyboard input on Select2 dropdowns appended to <body>.
+	function enableWizardSelect2Focus() {
+		$( document ).on( 'focusin.wcOpticWizardSelect2', function ( e ) {
+			if ( $( e.target ).closest( '.select2-container' ).length ) {
+				e.stopImmediatePropagation();
+			}
+		} );
+	}
+
+	function disableWizardSelect2Focus() {
+		$( document ).off( 'focusin.wcOpticWizardSelect2' );
 	}
 
 	function selectedProductIds() {
@@ -651,7 +671,9 @@
 		}
 		index = 0;
 		if ( ! modal ) {
-			modal = new window.bootstrap.Modal( document.getElementById( 'wc-optic-wizard-modal' ) );
+			modal = new window.bootstrap.Modal( document.getElementById( 'wc-optic-wizard-modal' ), {
+				focus: false,
+			} );
 		}
 		modal.show();
 		loadProduct();
@@ -684,6 +706,9 @@
 			e.preventDefault();
 			startWizard();
 		} );
+
+		$( '#wc-optic-wizard-modal' ).on( 'shown.bs.modal', enableWizardSelect2Focus );
+		$( '#wc-optic-wizard-modal' ).on( 'hidden.bs.modal', disableWizardSelect2Focus );
 
 		$root.on( 'click', '#wc-optic-wizard-next', function ( e ) {
 			e.preventDefault();

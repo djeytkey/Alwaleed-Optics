@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.5] — 2026-09-02
+
+### Corrigé
+
+- **Convert — wizard Select2** : filtrage clavier rétabli dans le modal (`data-bs-focus="false"`, contournement du focus trap Bootstrap pour les dropdowns sur `<body>`).
+
 ## [1.4.4] — 2026-09-02
 
 ### Corrigé

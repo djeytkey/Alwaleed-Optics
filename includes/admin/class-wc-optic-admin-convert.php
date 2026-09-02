@@ -633,7 +633,7 @@ class WC_Optic_Admin_Convert {
 			$title = __( 'Convert product', 'wc-optic' );
 		}
 
-		echo '<div class="modal fade wc-optic-bs" id="wc-optic-wizard-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="wc-optic-wizard-title" aria-hidden="true">';
+		echo '<div class="modal fade wc-optic-bs" id="wc-optic-wizard-modal" data-bs-backdrop="static" data-bs-keyboard="false" data-bs-focus="false" tabindex="-1" aria-labelledby="wc-optic-wizard-title" aria-hidden="true">';
 		echo '<div class="modal-dialog modal-lg wc-optic-wizard-dialog">';
 		echo '<div class="modal-content">';
 
