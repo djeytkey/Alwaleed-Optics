@@ -931,6 +931,8 @@ class WC_Optic_Converter {
 				}
 
 				$result = WC_Optic_SKU::revert_to_simple_product( $product );
+				$removed_internals += (int) ( $result['removed'] ?? 0 );
+
 				if ( empty( $result['reverted'] ) ) {
 					continue;
 				}
@@ -940,7 +942,6 @@ class WC_Optic_Converter {
 				}
 
 				++$reverted_products;
-				$removed_internals += (int) ( $result['removed'] ?? 0 );
 			}
 
 			return array(

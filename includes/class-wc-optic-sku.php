@@ -1506,6 +1506,28 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Whether a WooCommerce product uses the optic type (taxonomy or optic class).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	public static function is_optic_product( WC_Product $product ) {
+		if ( $product instanceof WC_Product_Optic_Product ) {
+			return true;
+		}
+
+		$terms = wc_get_product_terms(
+			$product->get_id(),
+			'product_type',
+			array(
+				'fields' => 'slugs',
+			)
+		);
+
+		return is_array( $terms ) && in_array( 'optic_product', $terms, true );
+	}
+
+	/**
 	 * Remove every internal product and all product-level optic data, then set type to simple.
 	 *
 	 * Wipes child configs (with their section/brand/powers identities) and parent optic meta.
@@ -1515,22 +1537,36 @@ class WC_Optic_SKU {
 	 * @return array{removed:int, reverted:bool}
 	 */
 	public static function revert_to_simple_product( WC_Product $product ) {
-		if ( 'optic_product' !== $product->get_type() ) {
+		if ( ! self::is_optic_product( $product ) ) {
 			return array(
 				'removed'  => 0,
 				'reverted' => false,
 			);
 		}
 
-		$removed = count( self::get_child_configs( $product ) );
-		self::strip_optic_product_meta( $product );
+		$product_id = $product->get_id();
+		$removed    = count( self::get_child_configs( $product ) );
 
-		wp_set_object_terms( $product->get_id(), 'simple', 'product_type' );
+		// Switch taxonomy first. Never save WC_Product_Optic_Product after this: get_type() is hardcoded to optic_product.
+		wp_set_object_terms( $product_id, 'simple', 'product_type' );
+		wc_delete_product_transients( $product_id );
+		clean_post_cache( $product_id );
 
-		self::sync_product_sku( $product );
-		$product->save();
+		$simple = wc_get_product( $product_id );
+		if ( ! $simple instanceof WC_Product ) {
+			return array(
+				'removed'  => $removed,
+				'reverted' => false,
+			);
+		}
 
-		$reloaded = wc_get_product( $product->get_id() );
+		self::strip_optic_product_meta( $simple );
+		self::sync_product_sku( $simple );
+		$simple->save();
+
+		wc_delete_product_transients( $product_id );
+		clean_post_cache( $product_id );
+		$reloaded = wc_get_product( $product_id );
 
 		return array(
 			'removed'  => $removed,

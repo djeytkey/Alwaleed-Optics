@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.4] — 2026-09-02
+
+### Corrigé
+
+- **Convert — Reset all** : le parent repasse bien en **simple** après reset. La sauvegarde sur `WC_Product_Optic_Product` (type codé en dur) ne réécrivait plus le terme `optic_product` ; ordre corrigé (terme `simple` → rechargement → strip meta → save).
+
 ## [1.4.3] — 2026-09-02
 
 ### Corrigé

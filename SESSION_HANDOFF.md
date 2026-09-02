@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.4 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,8 +15,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-02 (courante)
 
-1. **Convert — Reset all (clarification)** : internes + identités **produit** effacés intégralement ; parent **simple**. **Settings** (catalogue, divisions, gabarits, options globales) **non modifiés**.
-2. **Version** — bump **1.4.3**.
+1. **Convert — Reset all (fix v1.4.4)** : `revert_to_simple_product()` change d’abord le terme `product_type` → `simple`, recharge le produit (`WC_Product_Simple`), puis strip meta + save. Évite que `WC_Product_Optic_Product::get_type()` (codé en dur) ne réécrive `optic_product` à la sauvegarde. Helper `is_optic_product()` (taxonomy + classe).
+2. **Convert — Reset all (clarification v1.4.3)** : internes + identités **produit** effacés intégralement ; parent **simple**. **Settings** inchangés.
+3. **Version** — bump **1.4.4**.
 
 ### Session 2026-09-02 (précédente — reset v1.4.2)
 
@@ -541,11 +542,13 @@ WC_Optic_Converter::convert_product() / preview()
 | Élément | Comportement |
 |---------|----------------|
 | Bouton | Ouvre modal : mot de passe compte WP + case « je comprends » |
-| Backend | `strip_optic_product_meta()` + type `simple` |
+| Backend | `is_optic_product()` → terme `simple` → reload → `strip_optic_product_meta()` + save |
 | Supprimé (produit) | Internes + identités (section, brand, puissances), division, plages, index |
 | Conservé (Settings) | Catalogue DB (`wc_optic_catalog`), divisions, gabarits, backorder/alertes globales |
 
-**Méthodes :** `strip_optic_product_meta()`, `revert_to_simple_product()`, `get_optic_products()`, `WC_Optic_WPML::revert_product_translations_to_simple()`.
+**Méthodes :** `is_optic_product()`, `strip_optic_product_meta()`, `revert_to_simple_product()`, `get_optic_products()`, `WC_Optic_WPML::revert_product_translations_to_simple()`.
+
+**Bug v1.4.3 corrigé en 1.4.4 :** sauvegarder un objet `WC_Product_Optic_Product` après `wp_set_object_terms(..., 'simple')` réappliquait `optic_product` ; compteur « 0 reverted » alors que les meta étaient déjà effacées.
 
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
@@ -848,8 +851,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.3.9] — 2026-08-26**.
-4. **Version plugin** : **1.3.9** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.4] — 2026-09-02**.
+4. **Version plugin** : **1.4.4** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
