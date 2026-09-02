@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.8] — 2026-09-02
+
+### Corrigé
+
+- **Panier — No power** : `build_eye_payload_from_child()` utilisait `child_is_no_power()` (limité à `color_lenses`) et exigeait CYL/AXIS sur les autres divisions. Corrigé via `config_has_zero_sph()`.
+
 ## [1.4.7] — 2026-09-02
 
 ### Corrigé

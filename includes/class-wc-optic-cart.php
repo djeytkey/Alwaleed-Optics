@@ -217,28 +217,7 @@ class WC_Optic_Cart {
 			return new WP_Error( 'wc_optic', __( 'This prescription combination is not available.', 'wc-optic' ) );
 		}
 
-		$powers = array();
-		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
-			$id  = isset( $config['powers'][ $power ] ) ? (int) $config['powers'][ $power ] : 0;
-			$row = $id ? WC_Optic_Catalog::get_valid_term( $id, $power ) : null;
-			if ( ! $row ) {
-				return new WP_Error( 'wc_optic', __( 'Selected internal product is incomplete.', 'wc-optic' ) );
-			}
-			$powers[ $power ] = array(
-				'id'    => $id,
-				'label' => WC_Optic_Catalog::get_display_name( $row ),
-			);
-		}
-
-		return array(
-			'child_id'    => (string) $config['id'],
-			'label'       => (string) $config['label'],
-			'display'     => WC_Optic_SKU::child_display_label( $config, $division ),
-			'sku'         => (string) $config['sku'],
-			'unit_price'  => WC_Optic_SKU::get_child_unit_price( $config ),
-			'stock_qty'   => WC_Optic_SKU::get_child_stock_qty( $config ),
-			'powers'      => $powers,
-		);
+		return WC_Optic_SKU::build_eye_payload_from_child( $config, $division );
 	}
 
 	/**

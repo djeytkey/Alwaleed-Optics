@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.7 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,9 +15,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-02 (courante)
 
-1. **Specifics + storefront no-power (v1.4.7)** : SPH 0→0 sans step ; toggle si stock plano.
-2. **Panier no-power (diagnostic en cours)** : erreur « incomplete » — `build_eye_payload_from_child()` exige CYL/AXIS si division ≠ `color_lenses` (`child_is_no_power` trop restrictif). Correctif v1.4.8 rollback.
-3. **Version** — **1.4.7** (rollback v1.4.8).
+1. **Panier no-power (v1.4.8)** : `build_eye_payload_from_child()` → `config_has_zero_sph()` (plus `child_is_no_power` / color_lenses only).
+2. **Version** — bump **1.4.8**.
 
 ### Session 2026-09-02 (précédente — reset v1.4.2)
 

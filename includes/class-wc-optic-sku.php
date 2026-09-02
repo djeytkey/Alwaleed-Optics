@@ -988,11 +988,21 @@ class WC_Optic_SKU {
 	 * @return array|WP_Error
 	 */
 	public static function build_eye_payload_from_child( array $config, $division ) {
+		// Plano (+0.00): only SPH — never require CYL / AXIS / ADD (any division).
+		if ( self::config_has_zero_sph( $config ) ) {
+			return array(
+				'child_id'   => (string) $config['id'],
+				'label'      => (string) $config['label'],
+				'display'    => self::child_display_label( $config, $division ),
+				'sku'        => (string) $config['sku'],
+				'unit_price' => self::get_child_unit_price( $config ),
+				'stock_qty'  => self::get_child_stock_qty( $config ),
+				'powers'     => array(),
+			);
+		}
+
 		$powers = array();
 		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
-			if ( self::child_is_no_power( $config, $division ) ) {
-				continue;
-			}
 			$id  = isset( $config['powers'][ $power ] ) ? (int) $config['powers'][ $power ] : 0;
 			$row = $id ? WC_Optic_Catalog::get_valid_term( $id, $power ) : null;
 			if ( ! $row ) {
