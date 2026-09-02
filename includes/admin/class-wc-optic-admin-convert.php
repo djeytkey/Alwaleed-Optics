@@ -648,9 +648,14 @@ class WC_Optic_Admin_Convert {
 		echo '<div class="progress-bar" id="wc-optic-wizard-bar" style="width: 33%"></div>';
 		echo '</div>';
 		echo '<ol class="wc-optic-wizard-steps">';
-		echo '<li class="is-active" data-step-label="1">' . esc_html__( 'Product', 'wc-optic' ) . '</li>';
-		echo '<li data-step-label="2">' . esc_html__( 'Identity', 'wc-optic' ) . '</li>';
-		echo '<li data-step-label="3">' . esc_html__( 'Powers', 'wc-optic' ) . '</li>';
+		if ( 'specifics' === $mode ) {
+			echo '<li class="is-active" data-logical-step="1">' . esc_html__( 'Product', 'wc-optic' ) . '</li>';
+			echo '<li data-logical-step="3">' . esc_html__( 'Powers', 'wc-optic' ) . '</li>';
+		} else {
+			echo '<li class="is-active" data-logical-step="1">' . esc_html__( 'Product', 'wc-optic' ) . '</li>';
+			echo '<li data-logical-step="2">' . esc_html__( 'Identity', 'wc-optic' ) . '</li>';
+			echo '<li data-logical-step="3">' . esc_html__( 'Powers', 'wc-optic' ) . '</li>';
+		}
 		echo '</ol>';
 
 		echo '<div class="wc-optic-wizard-alert" id="wc-optic-wizard-alert" hidden></div>';
@@ -660,7 +665,7 @@ class WC_Optic_Admin_Convert {
 		if ( 'rebuild' === $mode ) {
 			echo '<p class="description">' . esc_html__( 'Change the division if needed (for example Color Lenses → Astigmatism Toric), then continue. Internals will be rebuilt from the new ranges.', 'wc-optic' ) . '</p>';
 		} elseif ( 'specifics' === $mode ) {
-			echo '<p class="description">' . esc_html__( 'Division stays as on the product. Use Rebuild if you need to change division. Only new power combinations are added.', 'wc-optic' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Division and identity stay as on the product. Use Rebuild if you need to change them. Only new power combinations are added.', 'wc-optic' ) . '</p>';
 		}
 		echo '<p class="form-field"><label for="wc_optic_wizard_division">' . esc_html__( 'Optical division', 'wc-optic' ) . ' <abbr class="required">*</abbr></label>';
 		echo '<select id="wc_optic_wizard_division" class="wc-optic-select2 wc-optic-wizard-select"' . ( 'specifics' === $mode ? ' disabled="disabled"' : '' ) . '>';
@@ -674,10 +679,12 @@ class WC_Optic_Admin_Convert {
 		}
 		echo '</div>';
 
-		echo '<div class="wc-optic-wizard-pane" data-step="2" hidden>';
-		echo '<p class="description">' . esc_html__( 'Choose these values once for this product. They are copied to every generated internal.', 'wc-optic' ) . '</p>';
-		self::render_identity_fields( array(), 'wizard_catalog', false );
-		echo '</div>';
+		if ( 'specifics' !== $mode ) {
+			echo '<div class="wc-optic-wizard-pane" data-step="2" hidden>';
+			echo '<p class="description">' . esc_html__( 'Choose these values once for this product. They are copied to every generated internal.', 'wc-optic' ) . '</p>';
+			self::render_identity_fields( array(), 'wizard_catalog', false );
+			echo '</div>';
+		}
 
 		echo '<div class="wc-optic-wizard-pane" data-step="3" hidden>';
 		if ( 'specifics' === $mode ) {

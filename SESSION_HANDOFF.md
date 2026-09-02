@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.5 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.6 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,9 +15,10 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-02 (courante)
 
-1. **Convert — wizard Select2 (v1.4.5)** : le focus trap Bootstrap empêchait la saisie dans le champ de recherche Select2 (dropdown sur `<body>`). `data-bs-focus="false"`, handler `focusin` pour `.select2-container`, autofocus à l’ouverture.
-2. **Convert — Reset all (fix v1.4.4)** : revert fiable vers simple.
-3. **Version** — bump **1.4.5**.
+1. **Convert — Specifics wizard (v1.4.6)** : pas d’étape Identité ; flux Produit → Puissances ; identité produit forcée en backend (`get_identity_catalog`).
+2. **Convert — wizard Select2 (v1.4.5)** : filtrage clavier dans le modal.
+3. **Convert — Reset all (v1.4.4)** : revert fiable vers simple.
+4. **Version** — bump **1.4.6**.
 
 ### Session 2026-09-02 (précédente — reset v1.4.2)
 
@@ -523,7 +524,9 @@ WC_Optic_Converter::convert_product() / preview()
 | Élément | Comportement |
 |---------|----------------|
 | Liste | Même source que Converted (`get_converted_products`) |
+| Wizard | **Produit → Puissances** (v1.4.6) — pas d’étape Identité |
 | Division | Verrouillée (inchangée) — rebuild pour changer de division |
+| Identité | Verrouillée (inchangée) — `get_identity_catalog()` forcé en backend |
 | Préremplissage plages | CYL/AXIS/ADD depuis le produit ; **SPH vide** pour forcer la saisie des extras |
 | SPH +0.00 | **1** interne no-power (pas de croisement CYL/AXIS/ADD) ; UI masque les autres plages |
 | Persist | `mode=append` → `merge_children_from_ranges()` : conserve l’existant, skip doublons |
@@ -822,9 +825,11 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Compteur Internals + colonne Division mis à jour dans la liste après rebuild
 - [ ] WPML : seules les fiches originales listées ; traductions sync après rebuild
 
-### Convert Specifics (1.3.8 / 1.3.9)
+### Convert Specifics (1.3.8 / 1.3.9 / 1.4.6)
 
 - [ ] Onglet **Specifics** liste les mêmes produits convertis
+- [ ] Wizard : **Product → Powers** uniquement (pas d’étape Identity)
+- [ ] Division verrouillée ; identité produit inchangée après ajout
 - [ ] Division non modifiable dans le wizard
 - [ ] SPH From/To = 0 / 0 → compteur **1** ; CYL/AXIS masqués ; un interne « No power (SPH +0.00) »
 - [ ] Relancer SPH 0 → 0 → refus / 0 ajout (doublon no-power)
@@ -851,8 +856,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.5] — 2026-09-02**.
-4. **Version plugin** : **1.4.5** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.6] — 2026-09-02**.
+4. **Version plugin** : **1.4.6** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.

@@ -181,6 +181,14 @@
 	}
 
 	function collectIdentity() {
+		if ( isSpecificsMode() && current && current.identity ) {
+			var locked = {};
+			$.each( current.identity, function ( type, value ) {
+				locked[ type ] = String( value || '' );
+			} );
+			return locked;
+		}
+
 		var catalog = {};
 		var division = $( '#wc_optic_wizard_division' ).val() || '';
 		$root.find( '#wc-optic-wizard-modal .wc-optic-identity-select' ).each( function () {
@@ -348,6 +356,31 @@
 		return !!( wcOpticConvert && wcOpticConvert.specificsMode );
 	}
 
+	function wizardStepCount() {
+		return isSpecificsMode() ? 2 : 3;
+	}
+
+	function wizardProgressStep( logicalStep ) {
+		if ( ! isSpecificsMode() ) {
+			return logicalStep;
+		}
+		return logicalStep === 3 ? 2 : 1;
+	}
+
+	function nextWizardStep( logicalStep ) {
+		if ( isSpecificsMode() && logicalStep === 1 ) {
+			return 3;
+		}
+		return logicalStep + 1;
+	}
+
+	function prevWizardStep( logicalStep ) {
+		if ( isSpecificsMode() && logicalStep === 3 ) {
+			return 1;
+		}
+		return logicalStep - 1;
+	}
+
 	function wizardDivisionValue() {
 		return $( '#wc_optic_wizard_division' ).val() || '';
 	}
@@ -371,18 +404,24 @@
 			var paneStep = parseInt( $( this ).data( 'step' ), 10 );
 			$( this ).prop( 'hidden', paneStep !== step );
 		} );
-		$root.find( '.wc-optic-wizard-steps li' ).each( function ( i ) {
-			var n = i + 1;
-			$( this ).toggleClass( 'is-active', n === step );
-			$( this ).toggleClass( 'is-done', n < step );
+		$root.find( '.wc-optic-wizard-steps li' ).each( function () {
+			var logical = parseInt( $( this ).attr( 'data-logical-step' ), 10 );
+			if ( ! logical ) {
+				return;
+			}
+			$( this ).toggleClass( 'is-active', logical === step );
+			$( this ).toggleClass( 'is-done', logical < step );
 		} );
-		$( '#wc-optic-wizard-bar' ).css( 'width', String( Math.round( ( step / 3 ) * 100 ) ) + '%' );
+		$( '#wc-optic-wizard-bar' ).css(
+			'width',
+			String( Math.round( ( wizardProgressStep( step ) / wizardStepCount() ) * 100 ) ) + '%'
+		);
 		$( '#wc-optic-wizard-back' ).prop( 'disabled', step === 1 && ! converted );
 		updateNextLabel();
 		if ( step === 2 || step === 3 ) {
 			setTimeout( function () {
 				initSelect2( $( '#wc-optic-wizard-modal' ) );
-				if ( step === 2 ) {
+				if ( step === 2 && ! isSpecificsMode() ) {
 					applyDivisionIdentityFields( $( '#wc_optic_wizard_division' ).val() || '' );
 				}
 			}, 50 );
@@ -637,7 +676,7 @@
 				showAlert( wcOpticConvert.i18n.needDivision );
 				return;
 			}
-			setStep( 2 );
+			setStep( nextWizardStep( 1 ) );
 			return;
 		}
 
@@ -724,7 +763,7 @@
 				return;
 			}
 			if ( step > 1 ) {
-				setStep( step - 1 );
+				setStep( prevWizardStep( step ) );
 			}
 		} );
 
@@ -747,7 +786,7 @@
 			if ( ! tpl ) {
 				return;
 			}
-			if ( tpl.division ) {
+			if ( tpl.division && ! isSpecificsMode() ) {
 				$( '#wc_optic_wizard_division' ).val( tpl.division );
 			}
 			applyTemplateRanges( tpl );

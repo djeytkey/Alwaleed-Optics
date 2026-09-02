@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.6] — 2026-09-02
+
+### Modifié
+
+- **Convert — Specifics** : le wizard saute l’étape Identité (comme la division verrouillée) ; Produit → Puissances. L’identité produit existante est conservée côté UI et backend.
+
 ## [1.4.5] — 2026-09-02
 
 ### Corrigé

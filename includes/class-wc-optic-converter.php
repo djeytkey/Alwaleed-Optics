@@ -636,6 +636,9 @@ class WC_Optic_Converter {
 		// Force product division — specifics never change division (use Rebuild for that).
 		$args['division'] = $division;
 
+		// Force product identity — specifics never change catalog (use Rebuild for that).
+		$args['catalog'] = WC_Optic_SKU::get_identity_catalog( $product );
+
 		$prepared = self::prepare_args( $product, $args );
 		if ( is_wp_error( $prepared ) ) {
 			return $prepared;
