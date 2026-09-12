@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.12] — 2026-09-12
+
+### Ajouté
+
+- **Convert — wizard** : preloader (spinner) pendant le chargement AJAX du produit ; division / étapes / boutons Next-Back masqués ou désactivés jusqu’à l’arrivée des données.
+
 ## [1.4.11] — 2026-09-12
 
 ### Corrigé

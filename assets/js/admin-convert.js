@@ -515,14 +515,38 @@
 		return fallback;
 	}
 
+	function setWizardLoading( loading ) {
+		var $modal = $( '#wc-optic-wizard-modal' );
+		var $loader = $( '#wc-optic-wizard-loading' );
+		var label = ( wcOpticConvert.i18n && wcOpticConvert.i18n.loadingProduct ) || 'Loading product…';
+
+		$modal.toggleClass( 'is-loading', !! loading );
+		if ( loading ) {
+			$loader.find( '.wc-optic-wizard-loading__text' ).text( label );
+			$loader.removeAttr( 'hidden' );
+			$( '#wc-optic-wizard-product-card' ).empty();
+			$( '#wc_optic_wizard_division' ).val( '' );
+			$( '#wc-optic-wizard-next, #wc-optic-wizard-back' ).prop( 'disabled', true );
+			return;
+		}
+
+		$loader.attr( 'hidden', 'hidden' );
+		$( '#wc-optic-wizard-next' ).prop( 'disabled', ! current );
+		$( '#wc-optic-wizard-back' ).prop( 'disabled', step === 1 && ! converted );
+	}
+
 	function loadProduct( done ) {
 		converted = false;
+		current = null;
 		showAlert( '' );
 		var productId = parseInt( queue[ index ], 10 ) || 0;
 		if ( productId < 1 ) {
+			setWizardLoading( false );
 			showAlert( wcOpticConvert.i18n.loadFailed );
 			return;
 		}
+		setWizardLoading( true );
+		setStep( 1 );
 		$.post(
 			getAjaxUrl(),
 			{
@@ -532,6 +556,7 @@
 			},
 			function ( res ) {
 				if ( ! res || ! res.success || ! res.data ) {
+					setWizardLoading( false );
 					showAlert( ( res && res.data && res.data.message ) || wcOpticConvert.i18n.loadFailed );
 					return;
 				}
@@ -561,6 +586,7 @@
 				applyNoPowerRangeUi();
 				updateProgress();
 				setStep( 1 );
+				setWizardLoading( false );
 				setTimeout( function () {
 					initSelect2( $( '#wc-optic-wizard-modal' ) );
 				}, 80 );
@@ -569,6 +595,7 @@
 				}
 			}
 		).fail( function ( xhr ) {
+			setWizardLoading( false );
 			showAlert( parseAjaxErrorMessage( xhr, wcOpticConvert.i18n.loadFailed ) );
 		} );
 	}

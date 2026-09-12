@@ -943,3 +943,7 @@ console.log( wcOpticConvert.ajaxUrl );  // souvent URL absolue https://…
 
 **Correctif plugin :** `getAjaxUrl()` dans `assets/js/admin-convert.js` (v1.4.11).
 
+### Preloader (v1.4.12)
+
+Pendant `wc_optic_wizard_product`, le modal affiche un spinner (« Loading product… ») et masque division / étapes / Next-Back jusqu’à l’arrivée du payload (`setWizardLoading()`).
+

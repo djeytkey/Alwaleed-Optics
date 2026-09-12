@@ -81,6 +81,7 @@ class WC_Optic_Admin_Convert {
 				'confirmClose'      => __( 'Close the wizard? Unsaved steps for this product will be lost.', 'wc-optic' ),
 				'convertFailed'     => __( 'Could not convert this product.', 'wc-optic' ),
 				'loadFailed'        => __( 'Could not load the product.', 'wc-optic' ),
+				'loadingProduct'    => __( 'Loading product…', 'wc-optic' ),
 				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
 				'rebuilt'           => __( 'Rebuilt: %d internal products.', 'wc-optic' ),
 				'specificsAdded'    => __( 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.', 'wc-optic' ),
@@ -660,6 +661,13 @@ class WC_Optic_Admin_Convert {
 
 		echo '<div class="wc-optic-wizard-alert" id="wc-optic-wizard-alert" hidden></div>';
 
+		echo '<div class="wc-optic-wizard-loading" id="wc-optic-wizard-loading" hidden>';
+		echo '<span class="spinner is-active" aria-hidden="true"></span>';
+		echo '<p class="wc-optic-wizard-loading__text">' . esc_html__( 'Loading product…', 'wc-optic' ) . '</p>';
+		echo '</div>';
+
+		echo '<div class="wc-optic-wizard-body" id="wc-optic-wizard-body">';
+
 		echo '<div class="wc-optic-wizard-pane" data-step="1">';
 		echo '<div class="wc-optic-wizard-product" id="wc-optic-wizard-product-card"></div>';
 		if ( 'rebuild' === $mode ) {
@@ -720,7 +728,9 @@ class WC_Optic_Admin_Convert {
 		}
 		echo '</div>';
 
-		echo '</div>';
+		echo '</div>'; /* #wc-optic-wizard-body */
+
+		echo '</div>'; /* .modal-body */
 
 		echo '<div class="modal-footer">';
 		echo '<button type="button" class="button" id="wc-optic-wizard-back">' . esc_html__( 'Back', 'wc-optic' ) . '</button>';
