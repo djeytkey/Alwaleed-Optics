@@ -15,8 +15,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-09-12 (courante)
 
-1. **Convert — Could not load the product / ERR_TOO_MANY_REDIRECTS (staging)** : heartbeat admin OK ; Convert utilisait `wcOpticConvert.ajaxUrl` = `admin_url('admin-ajax.php')`, parfois divergent de `window.ajaxurl` (staging / proxy / URL). Correctif : `getAjaxUrl()` préfère `ajaxurl`.
-2. **Version** — bump **1.4.11**.
+1. **Convert — Could not load the product / ERR_TOO_MANY_REDIRECTS (staging)** : heartbeat admin OK ; Convert utilisait `wcOpticConvert.ajaxUrl` = `admin_url('admin-ajax.php')` (URL absolue), divergent de `window.ajaxurl` (chemin relatif `/wp-admin/admin-ajax.php`). Correctif : `getAjaxUrl()` préfère `ajaxurl`.
+2. **Validé staging** (`staging.alwaleedoptics.com`) : après déploiement 1.4.11, wizard Convert charge le produit.
+3. **Version** — bump **1.4.11**.
 
 ### Session 2026-09-02 (précédente)
 
@@ -570,13 +571,24 @@ WC_Optic_Converter::convert_product() / preview()
 
 ### 2.19 Convert — ajaxurl admin (session 2026-09-12)
 
-**Symptôme staging :** wizard Convert → « Could not load the product » + console `POST admin-ajax.php net::ERR_TOO_MANY_REDIRECTS`. Heartbeat WooCommerce OK.
+**Symptôme staging :** wizard Convert → « Could not load the product » + console `POST admin-ajax.php net::ERR_TOO_MANY_REDIRECTS`. Heartbeat WooCommerce (même `admin-ajax.php`) OK.
 
-**Cause :** Convert postait vers `wcOpticConvert.ajaxUrl` (`admin_url('admin-ajax.php')`), parfois différent de `window.ajaxurl` (schéma/hôte/préfixe). Boucle de redirects navigateur.
+**Diagnostic confirmé (console staging) :**
 
-**Correctif :** `getAjaxUrl()` dans `admin-convert.js` préfère `window.ajaxurl`, fallback sur la config localisée.
+| Variable | Valeur |
+|----------|--------|
+| `window.ajaxurl` | `/wp-admin/admin-ajax.php` (relatif, même origine) |
+| `wcOpticConvert.ajaxUrl` | `https://staging.alwaleedoptics.com/wp-admin/admin-ajax.php` (absolu via `admin_url()`) |
 
-**Fichiers :** `assets/js/admin-convert.js` ; version **1.4.11**.
+Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de redirects ; le chemin relatif du core WordPress non.
+
+**Cause :** Convert postait vers la config localisée au lieu du `ajaxurl` global admin.
+
+**Correctif :** `getAjaxUrl()` dans `admin-convert.js` — préfère `window.ajaxurl`, fallback `wcOpticConvert.ajaxUrl`, puis `/wp-admin/admin-ajax.php`. Amélioration messages d’erreur `loadProduct` (parse JSON / HTTP error).
+
+**Hors plugin (notes staging) :** désactiver WPML sans WCML → fatal ; code custom `functions.php` thème enfant appelant WPML → fatal si WPML off. Ne pas confondre avec le bug Convert.
+
+**Fichiers :** `assets/js/admin-convert.js` ; version **1.4.11** (`CHANGELOG.md`, `woocommerce-optic-product.php`, `composer.json`).
 
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
@@ -631,7 +643,7 @@ WC_Optic_Converter::convert_product() / preview()
 | `assets/js/cart.js` | Inchangé (sync qty) |
 | `assets/js/admin-settings.js` | Toggle visibilité champ backorder qty global |
 | `assets/js/admin-product.js` | Liste internes + Edit/Save/Remove AJAX ; anti-doublon UX |
-| `assets/js/admin-convert.js` | Wizard Convert / Rebuild / Specifics ; From/To/Step acceptent `0` |
+| `assets/js/admin-convert.js` | Wizard Convert / Rebuild / Specifics ; `getAjaxUrl()` → `window.ajaxurl` (v1.4.11) ; From/To/Step acceptent `0` |
 | `assets/js/admin-stock.js` | Collapsible parent rows, recherche, expand/collapse, modal restock (+ reset backorder), badge low stock parent, DataTables (onglet alertes) |
 | `assets/vendor/datatables/dataTables.min.js` | **DataTables 2.1.8 core** (Convert + Stock alerts) |
 | `assets/vendor/datatables/dataTables.dataTables.min.css` | Styles DataTables |
@@ -869,6 +881,13 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] **Settings** (catalogue, divisions, gabarits) inchangés
 - [ ] WPML : traductions aussi repassées simple
 
+### Convert AJAX url (1.4.11)
+
+- [x] Staging : Start wizard charge le produit (plus de `ERR_TOO_MANY_REDIRECTS` / « Could not load the product »)
+- [ ] Console : `ajaxurl` relatif ; Convert utilise cette URL (pas l’absolu localisé si divergent)
+- [ ] Converted / Specifics / templates : AJAX save/count/reset OK
+- [ ] Prod : Convert inchangé (régression)
+
 ### Activation plugin (1.2.5)
 
 - [ ] Désactiver puis réactiver le plugin : pas d’erreur fatale `WC_Optic_Catalog not found`
@@ -881,8 +900,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.7] — 2026-09-02**.
-4. **Version plugin** : **1.4.7** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.11] — 2026-09-12**.
+4. **Version plugin** : **1.4.11** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
@@ -893,6 +912,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 12. **Internes lazy (1.3.3)** : les champs éditeur utilisent le préfixe `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit) pour ne pas écraser la méta à l’Update WP. Doublon = même combinaison de puissances de la division, y compris internes désactivés.
 13. **Nouveau produit** : Add/Edit internes indisponibles tant que l’ID produit n’existe pas (premier Save WP requis).
 14. **Sync identité (1.3.4)** : un changement Toric → Color Lenses peut créer des doublons SPH ; l’identité/SKU sont quand même appliqués, avec warning UI — nettoyer les doublons à part.
+15. **Admin AJAX Convert (1.4.11)** : toujours préférer `window.ajaxurl` en admin ; ne pas se fier seul à `admin_url('admin-ajax.php')` localisé (staging / proxy / Cloudflare peuvent diverger). Autres écrans admin (`admin-product.js`, `admin-settings.js`, `admin-stock.js`) utilisent encore la config localisée — surveiller si le même symptôme apparaît.
 
 ---
 

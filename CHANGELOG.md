@@ -8,7 +8,8 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ### Corrigé
 
-- **Convert — wizard AJAX** : utilise le `ajaxurl` global WordPress admin (comme le heartbeat) au lieu de `admin_url()` localisé, pour éviter `ERR_TOO_MANY_REDIRECTS` / « Could not load the product » sur staging (URL admin incorrecte : schéma / hôte / préfixe langue).
+- **Convert — wizard AJAX** : `getAjaxUrl()` utilise le `ajaxurl` global WordPress admin (chemin relatif, comme le heartbeat) au lieu de l’URL absolue `admin_url()` localisée dans `wcOpticConvert.ajaxUrl`.
+- **Staging** : corrige `ERR_TOO_MANY_REDIRECTS` / « Could not load the product » au démarrage du wizard (validé sur `staging.alwaleedoptics.com`).
 
 ## [1.4.10] — 2026-09-02
 

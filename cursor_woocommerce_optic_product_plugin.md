@@ -915,3 +915,31 @@ Les segments puissance hors division sont vides. Fragment SKU prioritaire sur le
 - WPML : traduction des noms catalogue et libellés dynamiques
 - Migration automatique des anciennes données `term_type = rx` / `sign` si encore en base
 
+---
+
+## Convert wizard — AJAX admin (v1.4.11)
+
+### Flux
+
+1. **Alwaleed Optics → Convert** : liste des produits simples (DataTables) → sélection → **Start wizard**.
+2. Étapes : Produit (division) → Identité → Puissances (plages From/To/Step) → génération des internes.
+3. Onglets liés : **Converted** (rebuild), **Specifics** (append), **Range templates**.
+
+### Endpoint
+
+- Action AJAX : `wc_optic_wizard_product` (nonce `wc_optic_admin`).
+- URL d’appel (admin) : **`window.ajaxurl`** en priorité (`/wp-admin/admin-ajax.php`), pas uniquement `admin_url('admin-ajax.php')` localisé.
+
+### Piège staging
+
+Sur un staging derrière Cloudflare / reverse proxy, l’URL **absolue** localisée peut provoquer `net::ERR_TOO_MANY_REDIRECTS` alors que le heartbeat WordPress (même `admin-ajax.php`, URL relative) fonctionne. Symptôme UI : « Could not load the product ».
+
+**Diag console :**
+
+```js
+console.log( ajaxurl );                 // attendu : /wp-admin/admin-ajax.php
+console.log( wcOpticConvert.ajaxUrl );  // souvent URL absolue https://…
+```
+
+**Correctif plugin :** `getAjaxUrl()` dans `assets/js/admin-convert.js` (v1.4.11).
+
