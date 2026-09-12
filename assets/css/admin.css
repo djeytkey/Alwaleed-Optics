@@ -1110,13 +1110,48 @@
 }
 
 .wc-optic-power-range {
-	margin: 0 0 12px;
+	margin: 0 0 16px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.wc-optic-power-range__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 6px;
+}
+
+.wc-optic-power-range__label {
+	margin: 0;
+}
+
+.wc-optic-power-range__segments {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.wc-optic-power-range__segment {
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+}
+
+.wc-optic-power-range__segment .wc-optic-remove-range-segment {
+	flex: 0 0 auto;
+	font-size: 18px;
+	line-height: 1;
+	padding: 4px 6px;
+	text-decoration: none;
 }
 
 .wc-optic-power-range__grid {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px;
+	flex: 1 1 auto;
 }
 
 .wc-optic-power-range__field {

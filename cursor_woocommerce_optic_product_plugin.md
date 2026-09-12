@@ -947,3 +947,13 @@ console.log( wcOpticConvert.ajaxUrl );  // souvent URL absolue https://…
 
 Pendant `wc_optic_wizard_product`, le modal affiche un spinner (« Loading product… ») et masque division / étapes / Next-Back jusqu’à l’arrivée du payload (`setWizardLoading()`).
 
+### Plages multiples (v1.5.0)
+
+Chaque puissance (SPH, CYL, …) accepte **N** segments From/To/Step (bouton **Add range**). Les valeurs sont **unies** (sans doublon) puis croisées avec les autres puissances. Exemple SPH :
+
+- −0.50 → −6.00 step 0.25  
+- +0.50 → +5.00 step 0.50  
+- +5.75 → +8.75 step 1  
+
+Format stocké : `_optic_power_ranges.sph = [ {from,to,step}, ... ]` (l’ancien objet unique reste lu).
+

@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-12 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.12 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.5.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -18,7 +18,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 1. **Convert — Could not load the product / ERR_TOO_MANY_REDIRECTS (staging)** : heartbeat admin OK ; Convert utilisait `wcOpticConvert.ajaxUrl` = `admin_url('admin-ajax.php')` (URL absolue), divergent de `window.ajaxurl` (chemin relatif `/wp-admin/admin-ajax.php`). Correctif : `getAjaxUrl()` préfère `ajaxurl`.
 2. **Validé staging** (`staging.alwaleedoptics.com`) : après déploiement 1.4.11, wizard Convert charge le produit.
 3. **Convert — preloader wizard (v1.4.12)** : overlay spinner pendant `wc_optic_wizard_product` ; masque division / étapes / Next-Back jusqu’au payload.
-4. **Version** — bump **1.4.12**.
+4. **Convert — plages multiples (v1.5.0)** : plusieurs From/To/Step par puissance (union puis cartésien) ; UI Add range ; rétrocompat meta/templates single-object.
+5. **Version** — bump **1.5.0**.
 
 ### Session 2026-09-02 (précédente)
 
@@ -599,6 +600,18 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 
 **Fichiers :** `admin/class-wc-optic-admin-convert.php`, `assets/js/admin-convert.js`, `assets/css/admin-wizard.css` ; version **1.4.12**.
 
+### 2.21 Convert — plages multiples par puissance (session 2026-09-12)
+
+**Besoin :** ex. SPH −0.50→−6.00 / 0.25 **et** +0.50→+5.00 / 0.50 **et** +5.75→+8.75 / 1 sur le même produit.
+
+**Modèle données :** `_optic_power_ranges[power]` = liste de `{ from, to, step }` (legacy objet unique encore accepté).
+
+**Pipeline :** `normalize_power_ranges()` → par puissance `enumerate_power_range_segments()` / `resolve_power_range_segments()` (union + dédup) → cartésien existant (`expand_power_combinations`).
+
+**UI :** bouton **Add range** / × remove ; compteur d’internes recalculé sur l’union.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-catalog.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css` ; version **1.5.0**.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -909,8 +922,8 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.4.12] — 2026-09-12**.
-4. **Version plugin** : **1.4.12** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
+3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.5.0] — 2026-09-12**.
+4. **Version plugin** : **1.5.0** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
 5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
 6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
 7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.

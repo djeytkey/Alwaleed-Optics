@@ -1915,27 +1915,99 @@ class WC_Optic_SKU {
 	/**
 	 * Normalize posted or stored power ranges.
 	 *
+	 * Accepts legacy single segment `{ from, to, step }` or a list of segments
+	 * `[ { from, to, step }, ... ]` per power. Always returns a list of segments.
+	 *
 	 * @param mixed  $raw      Raw ranges.
 	 * @param string $division Division slug.
-	 * @return array<string, array{from:string,to:string,step:string}>
+	 * @return array<string, array<int, array{from:string,to:string,step:string}>>
 	 */
 	public static function normalize_power_ranges( $raw, $division ) {
 		$raw     = is_array( $raw ) ? $raw : array();
 		$allowed = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : WC_Optic_Catalog::get_power_types();
 		$out     = array();
 		foreach ( $allowed as $power ) {
-			$row  = isset( $raw[ $power ] ) && is_array( $raw[ $power ] ) ? $raw[ $power ] : array();
-			$step = isset( $row['step'] ) ? (string) $row['step'] : '';
-			if ( '' === trim( $step ) ) {
-				$step = (string) WC_Optic_Catalog::get_default_power_step( $power );
-			}
-			$out[ $power ] = array(
-				'from' => isset( $row['from'] ) ? (string) $row['from'] : '',
-				'to'   => isset( $row['to'] ) ? (string) $row['to'] : '',
-				'step' => $step,
+			$row      = isset( $raw[ $power ] ) && is_array( $raw[ $power ] ) ? $raw[ $power ] : array();
+			$segments = self::normalize_power_range_segments( $row, $power );
+			$out[ $power ] = $segments ? $segments : array(
+				array(
+					'from' => '',
+					'to'   => '',
+					'step' => (string) WC_Optic_Catalog::get_default_power_step( $power ),
+				),
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether a raw row is a single range segment (has from/to keys).
+	 *
+	 * @param array $row Raw row.
+	 * @return bool
+	 */
+	public static function is_power_range_segment( array $row ) {
+		return array_key_exists( 'from', $row ) || array_key_exists( 'to', $row ) || array_key_exists( 'step', $row );
+	}
+
+	/**
+	 * Normalize one power's segments from legacy object or list.
+	 *
+	 * @param array  $row   Raw power row.
+	 * @param string $power Power type.
+	 * @return array<int, array{from:string,to:string,step:string}>
+	 */
+	public static function normalize_power_range_segments( array $row, $power ) {
+		$default_step = (string) WC_Optic_Catalog::get_default_power_step( $power );
+		$raw_segments = array();
+
+		if ( self::is_power_range_segment( $row ) ) {
+			$raw_segments[] = $row;
+		} else {
+			foreach ( $row as $item ) {
+				if ( is_array( $item ) ) {
+					$raw_segments[] = $item;
+				}
+			}
+		}
+
+		$out = array();
+		foreach ( $raw_segments as $segment ) {
+			if ( ! is_array( $segment ) ) {
+				continue;
+			}
+			$from = isset( $segment['from'] ) ? (string) $segment['from'] : '';
+			$to   = isset( $segment['to'] ) ? (string) $segment['to'] : '';
+			$step = isset( $segment['step'] ) ? (string) $segment['step'] : '';
+			if ( '' === trim( $from ) && '' === trim( $to ) ) {
+				continue;
+			}
+			if ( '' === trim( $step ) ) {
+				$step = $default_step;
+			}
+			$out[] = array(
+				'from' => $from,
+				'to'   => $to,
+				'step' => $step,
+			);
+		}
+
+		return array_values( $out );
+	}
+
+	/**
+	 * First filled segment for a power (compat helpers / summaries).
+	 *
+	 * @param array  $ranges Normalized or raw ranges.
+	 * @param string $power  Power type.
+	 * @return array{from:string,to:string,step:string}|null
+	 */
+	public static function get_first_power_range_segment( array $ranges, $power ) {
+		if ( ! isset( $ranges[ $power ] ) || ! is_array( $ranges[ $power ] ) ) {
+			return null;
+		}
+		$segments = self::normalize_power_range_segments( $ranges[ $power ], $power );
+		return $segments ? $segments[0] : null;
 	}
 
 	/**
@@ -2221,12 +2293,7 @@ class WC_Optic_SKU {
 		$has_sph   = in_array( 'sph', $allowed, true ) && isset( $ranges['sph'] );
 
 		if ( $has_sph ) {
-			$values = WC_Optic_Catalog::enumerate_power_range_values(
-				'sph',
-				$ranges['sph']['from'],
-				$ranges['sph']['to'],
-				$ranges['sph']['step']
-			);
+			$values = WC_Optic_Catalog::enumerate_power_range_segments( 'sph', $ranges['sph'] );
 			if ( is_wp_error( $values ) ) {
 				return $values;
 			}
@@ -2246,11 +2313,11 @@ class WC_Optic_SKU {
 		}
 
 		$other = 1;
-		foreach ( $ranges as $power => $range ) {
+		foreach ( $ranges as $power => $segments ) {
 			if ( 'sph' === $power ) {
 				continue;
 			}
-			$n = WC_Optic_Catalog::count_power_range( $power, $range['from'], $range['to'], $range['step'] );
+			$n = WC_Optic_Catalog::count_power_range_segments( $power, $segments );
 			if ( is_wp_error( $n ) ) {
 				return $n;
 			}
@@ -2270,6 +2337,8 @@ class WC_Optic_SKU {
 	/**
 	 * Build internals from numeric from/to/step ranges (creates missing catalog terms).
 	 *
+	 * Supports multiple segments per power (union of values, then cartesian).
+	 *
 	 * @param string             $division   Division slug.
 	 * @param array<string, int> $catalog    Shared identity.
 	 * @param array              $ranges     Ranges keyed by power.
@@ -2285,11 +2354,9 @@ class WC_Optic_SKU {
 		// Detect SPH-only no-power request early so CYL/AXIS/ADD ranges are not required.
 		$only_no_power = false;
 		if ( in_array( 'sph', $allowed, true ) && isset( $ranges['sph'] ) ) {
-			$sph_ids = WC_Optic_Catalog::resolve_power_range(
+			$sph_ids = WC_Optic_Catalog::resolve_power_range_segments(
 				'sph',
-				$ranges['sph']['from'],
-				$ranges['sph']['to'],
-				$ranges['sph']['step'],
+				$ranges['sph'],
 				self::MAX_LEGACY_SYNTHETIC_CHILDREN
 			);
 			if ( is_wp_error( $sph_ids ) ) {
@@ -2300,18 +2367,16 @@ class WC_Optic_SKU {
 			$power_values['sph'] = $sph_ids;
 		}
 
-		foreach ( $ranges as $power => $range ) {
+		foreach ( $ranges as $power => $segments ) {
 			if ( 'sph' === $power ) {
 				continue;
 			}
 			if ( $only_no_power ) {
 				continue;
 			}
-			$ids = WC_Optic_Catalog::resolve_power_range(
+			$ids = WC_Optic_Catalog::resolve_power_range_segments(
 				$power,
-				$range['from'],
-				$range['to'],
-				$range['step'],
+				$segments,
 				self::MAX_LEGACY_SYNTHETIC_CHILDREN
 			);
 			if ( is_wp_error( $ids ) ) {

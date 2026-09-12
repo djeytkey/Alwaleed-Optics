@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.5.0] — 2026-09-12
+
+### Ajouté
+
+- **Convert / Templates — plages multiples** : plusieurs From/To/Step par puissance (ex. SPH −0.50→−6.00 / 0.25 + +0.50→+5.00 / 0.50 + +5.75→+8.75 / 1). Les valeurs sont unies (dédupliquées) avant la génération cartésienne des internes. Compatibilité avec l’ancien format à une seule plage. Bouton **Add range** / suppression de segment.
+
 ## [1.4.12] — 2026-09-12
 
 ### Ajouté

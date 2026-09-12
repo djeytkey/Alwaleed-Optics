@@ -608,6 +608,129 @@ class WC_Optic_Catalog {
 	}
 
 	/**
+	 * Enumerate numeric values for one or many range segments (union, sorted, unique).
+	 *
+	 * @param string $type     Power type.
+	 * @param array  $segments List of {from,to,step} (or a single segment).
+	 * @return float[]|WP_Error
+	 */
+	public static function enumerate_power_range_segments( $type, array $segments ) {
+		if ( isset( $segments['from'] ) || isset( $segments['to'] ) || isset( $segments['step'] ) ) {
+			$segments = array( $segments );
+		}
+
+		$merged = array();
+		$seen   = array();
+		$scale  = self::get_power_scale( $type );
+		$any    = false;
+
+		foreach ( $segments as $segment ) {
+			if ( ! is_array( $segment ) ) {
+				continue;
+			}
+			$from = isset( $segment['from'] ) ? (string) $segment['from'] : '';
+			$to   = isset( $segment['to'] ) ? (string) $segment['to'] : '';
+			if ( '' === trim( $from ) && '' === trim( $to ) ) {
+				continue;
+			}
+			$step   = isset( $segment['step'] ) ? $segment['step'] : self::get_default_power_step( $type );
+			$values = self::enumerate_power_range_values( $type, $from, $to, $step );
+			if ( is_wp_error( $values ) ) {
+				return $values;
+			}
+			$any = true;
+			foreach ( $values as $number ) {
+				$key = (string) (int) round( (float) $number * $scale );
+				if ( isset( $seen[ $key ] ) ) {
+					continue;
+				}
+				$seen[ $key ] = true;
+				$merged[]     = (float) $number;
+			}
+		}
+
+		if ( ! $any ) {
+			return new WP_Error(
+				'wc_optic_invalid_power_range',
+				sprintf(
+					/* translators: %s: power type label */
+					__( 'The %s range needs a from value, a to value, and a positive step.', 'wc-optic' ),
+					self::get_type_label( $type )
+				)
+			);
+		}
+
+		usort(
+			$merged,
+			static function ( $a, $b ) {
+				return $a <=> $b;
+			}
+		);
+
+		return $merged;
+	}
+
+	/**
+	 * Count unique values across range segments.
+	 *
+	 * @param string $type     Power type.
+	 * @param array  $segments Segments.
+	 * @return int|WP_Error
+	 */
+	public static function count_power_range_segments( $type, array $segments ) {
+		$values = self::enumerate_power_range_segments( $type, $segments );
+		if ( is_wp_error( $values ) ) {
+			return $values;
+		}
+		return count( $values );
+	}
+
+	/**
+	 * Resolve one or many range segments into catalog term IDs (union).
+	 *
+	 * @param string $type     Power type.
+	 * @param array  $segments Segments.
+	 * @param int    $max      Max values allowed.
+	 * @return int[]|WP_Error
+	 */
+	public static function resolve_power_range_segments( $type, array $segments, $max = 200 ) {
+		if ( ! in_array( $type, self::get_power_types(), true ) ) {
+			return new WP_Error( 'wc_optic_invalid_power_type', __( 'Invalid power type.', 'wc-optic' ) );
+		}
+
+		$numbers = self::enumerate_power_range_segments( $type, $segments );
+		if ( is_wp_error( $numbers ) ) {
+			return $numbers;
+		}
+
+		$count = count( $numbers );
+		$max   = max( 1, (int) $max );
+		if ( $count > $max ) {
+			return new WP_Error(
+				'wc_optic_power_range_too_large',
+				sprintf(
+					/* translators: 1: power type label, 2: generated count, 3: max allowed */
+					__( 'The %1$s range would create %2$d values (maximum %3$d). Narrow the range or increase the step.', 'wc-optic' ),
+					self::get_type_label( $type ),
+					$count,
+					$max
+				)
+			);
+		}
+
+		$ids = array();
+		foreach ( $numbers as $number ) {
+			$row = self::get_or_create_power_term( $type, $number );
+			if ( is_wp_error( $row ) ) {
+				return $row;
+			}
+			$ids[] = (int) $row->id;
+		}
+
+		return array_values( array_unique( $ids ) );
+	}
+
+	/**
 	 * Whether an SPH catalog row represents plano / zero power (+0.00).
 	 *
 	 * @param object|null $row SPH catalog row.

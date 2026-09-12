@@ -82,6 +82,11 @@ class WC_Optic_Admin_Convert {
 				'convertFailed'     => __( 'Could not convert this product.', 'wc-optic' ),
 				'loadFailed'        => __( 'Could not load the product.', 'wc-optic' ),
 				'loadingProduct'    => __( 'Loading product…', 'wc-optic' ),
+				'addRange'          => __( 'Add range', 'wc-optic' ),
+				'removeRange'       => __( 'Remove range', 'wc-optic' ),
+				'rangeFrom'         => __( 'From', 'wc-optic' ),
+				'rangeTo'           => __( 'To', 'wc-optic' ),
+				'rangeStep'         => __( 'Step', 'wc-optic' ),
 				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
 				'rebuilt'           => __( 'Rebuilt: %d internal products.', 'wc-optic' ),
 				'specificsAdded'    => __( 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.', 'wc-optic' ),
@@ -773,6 +778,7 @@ class WC_Optic_Admin_Convert {
 
 	/**
 	 * From / to / step fields for all power types (JS shows those of the division).
+	 * Supports multiple segments per power (Add range).
 	 *
 	 * @param string $division Current division.
 	 * @param array  $ranges   Saved ranges.
@@ -785,22 +791,50 @@ class WC_Optic_Admin_Convert {
 
 		echo '<div class="' . esc_attr( $wrapper ) . ' wc-optic-power-ranges" data-name-prefix="' . esc_attr( $name ) . '">';
 		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
-			$row   = isset( $ranges[ $power ] ) ? $ranges[ $power ] : array(
-				'from' => '',
-				'to'   => '',
-				'step' => (string) WC_Optic_Catalog::get_default_power_step( $power ),
-			);
-			$show  = empty( $allowed ) ? false : in_array( $power, $allowed, true );
-			$base  = $name . '[' . $power . ']';
+			$segments = isset( $ranges[ $power ] ) && is_array( $ranges[ $power ] ) ? $ranges[ $power ] : array();
+			if ( ! $segments ) {
+				$segments = array(
+					array(
+						'from' => '',
+						'to'   => '',
+						'step' => (string) WC_Optic_Catalog::get_default_power_step( $power ),
+					),
+				);
+			}
+			$show = empty( $allowed ) ? false : in_array( $power, $allowed, true );
 			echo '<div class="wc-optic-power-range" data-power="' . esc_attr( $power ) . '"' . ( $show ? '' : ' hidden' ) . '>';
+			echo '<div class="wc-optic-power-range__header">';
 			echo '<p class="wc-optic-power-range__label"><strong>' . esc_html( WC_Optic_Catalog::get_type_label( $power ) ) . '</strong></p>';
-			echo '<div class="wc-optic-power-range__grid">';
-			self::render_range_input( $base . '[from]', $row['from'], __( 'From', 'wc-optic' ), 'wc-optic-range-from' );
-			self::render_range_input( $base . '[to]', $row['to'], __( 'To', 'wc-optic' ), 'wc-optic-range-to' );
-			self::render_range_input( $base . '[step]', $row['step'], __( 'Step', 'wc-optic' ), 'wc-optic-range-step' );
+			echo '<button type="button" class="button-link wc-optic-add-range-segment">' . esc_html__( 'Add range', 'wc-optic' ) . '</button>';
+			echo '</div>';
+			echo '<div class="wc-optic-power-range__segments">';
+			foreach ( $segments as $index => $row ) {
+				self::render_range_segment_row( $name, $power, (int) $index, $row, count( $segments ) > 1 );
+			}
 			echo '</div>';
 			echo '</div>';
 		}
+		echo '</div>';
+	}
+
+	/**
+	 * One From/To/Step segment row.
+	 *
+	 * @param string $name_prefix Field name prefix.
+	 * @param string $power       Power type.
+	 * @param int    $index       Segment index.
+	 * @param array  $row         Segment values.
+	 * @param bool   $can_remove  Show remove control.
+	 */
+	protected static function render_range_segment_row( $name_prefix, $power, $index, array $row, $can_remove = false ) {
+		$base = $name_prefix . '[' . $power . '][' . (int) $index . ']';
+		echo '<div class="wc-optic-power-range__segment" data-segment-index="' . esc_attr( (string) (int) $index ) . '">';
+		echo '<div class="wc-optic-power-range__grid">';
+		self::render_range_input( $base . '[from]', isset( $row['from'] ) ? $row['from'] : '', __( 'From', 'wc-optic' ), 'wc-optic-range-from' );
+		self::render_range_input( $base . '[to]', isset( $row['to'] ) ? $row['to'] : '', __( 'To', 'wc-optic' ), 'wc-optic-range-to' );
+		self::render_range_input( $base . '[step]', isset( $row['step'] ) ? $row['step'] : '', __( 'Step', 'wc-optic' ), 'wc-optic-range-step' );
+		echo '</div>';
+		echo '<button type="button" class="button-link-delete wc-optic-remove-range-segment"' . ( $can_remove ? '' : ' hidden' ) . ' aria-label="' . esc_attr__( 'Remove range', 'wc-optic' ) . '">&times;</button>';
 		echo '</div>';
 	}
 
@@ -828,16 +862,20 @@ class WC_Optic_Admin_Convert {
 	protected static function format_ranges_summary( array $ranges ) {
 		$bits = array();
 		foreach ( $ranges as $power => $row ) {
-			if ( ! is_array( $row ) || '' === trim( (string) ( $row['from'] ?? '' ) ) ) {
+			$segments = WC_Optic_SKU::normalize_power_range_segments( is_array( $row ) ? $row : array(), $power );
+			if ( ! $segments ) {
 				continue;
 			}
-			$bits[] = sprintf(
-				'%s %s→%s / %s',
-				WC_Optic_Catalog::get_type_label( $power ),
-				$row['from'],
-				$row['to'],
-				$row['step']
-			);
+			$parts = array();
+			foreach ( $segments as $segment ) {
+				$parts[] = sprintf(
+					'%s→%s / %s',
+					$segment['from'],
+					$segment['to'],
+					$segment['step']
+				);
+			}
+			$bits[] = WC_Optic_Catalog::get_type_label( $power ) . ' ' . implode( ' · ', $parts );
 		}
 		return implode( ', ', $bits );
 	}
