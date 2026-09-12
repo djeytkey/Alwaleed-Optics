@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-02 (dernière mise à jour)  
+**Date :** 2026-09-12 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.4.10 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.4.11 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-02 (courante)
+### Session 2026-09-12 (courante)
+
+1. **Convert — Could not load the product / ERR_TOO_MANY_REDIRECTS (staging)** : heartbeat admin OK ; Convert utilisait `wcOpticConvert.ajaxUrl` = `admin_url('admin-ajax.php')`, parfois divergent de `window.ajaxurl` (staging / proxy / URL). Correctif : `getAjaxUrl()` préfère `ajaxurl`.
+2. **Version** — bump **1.4.11**.
+
+### Session 2026-09-02 (précédente)
 
 1. **Panier — fusion No power (v1.4.10)** : réutilise la clé panier existante si même `child_id` + `no_power`.
 2. **Version** — bump **1.4.10**.
@@ -562,6 +567,16 @@ WC_Optic_Converter::convert_product() / preview()
 **Méthodes :** `is_optic_product()`, `strip_optic_product_meta()`, `revert_to_simple_product()`, `get_optic_products()`, `WC_Optic_WPML::revert_product_translations_to_simple()`.
 
 **Bug v1.4.3 corrigé en 1.4.4 :** sauvegarder un objet `WC_Product_Optic_Product` après `wp_set_object_terms(..., 'simple')` réappliquait `optic_product` ; compteur « 0 reverted » alors que les meta étaient déjà effacées.
+
+### 2.19 Convert — ajaxurl admin (session 2026-09-12)
+
+**Symptôme staging :** wizard Convert → « Could not load the product » + console `POST admin-ajax.php net::ERR_TOO_MANY_REDIRECTS`. Heartbeat WooCommerce OK.
+
+**Cause :** Convert postait vers `wcOpticConvert.ajaxUrl` (`admin_url('admin-ajax.php')`), parfois différent de `window.ajaxurl` (schéma/hôte/préfixe). Boucle de redirects navigateur.
+
+**Correctif :** `getAjaxUrl()` dans `admin-convert.js` préfère `window.ajaxurl`, fallback sur la config localisée.
+
+**Fichiers :** `assets/js/admin-convert.js` ; version **1.4.11**.
 
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 

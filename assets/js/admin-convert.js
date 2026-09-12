@@ -12,6 +12,21 @@
 	var dtLang = {};
 	var resetAllModal = null;
 
+	/**
+	 * Prefer WordPress admin global ajaxurl (same as heartbeat).
+	 * Localized admin_url() can disagree with the browser origin on staging
+	 * (scheme / host / leftover language prefix) and trigger redirect loops.
+	 */
+	function getAjaxUrl() {
+		if ( typeof window.ajaxurl === 'string' && window.ajaxurl ) {
+			return window.ajaxurl;
+		}
+		if ( wcOpticConvert && wcOpticConvert.ajaxUrl ) {
+			return wcOpticConvert.ajaxUrl;
+		}
+		return '/wp-admin/admin-ajax.php';
+	}
+
 	function getAllowedPowers( division ) {
 		if ( ! division || ! wcOpticConvert.divisionPowers || ! wcOpticConvert.divisionPowers[ division ] ) {
 			return [];
@@ -265,7 +280,7 @@
 			return;
 		}
 		$.post(
-			wcOpticConvert.ajaxUrl,
+			getAjaxUrl(),
 			{
 				action: 'wc_optic_count_power_ranges',
 				nonce: wcOpticConvert.nonce,
@@ -480,15 +495,40 @@
 		} );
 	}
 
+	function parseAjaxErrorMessage( xhr, fallback ) {
+		if ( xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message ) {
+			return xhr.responseJSON.data.message;
+		}
+		if ( xhr && xhr.responseText ) {
+			try {
+				var parsed = JSON.parse( xhr.responseText );
+				if ( parsed && parsed.data && parsed.data.message ) {
+					return parsed.data.message;
+				}
+			} catch ( e ) {
+				// ignore
+			}
+			if ( xhr.responseText === '-1' || xhr.responseText === '0' ) {
+				return fallback;
+			}
+		}
+		return fallback;
+	}
+
 	function loadProduct( done ) {
 		converted = false;
 		showAlert( '' );
+		var productId = parseInt( queue[ index ], 10 ) || 0;
+		if ( productId < 1 ) {
+			showAlert( wcOpticConvert.i18n.loadFailed );
+			return;
+		}
 		$.post(
-			wcOpticConvert.ajaxUrl,
+			getAjaxUrl(),
 			{
 				action: 'wc_optic_wizard_product',
 				nonce: wcOpticConvert.nonce,
-				product_id: queue[ index ],
+				product_id: productId,
 			},
 			function ( res ) {
 				if ( ! res || ! res.success || ! res.data ) {
@@ -528,8 +568,8 @@
 					done();
 				}
 			}
-		).fail( function () {
-			showAlert( wcOpticConvert.i18n.loadFailed );
+		).fail( function ( xhr ) {
+			showAlert( parseAjaxErrorMessage( xhr, wcOpticConvert.i18n.loadFailed ) );
 		} );
 	}
 
@@ -610,7 +650,7 @@
 
 		$( '#wc-optic-wizard-next' ).prop( 'disabled', true );
 		$.post(
-			wcOpticConvert.ajaxUrl,
+			getAjaxUrl(),
 			payload,
 			function ( res ) {
 				$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
@@ -812,7 +852,7 @@
 		$root.on( 'submit', '#wc-optic-template-form', function ( e ) {
 			e.preventDefault();
 			$.post(
-				wcOpticConvert.ajaxUrl,
+				getAjaxUrl(),
 				{
 					action: 'wc_optic_save_power_template',
 					nonce: wcOpticConvert.nonce,
@@ -859,7 +899,7 @@
 			}
 			var id = $( this ).closest( 'tr' ).data( 'template-id' );
 			$.post(
-				wcOpticConvert.ajaxUrl,
+				getAjaxUrl(),
 				{
 					action: 'wc_optic_delete_power_template',
 					nonce: wcOpticConvert.nonce,
@@ -921,7 +961,7 @@
 			$btn.prop( 'disabled', true );
 
 			$.post(
-				wcOpticConvert.ajaxUrl,
+				getAjaxUrl(),
 				{
 					action: 'wc_optic_reset_all_internals',
 					nonce: wcOpticConvert.nonce,

@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.4.11] — 2026-09-12
+
+### Corrigé
+
+- **Convert — wizard AJAX** : utilise le `ajaxurl` global WordPress admin (comme le heartbeat) au lieu de `admin_url()` localisé, pour éviter `ERR_TOO_MANY_REDIRECTS` / « Could not load the product » sur staging (URL admin incorrecte : schéma / hôte / préfixe langue).
+
 ## [1.4.10] — 2026-09-02
 
 ### Corrigé
