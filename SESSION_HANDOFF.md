@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-12 (dernière mise à jour)  
+**Date :** 2026-09-13 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.6.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.6.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-12 (courante)
+### Session 2026-09-13 (courante)
+
+1. **Add template — multi-puissances (v1.6.1)** : cases SPH/CYL/AXIS/ADD + plage partagée ; une sauvegarde crée un gabarit par puissance cochée (mêmes From/To/Step).
+2. **Version** — bump **1.6.1**.
+
+### Session 2026-09-12 (précédente)
 
 1. **Convert — Could not load the product / ERR_TOO_MANY_REDIRECTS (staging)** : heartbeat admin OK ; Convert utilisait `wcOpticConvert.ajaxUrl` = `admin_url('admin-ajax.php')` (URL absolue), divergent de `window.ajaxurl` (chemin relatif `/wp-admin/admin-ajax.php`). Correctif : `getAjaxUrl()` préfère `ajaxurl`.
 2. **Validé staging** (`staging.alwaleedoptics.com`) : après déploiement 1.4.11, wizard Convert charge le produit.
@@ -627,6 +632,16 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 
 **Fichiers :** `class-wc-optic-power-template.php`, `class-wc-optic-ajax.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css` ; version **1.6.0**.
 
+### 2.23 Add template — multi-puissances (session 2026-09-13)
+
+**UI :** cases SPH / CYL / AXIS / ADD + éditeur de plage **partagé** (pas un select unique).
+
+**Save :** `wc_optic_save_power_template` accepte `powers[]` + `segments` → un enregistrement `{ name, power, segments }` par puissance cochée (même name et mêmes bornes).
+
+**Exemple :** SPH+CYL, −0.25→−5.00 / 0.25 → 2 lignes dans la table (Power SPH et CYL).
+
+**Fichiers :** `admin/class-wc-optic-admin-convert.php` (`render_shared_range_fields`), `class-wc-optic-ajax.php`, `admin-convert.js`, `admin.css` ; version **1.6.1**.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -925,9 +940,10 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Converted / Specifics / templates : AJAX save/count/reset OK
 - [ ] Prod : Convert inchangé (régression)
 
-### Range templates per power (1.6.0)
+### Range templates per power (1.6.0 / 1.6.1)
 
 - [ ] Créer gabarit SPH et gabarit CYL (multi-segments OK) ; table Name | Power | Ranges | Values
+- [ ] **1.6.1** : cocher SPH+CYL + une plage → **2** gabarits avec les mêmes From/To/Step
 - [ ] Anciens gabarits division migrés en plusieurs lignes (suffixe puissance) au premier load
 - [ ] Wizard : cocher SPH + choisir gabarit → segments **ajoutés** (pas remplacés) ; re-choisir le même gabarit l’ajoute encore
 - [ ] Convert / count / generate OK après composition multi-gabarits

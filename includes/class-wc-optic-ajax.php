@@ -200,7 +200,7 @@ class WC_Optic_Ajax {
 	}
 
 	/**
-	 * Save a range template.
+	 * Save one or more range templates (same segments for each selected power).
 	 */
 	public static function save_power_template() {
 		check_ajax_referer( 'wc_optic_admin', 'nonce' );
@@ -208,29 +208,62 @@ class WC_Optic_Ajax {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
 		}
 
-		$power    = isset( $_POST['power'] ) ? sanitize_key( wp_unslash( $_POST['power'] ) ) : '';
+		$name     = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
 		$segments = isset( $_POST['segments'] ) && is_array( $_POST['segments'] ) ? wp_unslash( $_POST['segments'] ) : array();
-		// Legacy: ranges[power] from older admin JS.
-		if ( ! $segments && isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ) {
-			$ranges = wp_unslash( $_POST['ranges'] );
-			if ( $power && isset( $ranges[ $power ] ) && is_array( $ranges[ $power ] ) ) {
-				$segments = $ranges[ $power ];
+		$powers   = array();
+
+		if ( isset( $_POST['powers'] ) && is_array( $_POST['powers'] ) ) {
+			foreach ( wp_unslash( $_POST['powers'] ) as $power ) {
+				$power = sanitize_key( $power );
+				if ( $power && in_array( $power, WC_Optic_Catalog::get_power_types(), true ) ) {
+					$powers[] = $power;
+				}
+			}
+			$powers = array_values( array_unique( $powers ) );
+		}
+
+		// Legacy single-power payload.
+		if ( ! $powers && isset( $_POST['power'] ) ) {
+			$power = sanitize_key( wp_unslash( $_POST['power'] ) );
+			if ( $power ) {
+				$powers[] = $power;
 			}
 		}
 
-		$result = WC_Optic_Power_Template::save(
-			array(
-				'id'       => isset( $_POST['id'] ) ? sanitize_key( wp_unslash( $_POST['id'] ) ) : '',
-				'name'     => isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '',
-				'power'    => $power,
-				'segments' => $segments,
-			)
-		);
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+		if ( ! $segments && isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ) {
+			$ranges = wp_unslash( $_POST['ranges'] );
+			if ( count( $powers ) === 1 && isset( $ranges[ $powers[0] ] ) && is_array( $ranges[ $powers[0] ] ) ) {
+				$segments = $ranges[ $powers[0] ];
+			} elseif ( isset( $ranges['shared'] ) && is_array( $ranges['shared'] ) ) {
+				$segments = $ranges['shared'];
+			}
 		}
 
-		wp_send_json_success( array( 'template' => $result ) );
+		if ( ! $powers ) {
+			wp_send_json_error( array( 'message' => __( 'Check at least one power (SPH, CYL, AXIS or ADD).', 'wc-optic' ) ), 400 );
+		}
+
+		$saved = array();
+		foreach ( $powers as $power ) {
+			$result = WC_Optic_Power_Template::save(
+				array(
+					'name'     => $name,
+					'power'    => $power,
+					'segments' => $segments,
+				)
+			);
+			if ( is_wp_error( $result ) ) {
+				wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+			}
+			$saved[] = $result;
+		}
+
+		wp_send_json_success(
+			array(
+				'templates' => $saved,
+				'template'  => $saved[0],
+			)
+		);
 	}
 
 	/**

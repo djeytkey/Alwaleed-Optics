@@ -1205,6 +1205,32 @@
 	max-width: 640px;
 }
 
+.wc-optic-tpl-powers {
+	margin: 0 0 1em;
+	padding: 0;
+	border: 0;
+}
+
+.wc-optic-tpl-powers legend {
+	font-weight: 600;
+	padding: 0;
+	margin: 0 0 0.35em;
+}
+
+.wc-optic-tpl-powers__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em 1.25em;
+	margin: 0.5em 0 0;
+}
+
+.wc-optic-tpl-powers__list label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	margin: 0;
+}
+
 .wc-optic-wizard-power-templates {
 	margin: 0 0 16px;
 	padding: 12px 14px;

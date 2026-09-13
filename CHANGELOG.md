@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.6.1] — 2026-09-13
+
+### Changé
+
+- **Add template** : cases à cocher multi-puissances + une seule plage From/To/Step partagée. Ex. SPH + CYL avec −0.25→−5.00 / 0.25 crée **deux** gabarits (un SPH, un CYL) avec les mêmes valeurs.
+
 ## [1.6.0] — 2026-09-12
 
 ### Changé

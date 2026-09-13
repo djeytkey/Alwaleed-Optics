@@ -250,9 +250,15 @@
 		return ( wcOpticConvert.defaultSteps && wcOpticConvert.defaultSteps[ power ] ) || '0.25';
 	}
 
-	function buildRangeSegmentHtml( power, index, segment, canRemove ) {
+	function buildRangeSegmentHtml( power, index, segment, canRemove, $context ) {
 		var prefix = 'wizard_ranges';
-		var $wrapper = $root.find( '#wc-optic-wizard-modal .wc-optic-power-ranges' );
+		var $wrapper = null;
+		if ( $context && $context.length ) {
+			$wrapper = $context.closest( '.wc-optic-power-ranges' );
+		}
+		if ( ! $wrapper || ! $wrapper.length ) {
+			$wrapper = $root.find( '#wc-optic-wizard-modal .wc-optic-power-ranges' );
+		}
 		if ( $wrapper.length && $wrapper.data( 'name-prefix' ) ) {
 			prefix = $wrapper.data( 'name-prefix' );
 		}
@@ -261,7 +267,7 @@
 		var to = rangeFieldValue( segment.to );
 		var step = rangeFieldValue( segment.step );
 		if ( ! rangeFieldFilled( step ) ) {
-			step = defaultStepForPower( power );
+			step = defaultStepForPower( power === 'shared' ? 'sph' : power );
 		}
 		var i18n = wcOpticConvert.i18n || {};
 		var labelFrom = i18n.rangeFrom || 'From';
@@ -1094,7 +1100,7 @@
 			var power = $group.data( 'power' );
 			var $wrap = $group.find( '.wc-optic-power-range__segments' );
 			var index = $wrap.find( '.wc-optic-power-range__segment' ).length;
-			$wrap.append( buildRangeSegmentHtml( power, index, { from: '', to: '', step: defaultStepForPower( power ) }, true ) );
+			$wrap.append( buildRangeSegmentHtml( power, index, { from: '', to: '', step: defaultStepForPower( power === 'shared' ? 'sph' : power ) }, true, $group ) );
 			reindexRangeSegments( $group );
 			applyNoPowerRangeUi();
 			refreshCount();
@@ -1115,24 +1121,27 @@
 
 		$root.on( 'submit', '#wc-optic-template-form', function ( e ) {
 			e.preventDefault();
-			var power = $( '#wc_optic_tpl_power' ).val() || '';
-			if ( ! power ) {
+			var powers = [];
+			$root.find( '.wc-optic-tpl-power-check:checked' ).each( function () {
+				var power = $( this ).val() || '';
+				if ( power ) {
+					powers.push( power );
+				}
+			} );
+			if ( ! powers.length ) {
 				window.alert( wcOpticConvert.i18n.needTemplatePower || wcOpticConvert.i18n.saveFailed );
 				return;
 			}
 			var segments = [];
-			$root.find( '.wc-optic-tpl-ranges .wc-optic-power-range[data-power="' + power + '"]' ).each( function () {
-				var $group = $( this );
-				$group.find( '.wc-optic-power-range__segment' ).each( function () {
-					var $seg = $( this );
-					var from = $seg.find( '.wc-optic-range-from' ).val() || '';
-					var to = $seg.find( '.wc-optic-range-to' ).val() || '';
-					var step = $seg.find( '.wc-optic-range-step' ).val() || '';
-					if ( ! String( from ).trim() && ! String( to ).trim() ) {
-						return;
-					}
-					segments.push( { from: from, to: to, step: step } );
-				} );
+			$root.find( '.wc-optic-tpl-ranges .wc-optic-power-range__segment' ).each( function () {
+				var $seg = $( this );
+				var from = $seg.find( '.wc-optic-range-from' ).val() || '';
+				var to = $seg.find( '.wc-optic-range-to' ).val() || '';
+				var step = $seg.find( '.wc-optic-range-step' ).val() || '';
+				if ( ! String( from ).trim() && ! String( to ).trim() ) {
+					return;
+				}
+				segments.push( { from: from, to: to, step: step } );
 			} );
 			if ( ! segments.length ) {
 				window.alert( wcOpticConvert.i18n.needTemplateRange || wcOpticConvert.i18n.saveFailed );
@@ -1144,7 +1153,7 @@
 					action: 'wc_optic_save_power_template',
 					nonce: wcOpticConvert.nonce,
 					name: $( '#wc_optic_tpl_name' ).val() || '',
-					power: power,
+					powers: powers,
 					segments: segments,
 				},
 				function ( res ) {
@@ -1155,13 +1164,6 @@
 					window.location.reload();
 				}
 			);
-		} );
-
-		$root.on( 'change', '#wc_optic_tpl_power', function () {
-			var power = $( this ).val() || '';
-			$root.find( '.wc-optic-tpl-ranges .wc-optic-power-range' ).each( function () {
-				$( this ).toggle( power !== '' && $( this ).data( 'power' ) === power );
-			} );
 		} );
 
 		$root.on( 'click', '.wc-optic-delete-template', function ( e ) {
