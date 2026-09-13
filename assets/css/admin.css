@@ -1256,6 +1256,16 @@
 	margin: 0;
 }
 
+.wc-optic-wizard-power-template__label {
+	min-width: 160px;
+	margin: 0;
+	font-weight: 600;
+}
+
+.wc-optic-tpl-ranges--single .wc-optic-remove-range-segment {
+	display: none;
+}
+
 .wc-optic-wizard-power-template .wc-optic-wizard-tpl-select {
 	min-width: 220px;
 	max-width: 100%;

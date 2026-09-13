@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-13 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.7.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.7.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -17,7 +17,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 1. **Add template — multi-puissances (v1.6.1)** : cases SPH/CYL/AXIS/ADD + plage partagée ; une sauvegarde crée un gabarit par puissance cochée (mêmes From/To/Step).
 2. **Range templates — globaux (v1.7.0)** : Name + ranges seulement ; applicables à toute puissance dans le wizard ; migration `wc_optic_power_templates_v3`.
-3. **Version** — bump **1.7.0**.
+3. **Templates UX (v1.7.1)** : pas d’Add range sur le formulaire gabarit ; selects wizard toujours enabled (plus de checkbox).
+4. **Version** — bump **1.7.1**.
 
 ### Session 2026-09-12 (précédente)
 
@@ -654,6 +655,13 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 **Migration :** flag `wc_optic_power_templates_v3` — strip power, déduplique name+segments (ex. SPH+CYL créés en 1.6.1 → 1 ligne).
 
 **Fichiers :** `class-wc-optic-power-template.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js` ; version **1.7.0**.
+
+### 2.25 Templates UX — single range + enabled selects (session 2026-09-13)
+
+- Formulaire Add template : **une** ligne From/To/Step, sans Add range.
+- Wizard : dropdowns gabarit **toujours enabled** (checkbox retirée).
+
+**Fichiers :** `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css` ; version **1.7.1**.
 
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 

@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.7.1] — 2026-09-13
+
+### Changé
+
+- **Add template** : une seule plage From/To/Step (plus de bouton Add range).
+- **Wizard** : listes de gabarits toujours actives (plus de case à cocher / disabled).
+
 ## [1.7.0] — 2026-09-13
 
 ### Changé

@@ -327,8 +327,7 @@
 			var show = allowed.indexOf( power ) !== -1 && ( power === 'sph' || ! noPower );
 			$row.toggle( show );
 			if ( ! show ) {
-				$row.find( '.wc-optic-wizard-tpl-enable' ).prop( 'checked', false );
-				$row.find( '.wc-optic-wizard-tpl-select' ).val( '' ).prop( 'disabled', true );
+				$row.find( '.wc-optic-wizard-tpl-select' ).val( '' );
 			}
 		} );
 		var $note = $( '#wc-optic-wizard-nopower-note' );
@@ -426,10 +425,7 @@
 	}
 
 	function resetWizardTemplatePickers() {
-		$root.find( '#wc-optic-wizard-modal .wc-optic-wizard-tpl-enable' ).prop( 'checked', false );
-		$root.find( '#wc-optic-wizard-modal .wc-optic-wizard-tpl-select' ).each( function () {
-			$( this ).val( '' ).prop( 'disabled', true );
-		} );
+		$root.find( '#wc-optic-wizard-modal .wc-optic-wizard-tpl-select' ).val( '' );
 	}
 
 	function syncWizardTemplatePickers( division ) {
@@ -440,8 +436,7 @@
 			var show = allowed.indexOf( power ) !== -1;
 			$row.toggle( show );
 			if ( ! show ) {
-				$row.find( '.wc-optic-wizard-tpl-enable' ).prop( 'checked', false );
-				$row.find( '.wc-optic-wizard-tpl-select' ).val( '' ).prop( 'disabled', true );
+				$row.find( '.wc-optic-wizard-tpl-select' ).val( '' );
 			}
 		} );
 	}
@@ -1062,23 +1057,9 @@
 			refreshCount();
 		} );
 
-		$root.on( 'change', '.wc-optic-wizard-tpl-enable', function () {
-			var power = $( this ).data( 'power' );
-			var enabled = $( this ).is( ':checked' );
-			var $select = $root.find( '#wc-optic-wizard-modal .wc-optic-wizard-tpl-select[data-power="' + power + '"]' );
-			$select.prop( 'disabled', ! enabled );
-			if ( ! enabled ) {
-				$select.val( '' );
-			}
-		} );
-
 		$root.on( 'change', '.wc-optic-wizard-tpl-select', function () {
 			var $select = $( this );
 			var power = $select.data( 'power' );
-			var $enable = $root.find( '#wc-optic-wizard-modal .wc-optic-wizard-tpl-enable[data-power="' + power + '"]' );
-			if ( ! $enable.is( ':checked' ) ) {
-				return;
-			}
 			var tpl = findTemplate( $select.val() );
 			if ( ! tpl || ! tpl.segments ) {
 				return;
@@ -1097,6 +1078,9 @@
 		$root.on( 'click', '.wc-optic-add-range-segment', function ( e ) {
 			e.preventDefault();
 			var $group = $( this ).closest( '.wc-optic-power-range' );
+			if ( $group.closest( '.wc-optic-tpl-ranges' ).length ) {
+				return;
+			}
 			var power = $group.data( 'power' );
 			var $wrap = $group.find( '.wc-optic-power-range__segments' );
 			var index = $wrap.find( '.wc-optic-power-range__segment' ).length;
