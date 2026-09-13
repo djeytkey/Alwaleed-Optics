@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-13 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.6.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.7.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -16,7 +16,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 ### Session 2026-09-13 (courante)
 
 1. **Add template — multi-puissances (v1.6.1)** : cases SPH/CYL/AXIS/ADD + plage partagée ; une sauvegarde crée un gabarit par puissance cochée (mêmes From/To/Step).
-2. **Version** — bump **1.6.1**.
+2. **Range templates — globaux (v1.7.0)** : Name + ranges seulement ; applicables à toute puissance dans le wizard ; migration `wc_optic_power_templates_v3`.
+3. **Version** — bump **1.7.0**.
 
 ### Session 2026-09-12 (précédente)
 
@@ -642,6 +643,18 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 
 **Fichiers :** `admin/class-wc-optic-admin-convert.php` (`render_shared_range_fields`), `class-wc-optic-ajax.php`, `admin-convert.js`, `admin.css` ; version **1.6.1**.
 
+### 2.24 Range templates — globaux name + values (session 2026-09-13)
+
+**Forme :** `{ id, name, segments[] }` — **sans** `power`.
+
+**Add template :** Name + From/To/Step (multi-segments). Pas de cases puissance.
+
+**Wizard :** chaque puissance a « Fill {power} from template » avec la **même** liste de gabarits ; apply = `appendPowerSegments`.
+
+**Migration :** flag `wc_optic_power_templates_v3` — strip power, déduplique name+segments (ex. SPH+CYL créés en 1.6.1 → 1 ligne).
+
+**Fichiers :** `class-wc-optic-power-template.php`, `class-wc-optic-ajax.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js` ; version **1.7.0**.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -659,7 +672,7 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 |---------|------|
 | `admin/class-wc-optic-admin-menu.php` | Menu principal Alwaleed Optics + badge alertes stock + Convert |
 | `admin/class-wc-optic-admin-convert.php` | Gabarits + Convert / Converted / **Specifics** ; DataTables footer |
-| `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` (v2 : power + segments ; migrate) |
+| `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` (v3 : name + segments globaux) |
 | `class-wc-optic-converter.php` | Simple → optic ; rebuild replace ; **append specifics** ; `CONVERT_LIST_LIMIT = -1` |
 | `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
 | `class-wc-optic-divisions.php` | Divisions ; `show_color` par division |
@@ -940,14 +953,12 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Converted / Specifics / templates : AJAX save/count/reset OK
 - [ ] Prod : Convert inchangé (régression)
 
-### Range templates per power (1.6.0 / 1.6.1)
+### Range templates (1.6.0 → 1.7.0)
 
-- [ ] Créer gabarit SPH et gabarit CYL (multi-segments OK) ; table Name | Power | Ranges | Values
-- [ ] **1.6.1** : cocher SPH+CYL + une plage → **2** gabarits avec les mêmes From/To/Step
-- [ ] Anciens gabarits division migrés en plusieurs lignes (suffixe puissance) au premier load
-- [ ] Wizard : cocher SPH + choisir gabarit → segments **ajoutés** (pas remplacés) ; re-choisir le même gabarit l’ajoute encore
-- [ ] Convert / count / generate OK après composition multi-gabarits
-- [ ] from > to refusé à la sauvegarde du gabarit
+- [ ] Add template : Name + ranges seulement (pas de puissance)
+- [ ] Même gabarit applicable à SPH et CYL dans le wizard (append)
+- [ ] Migration v3 : anciens gabarits SPH+CYL dupliqués → une ligne
+- [ ] Convert / count / generate OK après composition
 
 ### Activation plugin (1.2.5)
 

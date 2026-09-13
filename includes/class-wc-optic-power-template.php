@@ -1,6 +1,6 @@
 <?php
 /**
- * Reusable power range presets (one power type per template).
+ * Reusable power range presets (name + From/To/Step; usable for any power).
  *
  * @package WC_Optic_Product
  */
@@ -15,7 +15,12 @@ class WC_Optic_Power_Template {
 	const OPTION_KEY = 'wc_optic_power_templates';
 
 	/**
-	 * All templates (migrates legacy division-based rows on read).
+	 * Power type used only to validate/normalize numeric From/To/Step (templates are not bound to a power).
+	 */
+	const VALIDATE_AS = 'sph';
+
+	/**
+	 * All templates (migrates legacy rows on read).
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -61,44 +66,32 @@ class WC_Optic_Power_Template {
 	}
 
 	/**
-	 * Templates for one power type.
+	 * All templates (usable for any power when filling wizard inputs).
 	 *
-	 * @param string $power Power slug (sph|cyl|axis|add).
+	 * @param string $power Unused (kept for callers).
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function get_for_power( $power ) {
-		$power = sanitize_key( (string) $power );
-		$out   = array();
-		foreach ( self::get_all() as $row ) {
-			if ( $row['power'] === $power ) {
-				$out[] = $row;
-			}
-		}
-		return $out;
+		unset( $power );
+		return self::get_all();
 	}
 
 	/**
-	 * Templates grouped by power for JS config.
+	 * Same template list for every power (JS / wizard dropdowns).
 	 *
 	 * @return array<string, array<int, array<string, mixed>>>
 	 */
 	public static function get_grouped_by_power() {
+		$all     = self::get_all();
 		$grouped = array();
 		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
-			$grouped[ $power ] = array();
-		}
-		foreach ( self::get_all() as $row ) {
-			$power = $row['power'];
-			if ( ! isset( $grouped[ $power ] ) ) {
-				$grouped[ $power ] = array();
-			}
-			$grouped[ $power ][] = $row;
+			$grouped[ $power ] = $all;
 		}
 		return $grouped;
 	}
 
 	/**
-	 * @deprecated Use get_for_power().
+	 * @deprecated Templates are global; use get_all().
 	 * @param string $division Division slug.
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -108,15 +101,14 @@ class WC_Optic_Power_Template {
 	}
 
 	/**
-	 * Sanitize one template (power + segments).
+	 * Sanitize one template (name + segments only).
 	 *
 	 * @param array $raw Raw data.
 	 * @return array<string, mixed>|null
 	 */
 	public static function sanitize( array $raw ) {
-		$name  = isset( $raw['name'] ) ? sanitize_text_field( wp_unslash( $raw['name'] ) ) : '';
-		$power = isset( $raw['power'] ) ? sanitize_key( wp_unslash( $raw['power'] ) ) : '';
-		if ( '' === $name || ! in_array( $power, WC_Optic_Catalog::get_power_types(), true ) ) {
+		$name = isset( $raw['name'] ) ? sanitize_text_field( wp_unslash( $raw['name'] ) ) : '';
+		if ( '' === $name ) {
 			return null;
 		}
 
@@ -128,20 +120,31 @@ class WC_Optic_Power_Template {
 		$segment_raw = array();
 		if ( isset( $raw['segments'] ) && is_array( $raw['segments'] ) ) {
 			$segment_raw = $raw['segments'];
-		} elseif ( isset( $raw['ranges'][ $power ] ) ) {
-			$segment_raw = $raw['ranges'][ $power ];
+		} elseif ( isset( $raw['ranges'] ) && is_array( $raw['ranges'] ) ) {
+			if ( isset( $raw['ranges']['shared'] ) && is_array( $raw['ranges']['shared'] ) ) {
+				$segment_raw = $raw['ranges']['shared'];
+			} elseif ( isset( $raw['power'] ) && isset( $raw['ranges'][ $raw['power'] ] ) ) {
+				$segment_raw = $raw['ranges'][ $raw['power'] ];
+			} else {
+				foreach ( $raw['ranges'] as $maybe ) {
+					if ( is_array( $maybe ) ) {
+						$segment_raw = $maybe;
+						break;
+					}
+				}
+			}
 		} elseif ( isset( $raw['from'] ) || isset( $raw['to'] ) ) {
 			$segment_raw = array( $raw );
 		}
 
-		$segments = WC_Optic_SKU::normalize_power_range_segments( is_array( $segment_raw ) ? $segment_raw : array(), $power );
+		$segments = WC_Optic_SKU::normalize_power_range_segments( is_array( $segment_raw ) ? $segment_raw : array(), self::VALIDATE_AS );
 		if ( ! $segments ) {
 			return null;
 		}
 
 		foreach ( $segments as $segment ) {
 			$bounds = WC_Optic_Catalog::normalize_power_range_bounds(
-				$power,
+				self::VALIDATE_AS,
 				$segment['from'],
 				$segment['to'],
 				$segment['step']
@@ -154,7 +157,6 @@ class WC_Optic_Power_Template {
 		return array(
 			'id'       => $id,
 			'name'     => $name,
-			'power'    => $power,
 			'segments' => $segments,
 		);
 	}
@@ -183,7 +185,7 @@ class WC_Optic_Power_Template {
 	}
 
 	/**
-	 * Count unique values this single-power template would produce.
+	 * Count unique values this range would produce (validated as SPH-scale numbers).
 	 *
 	 * @param array $template Template.
 	 * @return int|WP_Error
@@ -193,16 +195,33 @@ class WC_Optic_Power_Template {
 		if ( ! $clean ) {
 			return new WP_Error( 'wc_optic_invalid_template', __( 'Invalid power range template.', 'wc-optic' ) );
 		}
-		return WC_Optic_Catalog::count_power_range_segments( $clean['power'], $clean['segments'] );
+		return WC_Optic_Catalog::count_power_range_segments( self::VALIDATE_AS, $clean['segments'] );
 	}
 
 	/**
-	 * @deprecated Single-power templates no longer imply a full product cartesian count.
+	 * @deprecated Use count_values().
 	 * @param array $template Template.
 	 * @return int|WP_Error
 	 */
 	public static function count_children( array $template ) {
 		return self::count_values( $template );
+	}
+
+	/**
+	 * Fingerprint for dedupe (name + segments).
+	 *
+	 * @param array $template Sanitized template.
+	 * @return string
+	 */
+	protected static function fingerprint( array $template ) {
+		return md5(
+			wp_json_encode(
+				array(
+					'name'     => isset( $template['name'] ) ? $template['name'] : '',
+					'segments' => isset( $template['segments'] ) ? $template['segments'] : array(),
+				)
+			)
+		);
 	}
 
 	/**
@@ -216,7 +235,7 @@ class WC_Optic_Power_Template {
 		if ( ! $clean ) {
 			return new WP_Error(
 				'wc_optic_invalid_template',
-				__( 'Name, power type, and a valid from / to / step range are required (from must be ≤ to).', 'wc-optic' )
+				__( 'Name and a valid from / to / step range are required (from must be ≤ to).', 'wc-optic' )
 			);
 		}
 
@@ -290,10 +309,10 @@ class WC_Optic_Power_Template {
 	}
 
 	/**
-	 * Split legacy division-based templates into one template per power.
+	 * Migrate legacy division / per-power templates to global name + segments.
 	 */
 	public static function maybe_migrate() {
-		$flag = 'wc_optic_power_templates_v2';
+		$flag = 'wc_optic_power_templates_v3';
 		if ( get_option( $flag ) ) {
 			return;
 		}
@@ -301,61 +320,87 @@ class WC_Optic_Power_Template {
 		$stored = get_option( self::OPTION_KEY, array() );
 		if ( ! is_array( $stored ) || ! $stored ) {
 			update_option( $flag, '1', false );
+			update_option( 'wc_optic_power_templates_v2', '1', false );
 			return;
 		}
 
-		$needs = false;
-		foreach ( $stored as $row ) {
-			if ( is_array( $row ) && ( isset( $row['division'] ) || ( isset( $row['ranges'] ) && ! isset( $row['power'] ) ) ) ) {
-				$needs = true;
-				break;
-			}
-		}
-		if ( ! $needs ) {
-			update_option( $flag, '1', false );
-			return;
-		}
-
-		$migrated = array();
+		$candidates = array();
 		foreach ( $stored as $row ) {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			if ( isset( $row['power'] ) && isset( $row['segments'] ) ) {
-				$clean = self::sanitize( $row );
+
+			// Already global (name + segments, no power binding required).
+			if ( isset( $row['segments'] ) && is_array( $row['segments'] ) && ! isset( $row['division'] ) ) {
+				$name = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
+				// Strip legacy " — SPH" style suffixes from multi-power duplicates when possible.
+				if ( $name && preg_match( '/\s+[—–-]\s+(SPH|CYL|AXIS|ADD)$/u', $name ) ) {
+					$name = trim( (string) preg_replace( '/\s+[—–-]\s+(SPH|CYL|AXIS|ADD)$/u', '', $name ) );
+				}
+				$clean = self::sanitize(
+					array(
+						'id'       => isset( $row['id'] ) ? $row['id'] : '',
+						'name'     => $name ? $name : ( isset( $row['name'] ) ? $row['name'] : '' ),
+						'segments' => $row['segments'],
+					)
+				);
 				if ( $clean ) {
-					$migrated[ $clean['id'] ] = $clean;
+					$candidates[] = $clean;
 				}
 				continue;
 			}
 
-			$name     = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
-			$base_id  = isset( $row['id'] ) ? sanitize_key( (string) $row['id'] ) : ( 'tpl_' . wp_generate_password( 8, false, false ) );
-			$division = isset( $row['division'] ) ? sanitize_key( $row['division'] ) : '';
-			$ranges   = isset( $row['ranges'] ) && is_array( $row['ranges'] ) ? $row['ranges'] : array();
-			$normalized = WC_Optic_SKU::normalize_power_ranges( $ranges, $division );
-
-			foreach ( $normalized as $power => $segments ) {
-				$filled = WC_Optic_SKU::normalize_power_range_segments( $segments, $power );
-				if ( ! $filled ) {
-					continue;
+			// Legacy division + multi-power ranges → one template per distinct segment set.
+			if ( isset( $row['division'] ) || ( isset( $row['ranges'] ) && ! isset( $row['segments'] ) ) ) {
+				$name       = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
+				$base_id    = isset( $row['id'] ) ? sanitize_key( (string) $row['id'] ) : ( 'tpl_' . wp_generate_password( 8, false, false ) );
+				$division   = isset( $row['division'] ) ? sanitize_key( $row['division'] ) : '';
+				$ranges     = isset( $row['ranges'] ) && is_array( $row['ranges'] ) ? $row['ranges'] : array();
+				$normalized = WC_Optic_SKU::normalize_power_ranges( $ranges, $division );
+				$seen       = array();
+				$i          = 0;
+				foreach ( $normalized as $power => $segments ) {
+					$filled = WC_Optic_SKU::normalize_power_range_segments( $segments, $power );
+					if ( ! $filled ) {
+						continue;
+					}
+					$fp = md5( wp_json_encode( $filled ) );
+					if ( isset( $seen[ $fp ] ) ) {
+						continue;
+					}
+					$seen[ $fp ] = true;
+					++$i;
+					$tpl = self::sanitize(
+						array(
+							'id'       => $base_id . ( $i > 1 ? ( '_' . $i ) : '' ),
+							'name'     => $name ? $name : __( 'Range template', 'wc-optic' ),
+							'segments' => $filled,
+						)
+					);
+					if ( $tpl ) {
+						$candidates[] = $tpl;
+					}
 				}
-				$label = WC_Optic_Catalog::get_type_label( $power );
-				$tpl   = self::sanitize(
-					array(
-						'id'       => $base_id . '_' . $power,
-						'name'     => $name ? ( $name . ' — ' . $label ) : $label,
-						'power'    => $power,
-						'segments' => $filled,
-					)
-				);
-				if ( $tpl ) {
-					$migrated[ $tpl['id'] ] = $tpl;
-				}
+				continue;
 			}
+
+			$clean = self::sanitize( $row );
+			if ( $clean ) {
+				$candidates[] = $clean;
+			}
+		}
+
+		$migrated = array();
+		foreach ( $candidates as $tpl ) {
+			$fp = self::fingerprint( $tpl );
+			if ( isset( $migrated[ $fp ] ) ) {
+				continue;
+			}
+			$migrated[ $fp ] = $tpl;
 		}
 
 		update_option( self::OPTION_KEY, array_values( $migrated ), false );
 		update_option( $flag, '1', false );
+		update_option( 'wc_optic_power_templates_v2', '1', false );
 	}
 }

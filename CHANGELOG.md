@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.7.0] — 2026-09-13
+
+### Changé
+
+- **Range templates — globaux** : un gabarit = **Name + From/To/Step** seulement (plus de puissance à la création). Le même gabarit remplit SPH, CYL, AXIS ou ADD dans le wizard. Migration `wc_optic_power_templates_v3` (déduplique les anciens gabarits multi-puissances).
+
 ## [1.6.1] — 2026-09-13
 
 ### Changé

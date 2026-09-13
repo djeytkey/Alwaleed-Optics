@@ -88,10 +88,9 @@ class WC_Optic_Admin_Convert {
 				'rangeFrom'         => __( 'From', 'wc-optic' ),
 				'rangeTo'           => __( 'To', 'wc-optic' ),
 				'rangeStep'         => __( 'Step', 'wc-optic' ),
-				'needTemplatePower' => __( 'Check at least one power (SPH, CYL, AXIS or ADD).', 'wc-optic' ),
 				'needTemplateRange' => __( 'Set From, To and Step for the range (from must be ≤ to).', 'wc-optic' ),
 				'selectTemplate'    => __( '— Select template —', 'wc-optic' ),
-				'usePowerTemplate'  => __( 'Use %s template', 'wc-optic' ),
+				'usePowerTemplate'  => __( 'Fill %s from template', 'wc-optic' ),
 				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
 				'rebuilt'           => __( 'Rebuilt: %d internal products.', 'wc-optic' ),
 				'specificsAdded'    => __( 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.', 'wc-optic' ),
@@ -354,12 +353,11 @@ class WC_Optic_Admin_Convert {
 	 * Templates tab.
 	 */
 	protected static function render_templates_tab() {
-		echo '<p class="description">' . esc_html__( 'Each saved template is a named From / To / Step range for one power. When adding, you can check several powers at once — the same range is copied to each. Templates are not tied to a division; pick them per power in the Convert wizard (they append to existing ranges).', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'A template is a named From / To / Step range. It is not tied to a power or division — in the Convert wizard, apply the same template to SPH, CYL, AXIS or ADD to fill those inputs (values are appended).', 'wc-optic' ) . '</p>';
 
 		echo '<table class="widefat striped wc-optic-template-table">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'Name', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Power', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Ranges', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Values', 'wc-optic' ) . '</th>';
 		echo '<th></th>';
@@ -369,7 +367,6 @@ class WC_Optic_Admin_Convert {
 			$count = WC_Optic_Power_Template::count_values( $tpl );
 			echo '<tr data-template-id="' . esc_attr( $tpl['id'] ) . '">';
 			echo '<td>' . esc_html( $tpl['name'] ) . '</td>';
-			echo '<td>' . esc_html( WC_Optic_Catalog::get_type_label( $tpl['power'] ) ) . '</td>';
 			echo '<td>' . esc_html( WC_Optic_Power_Template::format_segments_summary( $tpl ) ) . '</td>';
 			echo '<td>' . esc_html( is_wp_error( $count ) ? $count->get_error_message() : (string) $count ) . '</td>';
 			echo '<td><button type="button" class="button-link-delete wc-optic-delete-template">' . esc_html__( 'Delete', 'wc-optic' ) . '</button></td>';
@@ -383,28 +380,14 @@ class WC_Optic_Admin_Convert {
 		echo '<p><label for="wc_optic_tpl_name">' . esc_html__( 'Name', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_tpl_name" name="name" class="regular-text" required /></p>';
 
-		echo '<fieldset class="wc-optic-tpl-powers">';
-		echo '<legend>' . esc_html__( 'Powers', 'wc-optic' ) . '</legend>';
-		echo '<p class="description">' . esc_html__( 'Check every power that should get this range. One template is created per checked power, with the same From / To / Step values.', 'wc-optic' ) . '</p>';
-		echo '<p class="wc-optic-tpl-powers__list">';
-		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
-			$id = 'wc_optic_tpl_power_' . $power;
-			echo '<label for="' . esc_attr( $id ) . '">';
-			echo '<input type="checkbox" class="wc-optic-tpl-power-check" id="' . esc_attr( $id ) . '" name="powers[]" value="' . esc_attr( $power ) . '" /> ';
-			echo esc_html( WC_Optic_Catalog::get_type_label( $power ) );
-			echo '</label> ';
-		}
-		echo '</p>';
-		echo '</fieldset>';
-
 		self::render_shared_range_fields( 'tpl_segments', 'wc-optic-tpl-ranges' );
-		echo '<p class="description">' . esc_html__( 'Use Add range for multiple From / To / Step segments. The same segments are copied to each checked power.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Use Add range for multiple From / To / Step segments. The same template can fill any power in the wizard.', 'wc-optic' ) . '</p>';
 		echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Save template', 'wc-optic' ) . '</button></p>';
 		echo '</form>';
 	}
 
 	/**
-	 * Shared From/To/Step editor (not tied to one power) — used when creating templates for several powers at once.
+	 * Shared From/To/Step editor for range templates (not bound to a power).
 	 *
 	 * @param string $name    Field name prefix.
 	 * @param string $wrapper Wrapper class.
@@ -745,17 +728,17 @@ class WC_Optic_Admin_Convert {
 			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 (no step) creates one no-power internal (no CYL / AXIS / ADD). Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
 		}
 		echo '<div class="wc-optic-wizard-power-templates">';
-		echo '<p class="description">' . esc_html__( 'Optional: check a power and choose a saved template to append its ranges (existing From / To / Step rows stay).', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Optional: for each power, choose a saved range template to append into the inputs below (existing rows stay). The same template works for any power.', 'wc-optic' ) . '</p>';
 		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
 			$label = WC_Optic_Catalog::get_type_label( $power );
 			echo '<div class="wc-optic-wizard-power-template" data-power="' . esc_attr( $power ) . '" hidden>';
 			echo '<label class="wc-optic-wizard-power-template__enable">';
 			echo '<input type="checkbox" class="wc-optic-wizard-tpl-enable" data-power="' . esc_attr( $power ) . '" /> ';
-			echo esc_html( sprintf( /* translators: %s: power label e.g. SPH */ __( 'Use %s template', 'wc-optic' ), $label ) );
+			echo esc_html( sprintf( /* translators: %s: power label e.g. SPH */ __( 'Fill %s from template', 'wc-optic' ), $label ) );
 			echo '</label>';
 			echo '<select class="wc-optic-wizard-tpl-select wc-optic-wizard-select" data-power="' . esc_attr( $power ) . '" disabled="disabled">';
 			echo '<option value="">' . esc_html__( '— Select template —', 'wc-optic' ) . '</option>';
-			foreach ( WC_Optic_Power_Template::get_for_power( $power ) as $tpl ) {
+			foreach ( WC_Optic_Power_Template::get_all() as $tpl ) {
 				$summary = WC_Optic_Power_Template::format_segments_summary( $tpl );
 				$option  = $tpl['name'] . ( $summary ? ' (' . $summary . ')' : '' );
 				echo '<option value="' . esc_attr( $tpl['id'] ) . '">' . esc_html( $option ) . '</option>';
