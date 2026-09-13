@@ -707,17 +707,8 @@ class WC_Optic_Converter {
 			$catalog = WC_Optic_SKU::get_identity_catalog( $product );
 		}
 
+		// Templates are applied client-side (append per power). Posted ranges are authoritative.
 		$ranges = isset( $args['ranges'] ) && is_array( $args['ranges'] ) ? $args['ranges'] : array();
-		if ( ! empty( $args['template_id'] ) ) {
-			$template = WC_Optic_Power_Template::get( $args['template_id'] );
-			if ( ! $template ) {
-				return new WP_Error( 'wc_optic_missing_template', __( 'Power range template not found.', 'wc-optic' ) );
-			}
-			if ( $template['division'] !== $division ) {
-				return new WP_Error( 'wc_optic_template_division', __( 'This template does not match the selected division.', 'wc-optic' ) );
-			}
-			$ranges = $template['ranges'];
-		}
 
 		$unit_price = isset( $args['unit_price'] ) ? (string) $args['unit_price'] : '';
 		if ( '' === trim( $unit_price ) ) {

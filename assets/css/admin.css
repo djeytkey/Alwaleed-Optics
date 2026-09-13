@@ -1205,6 +1205,36 @@
 	max-width: 640px;
 }
 
+.wc-optic-wizard-power-templates {
+	margin: 0 0 16px;
+	padding: 12px 14px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.wc-optic-wizard-power-templates > .description {
+	margin-top: 0;
+}
+
+.wc-optic-wizard-power-template {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 16px;
+	margin: 8px 0 0;
+}
+
+.wc-optic-wizard-power-template__enable {
+	min-width: 160px;
+	margin: 0;
+}
+
+.wc-optic-wizard-power-template .wc-optic-wizard-tpl-select {
+	min-width: 220px;
+	max-width: 100%;
+}
+
 .wc-optic-danger-zone {
 	margin-top: 32px;
 	padding: 16px 20px;

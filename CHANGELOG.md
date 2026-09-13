@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.6.0] — 2026-09-12
+
+### Changé
+
+- **Range templates — par puissance** : chaque gabarit = une puissance (SPH/CYL/AXIS/ADD) + From/To/Step (segments multiples autorisés). Plus lié à une division. Migration auto des anciens gabarits division → un gabarit par puissance (`wc_optic_power_templates_v2`).
+- **Convert / Rebuild / Specifics** : cases + listes par puissance ; appliquer un gabarit **ajoute** les segments (ne remplace plus). Les plages postées côté client font foi (plus d’écrasement serveur via `template_id`).
+
 ## [1.5.0] — 2026-09-12
 
 ### Ajouté

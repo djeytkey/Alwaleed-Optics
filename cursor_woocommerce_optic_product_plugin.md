@@ -923,7 +923,7 @@ Les segments puissance hors division sont vides. Fragment SKU prioritaire sur le
 
 1. **Alwaleed Optics → Convert** : liste des produits simples (DataTables) → sélection → **Start wizard**.
 2. Étapes : Produit (division) → Identité → Puissances (plages From/To/Step) → génération des internes.
-3. Onglets liés : **Converted** (rebuild), **Specifics** (append), **Range templates**.
+3. Onglets liés : **Converted** (rebuild), **Specifics** (append), **Range templates** (gabarits **par puissance** depuis v1.6.0 — append dans le wizard).
 
 ### Endpoint
 

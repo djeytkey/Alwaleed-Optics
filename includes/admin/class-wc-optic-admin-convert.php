@@ -61,6 +61,7 @@ class WC_Optic_Admin_Convert {
 			),
 			'maxChildren'       => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
 			'templates'         => WC_Optic_Power_Template::get_all(),
+			'templatesByPower'  => WC_Optic_Power_Template::get_grouped_by_power(),
 			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),
 			'rebuildMode'       => 'converted' === $tab,
 			'specificsMode'     => 'specifics' === $tab,
@@ -87,6 +88,10 @@ class WC_Optic_Admin_Convert {
 				'rangeFrom'         => __( 'From', 'wc-optic' ),
 				'rangeTo'           => __( 'To', 'wc-optic' ),
 				'rangeStep'         => __( 'Step', 'wc-optic' ),
+				'needTemplatePower' => __( 'Choose a power type for this template.', 'wc-optic' ),
+				'needTemplateRange' => __( 'Set From, To and Step for the selected power (from must be ≤ to).', 'wc-optic' ),
+				'selectTemplate'    => __( '— Select template —', 'wc-optic' ),
+				'usePowerTemplate'  => __( 'Use %s template', 'wc-optic' ),
 				'converted'         => __( 'Converted: %d internal products.', 'wc-optic' ),
 				'rebuilt'           => __( 'Rebuilt: %d internal products.', 'wc-optic' ),
 				'specificsAdded'    => __( 'Added %1$d internals (%2$d duplicates skipped). Total: %3$d.', 'wc-optic' ),
@@ -349,24 +354,23 @@ class WC_Optic_Admin_Convert {
 	 * Templates tab.
 	 */
 	protected static function render_templates_tab() {
-		echo '<p class="description">' . esc_html__( 'A template stores from / to / step for each power of a division. Use it on the product screen or when converting many simple products.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Each template is a named From / To / Step range for one power (SPH, CYL, AXIS or ADD). Templates are not tied to a division — pick them per power in the Convert wizard (they append to existing ranges).', 'wc-optic' ) . '</p>';
 
 		echo '<table class="widefat striped wc-optic-template-table">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'Name', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Division', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Power', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Ranges', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Internals', 'wc-optic' ) . '</th>';
+		echo '<th>' . esc_html__( 'Values', 'wc-optic' ) . '</th>';
 		echo '<th></th>';
 		echo '</tr></thead><tbody>';
 
-		$divs = WC_Optic_Plugin::get_divisions();
 		foreach ( WC_Optic_Power_Template::get_all() as $tpl ) {
-			$count = WC_Optic_Power_Template::count_children( $tpl );
+			$count = WC_Optic_Power_Template::count_values( $tpl );
 			echo '<tr data-template-id="' . esc_attr( $tpl['id'] ) . '">';
 			echo '<td>' . esc_html( $tpl['name'] ) . '</td>';
-			echo '<td>' . esc_html( isset( $divs[ $tpl['division'] ] ) ? $divs[ $tpl['division'] ]['label'] : $tpl['division'] ) . '</td>';
-			echo '<td>' . esc_html( self::format_ranges_summary( $tpl['ranges'] ) ) . '</td>';
+			echo '<td>' . esc_html( WC_Optic_Catalog::get_type_label( $tpl['power'] ) ) . '</td>';
+			echo '<td>' . esc_html( WC_Optic_Power_Template::format_segments_summary( $tpl ) ) . '</td>';
 			echo '<td>' . esc_html( is_wp_error( $count ) ? $count->get_error_message() : (string) $count ) . '</td>';
 			echo '<td><button type="button" class="button-link-delete wc-optic-delete-template">' . esc_html__( 'Delete', 'wc-optic' ) . '</button></td>';
 			echo '</tr>';
@@ -379,16 +383,16 @@ class WC_Optic_Admin_Convert {
 		echo '<p><label for="wc_optic_tpl_name">' . esc_html__( 'Name', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_tpl_name" name="name" class="regular-text" required /></p>';
 
-		echo '<p><label for="wc_optic_tpl_division">' . esc_html__( 'Optical division', 'wc-optic' ) . '</label><br />';
-		echo '<select id="wc_optic_tpl_division" name="division" class="wc-optic-select2">';
+		echo '<p><label for="wc_optic_tpl_power">' . esc_html__( 'Power', 'wc-optic' ) . '</label><br />';
+		echo '<select id="wc_optic_tpl_power" name="power" class="wc-optic-select2" required>';
 		echo '<option value="">' . esc_html__( '— Select —', 'wc-optic' ) . '</option>';
-		foreach ( WC_Optic_Plugin::get_visible_divisions() as $slug => $def ) {
-			echo '<option value="' . esc_attr( $slug ) . '">' . esc_html( $def['label'] ) . '</option>';
+		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
+			echo '<option value="' . esc_attr( $power ) . '">' . esc_html( WC_Optic_Catalog::get_type_label( $power ) ) . '</option>';
 		}
 		echo '</select></p>';
 
-		self::render_range_fields( '', array(), 'ranges', 'wc-optic-tpl-ranges' );
-		echo '<p><span class="wc-optic-range-count" data-count="0">0</span> ' . esc_html__( 'internal products', 'wc-optic' ) . '</p>';
+		self::render_range_fields( '', array(), 'ranges', 'wc-optic-tpl-ranges', false );
+		echo '<p class="description">' . esc_html__( 'Only the selected power’s ranges are saved. Use Add range for multiple From / To / Step segments on that power.', 'wc-optic' ) . '</p>';
 		echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Save template', 'wc-optic' ) . '</button></p>';
 		echo '</form>';
 	}
@@ -703,13 +707,26 @@ class WC_Optic_Admin_Convert {
 		if ( 'specifics' === $mode ) {
 			echo '<p class="description">' . esc_html__( 'Enter only the extra powers to add. Example: SPH From 0 To 0 (no step) creates one no-power internal (no CYL / AXIS / ADD). Combinations that already exist are skipped.', 'wc-optic' ) . '</p>';
 		}
-		echo '<p><label for="wc_optic_wizard_template">' . esc_html__( 'Range template', 'wc-optic' ) . '</label><br />';
-		echo '<select id="wc_optic_wizard_template" class="wc-optic-wizard-select">';
-		echo '<option value="">' . esc_html__( 'Custom range', 'wc-optic' ) . '</option>';
-		foreach ( WC_Optic_Power_Template::get_all() as $tpl ) {
-			echo '<option value="' . esc_attr( $tpl['id'] ) . '" data-division="' . esc_attr( $tpl['division'] ) . '">' . esc_html( $tpl['name'] ) . '</option>';
+		echo '<div class="wc-optic-wizard-power-templates">';
+		echo '<p class="description">' . esc_html__( 'Optional: check a power and choose a saved template to append its ranges (existing From / To / Step rows stay).', 'wc-optic' ) . '</p>';
+		foreach ( WC_Optic_Catalog::get_power_types() as $power ) {
+			$label = WC_Optic_Catalog::get_type_label( $power );
+			echo '<div class="wc-optic-wizard-power-template" data-power="' . esc_attr( $power ) . '" hidden>';
+			echo '<label class="wc-optic-wizard-power-template__enable">';
+			echo '<input type="checkbox" class="wc-optic-wizard-tpl-enable" data-power="' . esc_attr( $power ) . '" /> ';
+			echo esc_html( sprintf( /* translators: %s: power label e.g. SPH */ __( 'Use %s template', 'wc-optic' ), $label ) );
+			echo '</label>';
+			echo '<select class="wc-optic-wizard-tpl-select wc-optic-wizard-select" data-power="' . esc_attr( $power ) . '" disabled="disabled">';
+			echo '<option value="">' . esc_html__( '— Select template —', 'wc-optic' ) . '</option>';
+			foreach ( WC_Optic_Power_Template::get_for_power( $power ) as $tpl ) {
+				$summary = WC_Optic_Power_Template::format_segments_summary( $tpl );
+				$option  = $tpl['name'] . ( $summary ? ' (' . $summary . ')' : '' );
+				echo '<option value="' . esc_attr( $tpl['id'] ) . '">' . esc_html( $option ) . '</option>';
+			}
+			echo '</select>';
+			echo '</div>';
 		}
-		echo '</select></p>';
+		echo '</div>';
 		self::render_range_fields( '', array(), 'wizard_ranges', 'wc-optic-wizard-ranges' );
 		echo '<p class="description" id="wc-optic-wizard-nopower-note" hidden>' . esc_html__( 'SPH +0.00 = lens without power: CYL, AXIS and ADD are ignored. One internal product will be created.', 'wc-optic' ) . '</p>';
 		echo '<p class="description">' . esc_html__( 'If 0.00 sits inside From / To, it is always generated as +0.00 — even when the step would skip it. That +0.00 row is a no-power lens (not crossed with CYL / AXIS / ADD).', 'wc-optic' ) . '</p>';
@@ -785,7 +802,7 @@ class WC_Optic_Admin_Convert {
 	 * @param string $name     Field name prefix.
 	 * @param string $wrapper  Wrapper class.
 	 */
-	public static function render_range_fields( $division, array $ranges, $name = '_optic_power_ranges', $wrapper = 'wc-optic-power-ranges' ) {
+	public static function render_range_fields( $division, array $ranges, $name = '_optic_power_ranges', $wrapper = 'wc-optic-power-ranges', $force_show_all = false ) {
 		$ranges  = WC_Optic_SKU::normalize_power_ranges( $ranges, $division );
 		$allowed = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
 
@@ -801,7 +818,11 @@ class WC_Optic_Admin_Convert {
 					),
 				);
 			}
-			$show = empty( $allowed ) ? false : in_array( $power, $allowed, true );
+			if ( $force_show_all ) {
+				$show = true;
+			} else {
+				$show = empty( $allowed ) ? false : in_array( $power, $allowed, true );
+			}
 			echo '<div class="wc-optic-power-range" data-power="' . esc_attr( $power ) . '"' . ( $show ? '' : ' hidden' ) . '>';
 			echo '<div class="wc-optic-power-range__header">';
 			echo '<p class="wc-optic-power-range__label"><strong>' . esc_html( WC_Optic_Catalog::get_type_label( $power ) ) . '</strong></p>';

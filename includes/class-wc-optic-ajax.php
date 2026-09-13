@@ -208,12 +208,22 @@ class WC_Optic_Ajax {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
 		}
 
+		$power    = isset( $_POST['power'] ) ? sanitize_key( wp_unslash( $_POST['power'] ) ) : '';
+		$segments = isset( $_POST['segments'] ) && is_array( $_POST['segments'] ) ? wp_unslash( $_POST['segments'] ) : array();
+		// Legacy: ranges[power] from older admin JS.
+		if ( ! $segments && isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ) {
+			$ranges = wp_unslash( $_POST['ranges'] );
+			if ( $power && isset( $ranges[ $power ] ) && is_array( $ranges[ $power ] ) ) {
+				$segments = $ranges[ $power ];
+			}
+		}
+
 		$result = WC_Optic_Power_Template::save(
 			array(
 				'id'       => isset( $_POST['id'] ) ? sanitize_key( wp_unslash( $_POST['id'] ) ) : '',
 				'name'     => isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '',
-				'division' => isset( $_POST['division'] ) ? sanitize_key( wp_unslash( $_POST['division'] ) ) : '',
-				'ranges'   => isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ? wp_unslash( $_POST['ranges'] ) : array(),
+				'power'    => $power,
+				'segments' => $segments,
 			)
 		);
 		if ( is_wp_error( $result ) ) {

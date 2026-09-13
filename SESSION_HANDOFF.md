@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-12 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.5.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.6.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -19,7 +19,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 2. **Validé staging** (`staging.alwaleedoptics.com`) : après déploiement 1.4.11, wizard Convert charge le produit.
 3. **Convert — preloader wizard (v1.4.12)** : overlay spinner pendant `wc_optic_wizard_product` ; masque division / étapes / Next-Back jusqu’au payload.
 4. **Convert — plages multiples (v1.5.0)** : plusieurs From/To/Step par puissance (union puis cartésien) ; UI Add range ; rétrocompat meta/templates single-object.
-5. **Version** — bump **1.5.0**.
+5. **Range templates — par puissance (v1.6.0)** : gabarit = une puissance + segments ; wizard append via cases/listes ; migration `wc_optic_power_templates_v2`.
+6. **Version** — bump **1.6.0**.
 
 ### Session 2026-09-02 (précédente)
 
@@ -612,6 +613,20 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 
 **Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-catalog.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css` ; version **1.5.0**.
 
+### 2.22 Range templates — une puissance par gabarit (session 2026-09-12)
+
+**Avant :** gabarit lié à une **division** + map multi-puissances `ranges` ; wizard = un select qui **remplaçait** toutes les plages.
+
+**Après :**
+- Forme `{ id, name, power, segments[] }` ; option `wc_optic_power_templates` + flag migration `wc_optic_power_templates_v2` (split des anciens `division`+`ranges` → un gabarit par puissance, suffixe ` — SPH`, etc.).
+- Onglet **Range templates** : Name | Power | Ranges | Values | Delete ; formulaire Name + Power + segments.
+- Wizard Convert / Rebuild / Specifics : cases « Use {power} template » + dropdown filtrés ; `appendPowerSegments()` ajoute après les lignes existantes (placeholders vides retirés) ; reset du select après apply.
+- Serveur : `prepare_args()` ignore `template_id` ; les `ranges` postées font foi.
+
+**Méthodes :** `WC_Optic_Power_Template::get_for_power()`, `get_grouped_by_power()`, `format_segments_summary()`, `count_values()`, `maybe_migrate()`.
+
+**Fichiers :** `class-wc-optic-power-template.php`, `class-wc-optic-ajax.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-convert.js`, `admin.css` ; version **1.6.0**.
+
 ### 2.11 Autoload à l’activation (session 2026-08-19)
 
 - **Problème :** `register_activation_hook` s’exécute avant `plugins_loaded`. `maybe_seed_defaults()` → `get_default_divisions()` → `sanitize_powers()` → `get_available_powers()` → `WC_Optic_Catalog::get_power_types()` alors que l’autoloader n’était pas encore enregistré.
@@ -629,7 +644,7 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 |---------|------|
 | `admin/class-wc-optic-admin-menu.php` | Menu principal Alwaleed Optics + badge alertes stock + Convert |
 | `admin/class-wc-optic-admin-convert.php` | Gabarits + Convert / Converted / **Specifics** ; DataTables footer |
-| `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` |
+| `class-wc-optic-power-template.php` | Option `wc_optic_power_templates` (v2 : power + segments ; migrate) |
 | `class-wc-optic-converter.php` | Simple → optic ; rebuild replace ; **append specifics** ; `CONVERT_LIST_LIMIT = -1` |
 | `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
 | `class-wc-optic-divisions.php` | Divisions ; `show_color` par division |
@@ -909,6 +924,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Console : `ajaxurl` relatif ; Convert utilise cette URL (pas l’absolu localisé si divergent)
 - [ ] Converted / Specifics / templates : AJAX save/count/reset OK
 - [ ] Prod : Convert inchangé (régression)
+
+### Range templates per power (1.6.0)
+
+- [ ] Créer gabarit SPH et gabarit CYL (multi-segments OK) ; table Name | Power | Ranges | Values
+- [ ] Anciens gabarits division migrés en plusieurs lignes (suffixe puissance) au premier load
+- [ ] Wizard : cocher SPH + choisir gabarit → segments **ajoutés** (pas remplacés) ; re-choisir le même gabarit l’ajoute encore
+- [ ] Convert / count / generate OK après composition multi-gabarits
+- [ ] from > to refusé à la sauvegarde du gabarit
 
 ### Activation plugin (1.2.5)
 
