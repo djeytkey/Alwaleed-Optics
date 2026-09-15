@@ -31,7 +31,9 @@ class WC_Optic_SKU {
 	const RANGES_META_KEY   = '_optic_power_ranges';
 	const GLOBAL_BACKORDER_ENABLED_OPTION  = 'wc_optic_backorder_enabled';
 	const GLOBAL_BACKORDER_QTY_OPTION      = 'wc_optic_backorder_qty';
-	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 400;
+	const GLOBAL_MAX_SYNTHETIC_CHILDREN_OPTION = 'wc_optic_max_synthetic_children';
+	/** Default / fallback when the Settings option is unset. */
+	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 6000;
 
 	/**
 	 * Product-level derived catalog index meta keys.
@@ -128,6 +130,29 @@ class WC_Optic_SKU {
 	public static function set_global_backorder_qty( $value ) {
 		$qty = max( 0, absint( $value ) );
 		update_option( self::GLOBAL_BACKORDER_QTY_OPTION, $qty, false );
+		return $qty;
+	}
+
+	/**
+	 * Maximum internal products allowed per Convert / Rebuild / Specifics generation.
+	 *
+	 * @return int
+	 */
+	public static function get_max_synthetic_children() {
+		$default = self::MAX_LEGACY_SYNTHETIC_CHILDREN;
+		$stored  = get_option( self::GLOBAL_MAX_SYNTHETIC_CHILDREN_OPTION, $default );
+		return max( 1, absint( $stored ) );
+	}
+
+	/**
+	 * Persist maximum internal products for Convert.
+	 *
+	 * @param mixed $value Posted value.
+	 * @return int
+	 */
+	public static function set_max_synthetic_children( $value ) {
+		$qty = max( 1, absint( $value ) );
+		update_option( self::GLOBAL_MAX_SYNTHETIC_CHILDREN_OPTION, $qty, false );
 		return $qty;
 	}
 
@@ -2098,7 +2123,7 @@ class WC_Optic_SKU {
 
 		foreach ( $parts['zero'] as $sph_id ) {
 			$combos[] = array( 'sph' => (int) $sph_id );
-			if ( count( $combos ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+			if ( count( $combos ) >= self::get_max_synthetic_children() ) {
 				return $combos;
 			}
 		}
@@ -2112,7 +2137,7 @@ class WC_Optic_SKU {
 		$powered_combos  = self::expand_power_combinations_cartesian( $powered );
 		foreach ( $powered_combos as $combo ) {
 			$combos[] = $combo;
-			if ( count( $combos ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+			if ( count( $combos ) >= self::get_max_synthetic_children() ) {
 				return $combos;
 			}
 		}
@@ -2135,7 +2160,7 @@ class WC_Optic_SKU {
 				foreach ( $ids as $id ) {
 					$combination[ $power ] = (int) $id;
 					$next[]                = $combination;
-					if ( count( $next ) >= self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+					if ( count( $next ) >= self::get_max_synthetic_children() ) {
 						return $next;
 					}
 				}
@@ -2207,14 +2232,14 @@ class WC_Optic_SKU {
 		if ( $count < 1 ) {
 			return new WP_Error( 'wc_optic_empty_combinations', __( 'No internal products could be generated from this range.', 'wc-optic' ) );
 		}
-		if ( $count > self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+		if ( $count > self::get_max_synthetic_children() ) {
 			return new WP_Error(
 				'wc_optic_too_many_children',
 				sprintf(
 					/* translators: 1: generated count, 2: max allowed */
 					__( 'This range would create %1$d internal products (maximum %2$d). Narrow a range or increase the step.', 'wc-optic' ),
 					$count,
-					self::MAX_LEGACY_SYNTHETIC_CHILDREN
+					self::get_max_synthetic_children()
 				)
 			);
 		}
@@ -2357,7 +2382,7 @@ class WC_Optic_SKU {
 			$sph_ids = WC_Optic_Catalog::resolve_power_range_segments(
 				'sph',
 				$ranges['sph'],
-				self::MAX_LEGACY_SYNTHETIC_CHILDREN
+				self::get_max_synthetic_children()
 			);
 			if ( is_wp_error( $sph_ids ) ) {
 				return $sph_ids;
@@ -2377,7 +2402,7 @@ class WC_Optic_SKU {
 			$ids = WC_Optic_Catalog::resolve_power_range_segments(
 				$power,
 				$segments,
-				self::MAX_LEGACY_SYNTHETIC_CHILDREN
+				self::get_max_synthetic_children()
 			);
 			if ( is_wp_error( $ids ) ) {
 				return $ids;
@@ -2440,14 +2465,14 @@ class WC_Optic_SKU {
 		}
 
 		$total = count( $merged ) + count( $added );
-		if ( $total > self::MAX_LEGACY_SYNTHETIC_CHILDREN ) {
+		if ( $total > self::get_max_synthetic_children() ) {
 			return new WP_Error(
 				'wc_optic_too_many_children',
 				sprintf(
 					/* translators: 1: resulting total, 2: max allowed, 3: would-add count */
 					__( 'Adding these specifics would reach %1$d internals (maximum %2$d). Narrow the ranges (this batch would add %3$d).', 'wc-optic' ),
 					$total,
-					self::MAX_LEGACY_SYNTHETIC_CHILDREN,
+					self::get_max_synthetic_children(),
 					count( $added )
 				)
 			);

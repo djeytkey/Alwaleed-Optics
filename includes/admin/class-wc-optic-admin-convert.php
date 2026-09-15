@@ -59,7 +59,7 @@ class WC_Optic_Admin_Convert {
 				'axis' => WC_Optic_Catalog::get_default_power_step( 'axis' ),
 				'add'  => WC_Optic_Catalog::get_default_power_step( 'add' ),
 			),
-			'maxChildren'       => WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN,
+			'maxChildren'       => WC_Optic_SKU::get_max_synthetic_children(),
 			'templates'         => WC_Optic_Power_Template::get_all(),
 			'templatesByPower'  => WC_Optic_Power_Template::get_grouped_by_power(),
 			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),

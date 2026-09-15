@@ -251,6 +251,34 @@ class WC_Optic_Admin_Settings {
 		echo '</div>';
 		echo '</div>';
 
+		$max_children = WC_Optic_SKU::get_max_synthetic_children();
+		echo '<div class="wc-optic-backorder-panel wc-optic-backorder-panel--enabled" id="wc-optic-global-convert-cap-panel">';
+		echo '<div class="wc-optic-backorder-panel__header">';
+		echo '<span class="dashicons dashicons-admin-generic wc-optic-backorder-panel__icon" aria-hidden="true"></span>';
+		echo '<div class="wc-optic-backorder-panel__titles">';
+		echo '<h3 class="wc-optic-backorder-panel__title">' . esc_html__( 'Convert', 'wc-optic' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'Maximum number of internal products that Convert, Rebuild, or Specifics may generate for one product.', 'wc-optic' ) . '</p>';
+		echo '</div>';
+		echo '</div>';
+
+		echo '<div class="wc-optic-backorder-panel__details">';
+		echo '<label class="wc-optic-backorder-panel__qty-label" for="wc_optic_global_max_synthetic_children">' . esc_html__( 'Maximum internal products', 'wc-optic' ) . '</label>';
+		echo '<div class="wc-optic-backorder-panel__qty-row">';
+		echo '<input type="number" name="wc_optic_global_max_synthetic_children" id="wc_optic_global_max_synthetic_children" class="wc-optic-backorder-input" min="1" step="1" value="' . esc_attr( (string) $max_children ) . '" />';
+		echo '<span class="wc-optic-backorder-panel__qty-suffix">' . esc_html__( 'internals', 'wc-optic' ) . '</span>';
+		echo '</div>';
+		echo '<p class="wc-optic-backorder-panel__example description">';
+		echo esc_html(
+			sprintf(
+				/* translators: %d: default maximum */
+				__( 'Default: %d. Raise this for large SPH×CYL×AXIS grids; very high values may slow generation.', 'wc-optic' ),
+				WC_Optic_SKU::MAX_LEGACY_SYNTHETIC_CHILDREN
+			)
+		);
+		echo '</p>';
+		echo '</div>';
+		echo '</div>';
+
 		echo '</div>';
 
 		echo '<p><button type="submit" class="button button-secondary">' . esc_html__( 'Save global settings', 'wc-optic' ) . '</button></p>';
@@ -771,10 +799,13 @@ class WC_Optic_Admin_Settings {
 		$alert_qty     = $alert_enabled && isset( $_POST['wc_optic_global_stock_alert_qty'] )
 			? WC_Optic_Stock::set_alert_qty( wp_unslash( $_POST['wc_optic_global_stock_alert_qty'] ) )
 			: WC_Optic_Stock::get_alert_qty();
+		$max_children  = isset( $_POST['wc_optic_global_max_synthetic_children'] )
+			? WC_Optic_SKU::set_max_synthetic_children( wp_unslash( $_POST['wc_optic_global_max_synthetic_children'] ) )
+			: WC_Optic_SKU::get_max_synthetic_children();
 
 		add_action(
 			'admin_notices',
-			function () use ( $backorder_enabled, $backorder_qty, $alert_enabled, $alert_qty ) {
+			function () use ( $backorder_enabled, $backorder_qty, $alert_enabled, $alert_qty, $max_children ) {
 				echo '<div class="notice notice-success is-dismissible"><p>';
 				echo esc_html__( 'Global optic settings saved.', 'wc-optic' );
 				if ( $backorder_enabled ) {
@@ -802,6 +833,14 @@ class WC_Optic_Admin_Settings {
 				} else {
 					echo esc_html__( 'Stock alerts disabled.', 'wc-optic' );
 				}
+				echo ' ';
+				echo esc_html(
+					sprintf(
+						/* translators: %d: max internal products */
+						__( 'Convert maximum: %d internal products.', 'wc-optic' ),
+						$max_children
+					)
+				);
 				echo '</p></div>';
 			}
 		);

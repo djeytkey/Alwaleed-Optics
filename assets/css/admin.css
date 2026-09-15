@@ -418,6 +418,10 @@
 	margin-top: 1.25em;
 }
 
+.wc-optic-global-settings .wc-optic-inventory-panels-grid {
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 .wc-optic-inventory-panels-grid > .wc-optic-backorder-panel {
 	margin: 0;
 }

@@ -4,6 +4,18 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.7.3] — 2026-09-15
+
+### Ajouté
+
+- **Settings → Convert** : option **Maximum internal products** (`wc_optic_max_synthetic_children`, défaut 6000) pour Convert / Rebuild / Specifics.
+
+## [1.7.2] — 2026-09-15
+
+### Changé
+
+- **Convert** : plafond d’internes `MAX_LEGACY_SYNTHETIC_CHILDREN` porté à **6000**.
+
 ## [1.7.1] — 2026-09-13
 
 ### Changé

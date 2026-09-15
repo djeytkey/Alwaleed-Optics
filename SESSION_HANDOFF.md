@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-13 (dernière mise à jour)  
+**Date :** 2026-09-15 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.7.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.7.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,13 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-13 (courante)
+### Session 2026-09-15 (courante)
+
+1. **Convert — plafond internes** : `MAX_LEGACY_SYNTHETIC_CHILDREN` → **6000** (v1.7.2).
+2. **Settings — max internes Convert (v1.7.3)** : option `wc_optic_max_synthetic_children` dans Global settings (panneau Convert) ; `WC_Optic_SKU::get_max_synthetic_children()`.
+3. **Version** — bump **1.7.3**.
+
+### Session 2026-09-13 (précédente)
 
 1. **Add template — multi-puissances (v1.6.1)** : cases SPH/CYL/AXIS/ADD + plage partagée ; une sauvegarde crée un gabarit par puissance cochée (mêmes From/To/Step).
 2. **Range templates — globaux (v1.7.0)** : Name + ranges seulement ; applicables à toute puissance dans le wizard ; migration `wc_optic_power_templates_v3`.
@@ -435,7 +441,7 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Admin :** `Alwaleed Optics → Convert` — liste + **Start wizard** (modal Bootstrap static, un produit / Next). Gabarits : onglet Range templates. Fiche produit : identité + internes (plus de Generate).
 
-**Plafond :** `MAX_LEGACY_SYNTHETIC_CHILDREN` (200) par produit.
+**Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
 
@@ -909,7 +915,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Plage dont le pas saute 0 (ex. −1.00 → +1.00 / 0.30) → **+0.00** quand même créé
 - [ ] WPML : Convert n’affiche pas le doublon AR ; après wizard EN, la fiche AR a les mêmes internes
 - [ ] WPML String Translation : noms catalogue / divisions ; fallback si chaîne vide
-- [ ] Toric : 3 plages ; > 200 combinaisons → refus
+- [ ] Toric : 3 plages ; > 6000 combinaisons → refus
 - [ ] Convert : la liste affiche **tous** les simples éligibles (compteur X/Y/Z cohérent avec le catalogue WooCommerce)
 - [ ] Convert : filtre recherche met à jour « N visible(s) after filter »
 - [ ] Settings → Astigmatism Toric : **Show color selector** décoché → wizard Identité sans champ Couleur ; conversion OK
