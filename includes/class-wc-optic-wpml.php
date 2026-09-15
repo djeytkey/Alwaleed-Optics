@@ -550,6 +550,7 @@ class WC_Optic_WPML {
 	public static function product_content_label( $label, $product_id ) {
 		$map = array(
 			'_optic_child_configs'       => __( 'Optic internal products (JSON)', 'wc-optic' ),
+			'_optic_child_count'         => __( 'Optic internal products count', 'wc-optic' ),
 			'_optic_division'            => __( 'Optical division', 'wc-optic' ),
 			'_optic_identity_catalog'    => __( 'Optic identity catalog', 'wc-optic' ),
 			'_optic_power_ranges'        => __( 'Optic power ranges', 'wc-optic' ),
@@ -566,6 +567,6 @@ class WC_Optic_WPML {
 	 * @return string[]
 	 */
 	public static function hide_internal_index_meta_from_editor( $fields ) {
-		return array_merge( $fields, array_values( WC_Optic_SKU::INDEX_META_KEYS ) );
+		return array_merge( $fields, array_values( WC_Optic_SKU::INDEX_META_KEYS ), array( WC_Optic_SKU::CHILD_COUNT_META_KEY ) );
 	}
 }

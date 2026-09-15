@@ -4,6 +4,7 @@
 		<custom-field action="copy">_optic_division</custom-field>
 		<custom-field action="copy">_optic_default_qty_per_eye</custom-field>
 		<custom-field action="copy">_optic_child_configs</custom-field>
+		<custom-field action="copy">_optic_child_count</custom-field>
 		<custom-field action="copy">_optic_identity_catalog</custom-field>
 		<custom-field action="copy">_optic_power_ranges</custom-field>
 		<custom-field action="copy">_optic_cat_section</custom-field>

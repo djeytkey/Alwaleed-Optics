@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-15 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.7.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.7.4 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -17,7 +17,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 1. **Convert — plafond internes** : `MAX_LEGACY_SYNTHETIC_CHILDREN` → **6000** (v1.7.2).
 2. **Settings — max internes Convert (v1.7.3)** : option `wc_optic_max_synthetic_children` dans Global settings (panneau Convert) ; `WC_Optic_SKU::get_max_synthetic_children()`.
-3. **Version** — bump **1.7.3**.
+3. **Perf Convert / admin (v1.7.4)** : `_optic_child_count` + `get_child_count()` / `has_stored_children()` ; stats Converted en cache requête ; badge alertes via transient `wc_optic_alert_count`.
+4. **Version** — bump **1.7.4**.
 
 ### Session 2026-09-13 (précédente)
 
@@ -444,6 +445,17 @@ WC_Optic_Converter::convert_product() / preview()
 **Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
+
+### 2.26 Perf listes Convert — child_count meta (session 2026-09-15)
+
+**Problème :** un parent à ~3k internes rendait Convert/Converted/Specifics lents (unserialize + `normalize_child_configs` pour stats / `has_children` / colonne Internals / badge Stock).
+
+**Correctifs :**
+- Meta `_optic_child_count` écrite dans `persist_child_data()` ; `get_child_count()` / `has_stored_children()` pour les hot paths.
+- `get_converted_stats()` mis en cache pour la requête HTTP.
+- Badge alertes : `get_alert_count()` → transient `wc_optic_alert_count` (invalidé au restock / save enfants / settings alertes).
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-stock.php`, `admin-convert.php`, `wpml-config.xml` ; version **1.7.4**.
 
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 

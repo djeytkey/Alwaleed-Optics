@@ -14,6 +14,7 @@ class WC_Optic_Stock {
 
 	const GLOBAL_ALERT_ENABLED_OPTION = 'wc_optic_stock_alert_enabled';
 	const GLOBAL_ALERT_QTY_OPTION     = 'wc_optic_stock_alert_qty';
+	const ALERT_COUNT_TRANSIENT       = 'wc_optic_alert_count';
 
 	/**
 	 * Whether low-stock alerts are enabled globally.
@@ -33,6 +34,7 @@ class WC_Optic_Stock {
 	public static function set_alert_enabled( $value ) {
 		$enabled = ! empty( $value ) && 'no' !== (string) $value;
 		update_option( self::GLOBAL_ALERT_ENABLED_OPTION, $enabled ? 'yes' : 'no', false );
+		self::bust_alert_count_cache();
 		return $enabled;
 	}
 
@@ -54,6 +56,7 @@ class WC_Optic_Stock {
 	public static function set_alert_qty( $value ) {
 		$qty = max( 0, absint( $value ) );
 		update_option( self::GLOBAL_ALERT_QTY_OPTION, $qty, false );
+		self::bust_alert_count_cache();
 		return $qty;
 	}
 
@@ -219,12 +222,48 @@ class WC_Optic_Stock {
 	}
 
 	/**
-	 * Count of internal products currently in alert state.
+	 * Count of internal products currently in alert state (cached for admin badges).
 	 *
 	 * @return int
 	 */
 	public static function get_alert_count() {
-		return count( self::get_alerts() );
+		$cached = get_transient( self::ALERT_COUNT_TRANSIENT );
+		if ( false !== $cached && is_numeric( $cached ) ) {
+			return max( 0, (int) $cached );
+		}
+
+		$count = self::count_low_stock_alerts();
+		set_transient( self::ALERT_COUNT_TRANSIENT, $count, HOUR_IN_SECONDS );
+		return $count;
+	}
+
+	/**
+	 * Clear cached alert count (call after stock / child config changes).
+	 */
+	public static function bust_alert_count_cache() {
+		delete_transient( self::ALERT_COUNT_TRANSIENT );
+	}
+
+	/**
+	 * Count low-stock internals without building alert UI / QR markup.
+	 *
+	 * @return int
+	 */
+	public static function count_low_stock_alerts() {
+		if ( ! self::is_alert_enabled() ) {
+			return 0;
+		}
+
+		$count = 0;
+		foreach ( self::get_optic_products() as $product ) {
+			foreach ( WC_Optic_SKU::get_enabled_child_configs( $product ) as $config ) {
+				if ( self::child_is_low_stock( $config ) ) {
+					++$count;
+				}
+			}
+		}
+
+		return $count;
 	}
 
 	/**

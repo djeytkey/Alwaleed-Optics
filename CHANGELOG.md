@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.7.4] — 2026-09-15
+
+### Corrigé
+
+- **Convert / admin perf** : meta légère `_optic_child_count` (plus de `normalize` des milliers d’internes pour les listes/stats) ; cache requête des stats Converted ; badge alertes Stock en transient (sans générer les QR).
+
 ## [1.7.3] — 2026-09-15
 
 ### Ajouté

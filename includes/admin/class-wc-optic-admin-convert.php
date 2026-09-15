@@ -541,7 +541,7 @@ class WC_Optic_Admin_Convert {
 			$product_id = $product->get_id();
 			$division   = (string) $product->get_meta( '_optic_division', true );
 			$div_label  = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
-			$child_n    = count( WC_Optic_SKU::get_child_configs( $product ) );
+			$child_n    = WC_Optic_SKU::get_child_count( $product );
 			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
 			echo '<td class="wc-optic-convert-product-name">';
 			echo '<label class="wc-optic-convert-product-label">';
@@ -619,7 +619,7 @@ class WC_Optic_Admin_Convert {
 			$product_id = $product->get_id();
 			$division   = (string) $product->get_meta( '_optic_division', true );
 			$div_label  = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
-			$child_n    = count( WC_Optic_SKU::get_child_configs( $product ) );
+			$child_n    = WC_Optic_SKU::get_child_count( $product );
 			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
 			echo '<td class="wc-optic-convert-product-name">';
 			echo '<label class="wc-optic-convert-product-label">';

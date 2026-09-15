@@ -27,6 +27,7 @@ class WC_Optic_SKU {
 	);
 
 	const CHILD_META_KEY = '_optic_child_configs';
+	const CHILD_COUNT_META_KEY = '_optic_child_count';
 	const IDENTITY_META_KEY = '_optic_identity_catalog';
 	const RANGES_META_KEY   = '_optic_power_ranges';
 	const GLOBAL_BACKORDER_ENABLED_OPTION  = 'wc_optic_backorder_enabled';
@@ -224,6 +225,81 @@ class WC_Optic_SKU {
 		}
 
 		return self::get_legacy_child_configs( $product, $division );
+	}
+
+	/**
+	 * Lightweight internal count (uses `_optic_child_count`; backfills once if missing).
+	 *
+	 * Avoids normalize_child_configs() for list/stats hot paths.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return int
+	 */
+	public static function get_child_count( WC_Product $product ) {
+		$stored = $product->get_meta( self::CHILD_COUNT_META_KEY, true );
+		if ( is_numeric( $stored ) ) {
+			return max( 0, (int) $stored );
+		}
+
+		$count = self::count_stored_child_rows( $product );
+		self::write_child_count_meta( $product, $count );
+		return $count;
+	}
+
+	/**
+	 * Whether the product has any stored internals (no full normalize).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	public static function has_stored_children( WC_Product $product ) {
+		return self::get_child_count( $product ) > 0;
+	}
+
+	/**
+	 * Count rows in stored child meta without normalize (or legacy fallback).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return int
+	 */
+	protected static function count_stored_child_rows( WC_Product $product ) {
+		$stored = $product->get_meta( self::CHILD_META_KEY, true );
+		if ( is_array( $stored ) ) {
+			return count( $stored );
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		if ( '' === $division ) {
+			return 0;
+		}
+
+		$legacy = self::get_legacy_child_configs( $product, $division );
+		return is_array( $legacy ) ? count( $legacy ) : 0;
+	}
+
+	/**
+	 * Persist lightweight child count meta (and bust alert badge cache).
+	 *
+	 * @param WC_Product $product Product.
+	 * @param int        $count   Count.
+	 */
+	protected static function write_child_count_meta( WC_Product $product, $count ) {
+		$count = max( 0, (int) $count );
+		$product->update_meta_data( self::CHILD_COUNT_META_KEY, $count );
+		$product_id = absint( $product->get_id() );
+		if ( $product_id ) {
+			update_post_meta( $product_id, self::CHILD_COUNT_META_KEY, $count );
+		}
+		self::bust_alert_count_cache();
+	}
+
+	/**
+	 * Clear cached admin alert badge count.
+	 */
+	public static function bust_alert_count_cache() {
+		if ( class_exists( 'WC_Optic_Stock' ) ) {
+			WC_Optic_Stock::bust_alert_count_cache();
+		}
 	}
 
 	/**
@@ -1539,8 +1615,11 @@ class WC_Optic_SKU {
 	 * @param array      $child_configs Normalized child configs.
 	 */
 	public static function persist_child_data( WC_Product $product, array $child_configs ) {
-		$product->update_meta_data( self::CHILD_META_KEY, array_values( $child_configs ) );
+		$child_configs = array_values( $child_configs );
+		$product->update_meta_data( self::CHILD_META_KEY, $child_configs );
+		$product->update_meta_data( self::CHILD_COUNT_META_KEY, count( $child_configs ) );
 		$product->delete_meta_data( '_optic_selector_ui' );
+		self::bust_alert_count_cache();
 
 		$index = self::build_catalog_index_from_children( $child_configs );
 		foreach ( self::INDEX_META_KEYS as $type => $meta_key ) {

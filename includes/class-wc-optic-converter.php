@@ -20,6 +20,13 @@ class WC_Optic_Converter {
 	const CONVERT_LIST_LIMIT = -1;
 
 	/**
+	 * Request-level cache for get_converted_stats().
+	 *
+	 * @var array{total_optic:int, converted:int, excluded_wpml:int, excluded_empty:int}|null
+	 */
+	protected static $converted_stats_cache = null;
+
+	/**
 	 * Counts for the Convert product list (simple totals vs eligible vs displayed).
 	 *
 	 * @return array{total_simple:int, eligible:int, excluded_wpml:int, excluded_ineligible:int}
@@ -198,7 +205,7 @@ class WC_Optic_Converter {
 		if ( 'optic_product' !== $type ) {
 			return false;
 		}
-		return empty( WC_Optic_SKU::get_child_configs( $product ) );
+		return ! WC_Optic_SKU::has_stored_children( $product );
 	}
 
 	/**
@@ -217,6 +224,10 @@ class WC_Optic_Converter {
 	 * @return array{total_optic:int, converted:int, excluded_wpml:int, excluded_empty:int}
 	 */
 	public static function get_converted_stats() {
+		if ( null !== self::$converted_stats_cache ) {
+			return self::$converted_stats_cache;
+		}
+
 		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
 		if ( $wpml ) {
 			WC_Optic_WPML::switch_to_default_language();
@@ -236,10 +247,10 @@ class WC_Optic_Converter {
 			}
 
 			$stats = array(
-				'total_optic'     => count( $ids ),
-				'converted'       => 0,
-				'excluded_wpml'   => 0,
-				'excluded_empty'  => 0,
+				'total_optic'    => count( $ids ),
+				'converted'      => 0,
+				'excluded_wpml'  => 0,
+				'excluded_empty' => 0,
 			);
 
 			foreach ( $ids as $product_id ) {
@@ -262,6 +273,7 @@ class WC_Optic_Converter {
 				++$stats['converted'];
 			}
 
+			self::$converted_stats_cache = $stats;
 			return $stats;
 		} finally {
 			if ( $wpml ) {
@@ -344,7 +356,7 @@ class WC_Optic_Converter {
 	 * @return bool
 	 */
 	public static function has_children( WC_Product $product ) {
-		return ! empty( WC_Optic_SKU::get_child_configs( $product ) );
+		return WC_Optic_SKU::has_stored_children( $product );
 	}
 
 	/**
@@ -548,7 +560,7 @@ class WC_Optic_Converter {
 				return array(
 					'product_id'  => $product->get_id(),
 					'skipped'     => true,
-					'child_count' => count( WC_Optic_SKU::get_child_configs( $product ) ),
+					'child_count' => WC_Optic_SKU::get_child_count( $product ),
 					'message'     => __( 'Already has internal products.', 'wc-optic' ),
 				);
 			}
