@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.8.2] — 2026-09-18
+
+### Corrigé
+
+- **Prix sous le titre produit** : suit le prix réel de l’interne (regular ou sale) ; plus de barré stale après suppression du sale ; sync du prix thème depuis la sélection / défaut.
+
 ## [1.8.1] — 2026-09-18
 
 ### Ajouté

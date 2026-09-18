@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-18 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.8.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.8.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -20,7 +20,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 3. **WPML** : sync copie SQL children (`copy_product_children`) ; meta blob uniquement en fallback pré-migration.
 4. **Cart / restock** : deltas stock unitaire via `upsert_child` (pas de rewrite 5k rows).
 5. **Sale price (v1.8.1)** : Regular + Sale sur wizard Convert / éditeur interne ; affichage barré storefront + panier ; facturation = prix actif.
-6. **Version** — bump **1.8.1**.
+6. **Prix titre sync (v1.8.2)** : filters WC price/sale/regular + summary JS depuis matrice ; clear sale parent stale.
+7. **Version** — bump **1.8.2**.
 
 ### Session 2026-09-15 (précédente)
 

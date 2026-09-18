@@ -452,15 +452,60 @@
 		updatePriceDisplay();
 	}
 
+	function getDefaultPriceHtml() {
+		if ( typeof wcOpticFront === 'undefined' ) {
+			return '';
+		}
+		var matrix = getMatrix();
+		if ( supportsNoPowerMode() ) {
+			var noPower = getNoPowerChild();
+			if ( noPower ) {
+				return formatChildPriceHtml( noPower );
+			}
+		}
+		var children = matrix.children || [];
+		var best = null;
+		var bestPrice = 0;
+		for ( var i = 0; i < children.length; i++ ) {
+			var child = children[ i ];
+			var price = parseFloat( child.price ) || 0;
+			if ( price <= 0 ) {
+				continue;
+			}
+			if ( ! best || price < bestPrice ) {
+				best = child;
+				bestPrice = price;
+			}
+		}
+		if ( best ) {
+			return formatChildPriceHtml( best );
+		}
+		return wcOpticFront.defaultPriceHtml || '';
+	}
+
 	function syncSummaryProductPrice() {
 		if ( typeof wcOpticFront === 'undefined' || ! wcOpticFront.summaryPriceSelector ) {
 			return;
 		}
 		var $unitDisplay = $( '#wc_optic_unit_price_display' );
-		var $targets = $( wcOpticFront.summaryPriceSelector ).first();
-		if ( $targets.length && $unitDisplay.length ) {
-			$targets.html( $unitDisplay.html() );
+		if ( ! $unitDisplay.length ) {
+			return;
 		}
+		var html = $unitDisplay.html();
+		if ( ! html || ! String( html ).trim() ) {
+			return;
+		}
+		var selector =
+			wcOpticFront.summaryPriceSelector +
+			', .product-info .price, .product-main .price, p.price';
+		$( selector ).each( function () {
+			var $el = $( this );
+			// Skip prices inside the optic form / cart widgets.
+			if ( $el.closest( '.wc-optic-cart-form, .widget_shopping_cart, .woocommerce-mini-cart' ).length ) {
+				return;
+			}
+			$el.html( html );
+		} );
 	}
 
 	function updatePriceDisplay() {
@@ -491,13 +536,11 @@
 			if ( $label.length ) {
 				$label.text( getI18n( 'price', 'Price' ) + ':' );
 			}
-			var showDefault = isNoPowerMode() || ! supportsNoPowerMode();
-			if ( showDefault ) {
-				if ( typeof wcOpticFront !== 'undefined' && wcOpticFront.defaultPriceHtml ) {
-					$unitDisplay.html( wcOpticFront.defaultPriceHtml );
-				} else if ( typeof wcOpticFront !== 'undefined' && wcOpticFront.defaultPrice ) {
-					$unitDisplay.text( formatPrice( wcOpticFront.defaultPrice ) );
-				}
+			var defaultHtml = getDefaultPriceHtml();
+			if ( defaultHtml ) {
+				$unitDisplay.html( defaultHtml );
+			} else if ( typeof wcOpticFront !== 'undefined' && wcOpticFront.defaultPrice ) {
+				$unitDisplay.text( formatPrice( wcOpticFront.defaultPrice ) );
 			} else {
 				$unitDisplay.text( '' );
 			}

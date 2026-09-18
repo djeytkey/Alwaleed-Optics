@@ -574,6 +574,18 @@ class WC_Optic_Children {
 		if ( $json ) {
 			$decoded = json_decode( $json, true );
 			if ( is_array( $decoded ) && ! empty( $decoded['id'] ) ) {
+				// Normalize sale so stale/invalid values never keep a strikethrough.
+				if ( empty( $decoded['sale_price'] ) || '' === trim( (string) $decoded['sale_price'] ) ) {
+					$decoded['sale_price'] = '';
+				} else {
+					$regular = isset( $decoded['unit_price'] ) ? (float) wc_format_decimal( $decoded['unit_price'] ) : 0.0;
+					$sale    = (float) wc_format_decimal( $decoded['sale_price'] );
+					if ( $regular <= 0 || $sale < 0 || $sale >= $regular ) {
+						$decoded['sale_price'] = '';
+					} else {
+						$decoded['sale_price'] = (string) wc_format_decimal( $sale );
+					}
+				}
 				return $decoded;
 			}
 		}

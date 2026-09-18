@@ -19,6 +19,10 @@ class WC_Optic_Pricing {
 		add_filter( 'woocommerce_add_to_cart_quantity', array( __CLASS__, 'add_to_cart_quantity' ), 10, 2 );
 		add_filter( 'woocommerce_is_purchasable', array( __CLASS__, 'is_purchasable' ), 20, 2 );
 		add_filter( 'woocommerce_get_price_html', array( __CLASS__, 'filter_price_html' ), 20, 2 );
+		add_filter( 'woocommerce_product_get_price', array( __CLASS__, 'filter_product_price' ), 20, 2 );
+		add_filter( 'woocommerce_product_get_regular_price', array( __CLASS__, 'filter_product_regular_price' ), 20, 2 );
+		add_filter( 'woocommerce_product_get_sale_price', array( __CLASS__, 'filter_product_sale_price' ), 20, 2 );
+		add_filter( 'woocommerce_product_is_on_sale', array( __CLASS__, 'filter_product_is_on_sale' ), 20, 2 );
 		add_action( 'woocommerce_before_calculate_totals', array( __CLASS__, 'apply_cart_item_prices' ), 20 );
 	}
 
@@ -121,6 +125,86 @@ class WC_Optic_Pricing {
 	}
 
 	/**
+	 * Active price from default internal child.
+	 *
+	 * @param string|float $price   Price.
+	 * @param WC_Product   $product Product.
+	 * @return string|float
+	 */
+	public static function filter_product_price( $price, $product ) {
+		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			return $price;
+		}
+		if ( isset( $product->wc_optic_cart_unit_price ) ) {
+			return $product->wc_optic_cart_unit_price;
+		}
+		$active = WC_Optic_SKU::get_default_display_price( $product );
+		return $active > 0 ? (string) wc_format_decimal( $active ) : $price;
+	}
+
+	/**
+	 * Regular price from default internal child.
+	 *
+	 * @param string|float $price   Price.
+	 * @param WC_Product   $product Product.
+	 * @return string|float
+	 */
+	public static function filter_product_regular_price( $price, $product ) {
+		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			return $price;
+		}
+		if ( isset( $product->wc_optic_cart_unit_price ) ) {
+			return $price;
+		}
+		$config = WC_Optic_SKU::get_default_display_child( $product );
+		if ( ! $config ) {
+			return $price;
+		}
+		$regular = WC_Optic_SKU::get_child_regular_price( $config );
+		return $regular > 0 ? (string) wc_format_decimal( $regular ) : $price;
+	}
+
+	/**
+	 * Sale price from default internal child (empty string when not on sale).
+	 *
+	 * @param string|float $price   Price.
+	 * @param WC_Product   $product Product.
+	 * @return string|float
+	 */
+	public static function filter_product_sale_price( $price, $product ) {
+		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			return $price;
+		}
+		if ( isset( $product->wc_optic_cart_unit_price ) ) {
+			return '';
+		}
+		$config = WC_Optic_SKU::get_default_display_child( $product );
+		if ( ! $config ) {
+			return '';
+		}
+		$sale = WC_Optic_SKU::get_child_sale_price( $config );
+		return null !== $sale ? (string) wc_format_decimal( $sale ) : '';
+	}
+
+	/**
+	 * On-sale flag from default internal child.
+	 *
+	 * @param bool       $on_sale On sale.
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	public static function filter_product_is_on_sale( $on_sale, $product ) {
+		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			return $on_sale;
+		}
+		if ( isset( $product->wc_optic_cart_unit_price ) ) {
+			return false;
+		}
+		$config = WC_Optic_SKU::get_default_display_child( $product );
+		return $config ? WC_Optic_SKU::child_is_on_sale( $config ) : false;
+	}
+
+	/**
 	 * Line total for unit price × quantity.
 	 *
 	 * @param float $unit_price Unit price.
@@ -200,6 +284,7 @@ class WC_Optic_Pricing {
 			}
 
 			$effective_unit = $line_qty > 0 ? (float) wc_format_decimal( $line_total / $line_qty ) : 0.0;
+			$cart->cart_contents[ $cart_item_key ]['data']->wc_optic_cart_unit_price = $effective_unit;
 			$cart->cart_contents[ $cart_item_key ]['data']->set_price( $effective_unit );
 			$cart->cart_contents[ $cart_item_key ][ WC_Optic_Cart::CART_KEY ] = $payload;
 		}

@@ -1070,20 +1070,35 @@ class WC_Optic_SKU {
 	 * @return array<string, mixed>|null
 	 */
 	public static function get_default_display_child( WC_Product $product ) {
+		return self::pick_default_display_child( $product, self::get_enabled_child_configs( $product ) );
+	}
+
+	/**
+	 * Pick default display child from a config list.
+	 *
+	 * @param WC_Product $product  Product.
+	 * @param array      $configs  Enabled (or candidate) child configs.
+	 * @return array<string, mixed>|null
+	 */
+	public static function pick_default_display_child( WC_Product $product, array $configs ) {
 		$division = (string) $product->get_meta( '_optic_division', true );
 
 		if ( self::division_supports_no_power_mode( $division ) ) {
-			$no_power = self::find_no_power_child( $product );
-			if ( $no_power ) {
-				return $no_power;
+			foreach ( $configs as $config ) {
+				if ( ! is_array( $config ) ) {
+					continue;
+				}
+				if ( self::config_has_zero_sph( $config ) && self::child_is_complete( $config, $division ) ) {
+					return $config;
+				}
 			}
 		}
 
 		$best_config = null;
 		$best_price  = 0.0;
 
-		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
-			if ( ! self::child_is_complete( $config, $division ) ) {
+		foreach ( $configs as $config ) {
+			if ( ! is_array( $config ) || ! self::child_is_complete( $config, $division ) ) {
 				continue;
 			}
 
@@ -1743,20 +1758,46 @@ class WC_Optic_SKU {
 			$product->update_meta_data( $meta_key, $index[ $type ] ?? array() );
 		}
 
-		$display_child = self::get_default_display_child( $product );
-		if ( $display_child ) {
-			$regular = self::get_child_regular_price( $display_child );
-			$sale    = self::get_child_sale_price( $display_child );
+		self::sync_parent_prices_from_children( $product, $child_configs );
+	}
+
+	/**
+	 * Sync WooCommerce parent regular/sale/active prices from internals.
+	 *
+	 * @param WC_Product   $product       Product.
+	 * @param array|null   $child_configs Optional already-loaded configs (avoids re-read).
+	 */
+	public static function sync_parent_prices_from_children( WC_Product $product, $child_configs = null ) {
+		$config = is_array( $child_configs )
+			? self::pick_default_display_child( $product, $child_configs )
+			: self::get_default_display_child( $product );
+
+		if ( ! $config ) {
+			$product->set_sale_price( '' );
+			return;
+		}
+
+		$regular = self::get_child_regular_price( $config );
+		$sale    = self::get_child_sale_price( $config );
+
+		if ( $regular > 0 ) {
+			$product->set_regular_price( (string) wc_format_decimal( $regular ) );
+		}
+
+		if ( null !== $sale ) {
+			$product->set_sale_price( (string) wc_format_decimal( $sale ) );
+			$product->set_price( (string) wc_format_decimal( $sale ) );
+		} else {
+			// Explicitly clear stale parent sale meta.
+			$product->set_sale_price( '' );
 			if ( $regular > 0 ) {
-				$product->set_regular_price( (string) $regular );
-				if ( null !== $sale ) {
-					$product->set_sale_price( (string) $sale );
-					$product->set_price( (string) $sale );
-				} else {
-					$product->set_sale_price( '' );
-					$product->set_price( (string) $regular );
-				}
+				$product->set_price( (string) wc_format_decimal( $regular ) );
 			}
+		}
+
+		$product_id = absint( $product->get_id() );
+		if ( $product_id ) {
+			wc_delete_product_transients( $product_id );
 		}
 	}
 
