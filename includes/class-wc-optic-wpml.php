@@ -410,11 +410,16 @@ class WC_Optic_WPML {
 
 		$keys = array(
 			'_optic_division',
-			WC_Optic_SKU::CHILD_META_KEY,
+			WC_Optic_SKU::CHILD_COUNT_META_KEY,
 			WC_Optic_SKU::IDENTITY_META_KEY,
 			WC_Optic_SKU::RANGES_META_KEY,
 		);
 		$keys = array_merge( $keys, array_values( WC_Optic_SKU::INDEX_META_KEYS ) );
+
+		$use_sql_children = class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready();
+		if ( ! $use_sql_children ) {
+			$keys[] = WC_Optic_SKU::CHILD_META_KEY;
+		}
 
 		$trid = apply_filters( 'wpml_element_trid', null, $product_id, 'post_product' );
 		if ( ! $trid ) {
@@ -456,6 +461,16 @@ class WC_Optic_WPML {
 
 				foreach ( $keys as $key ) {
 					$target->update_meta_data( $key, $source->get_meta( $key, true ) );
+				}
+
+				if ( $use_sql_children ) {
+					WC_Optic_Children::copy_product_children( $product_id, $target_id );
+					$target->update_meta_data(
+						WC_Optic_SKU::CHILD_COUNT_META_KEY,
+						WC_Optic_Children::count_by_product( $target_id )
+					);
+					$target->delete_meta_data( WC_Optic_SKU::CHILD_META_KEY );
+					delete_post_meta( $target_id, WC_Optic_SKU::CHILD_META_KEY );
 				}
 
 				WC_Optic_SKU::sync_product_sku( $target );

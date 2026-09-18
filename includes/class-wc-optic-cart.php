@@ -1408,6 +1408,24 @@ class WC_Optic_Cart {
 				continue;
 			}
 
+			$use_sql = class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id );
+
+			if ( $use_sql ) {
+				foreach ( $child_deltas as $child_id => $delta ) {
+					$config = WC_Optic_SKU::get_child_config_by_id( $product, (string) $child_id );
+					if ( ! is_array( $config ) ) {
+						continue;
+					}
+					if ( null === WC_Optic_SKU::get_child_stock_qty( $config ) ) {
+						continue;
+					}
+					WC_Optic_SKU::apply_child_stock_delta( $config, (int) $delta );
+					WC_Optic_Children::upsert_child( $product_id, $config );
+				}
+				WC_Optic_SKU::bust_alert_count_cache();
+				continue;
+			}
+
 			$configs = WC_Optic_SKU::get_child_configs( $product );
 			foreach ( $configs as &$config ) {
 				$child_id = isset( $config['id'] ) ? (string) $config['id'] : '';

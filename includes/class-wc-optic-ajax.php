@@ -33,6 +33,8 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_list_children', array( __CLASS__, 'list_children' ) );
 		add_action( 'wp_ajax_wc_optic_sync_identity', array( __CLASS__, 'sync_identity' ) );
 		add_action( 'wp_ajax_wc_optic_reset_all_internals', array( __CLASS__, 'reset_all_internals' ) );
+		add_action( 'wp_ajax_wc_optic_stock_list_children', array( __CLASS__, 'stock_list_children' ) );
+		add_action( 'wp_ajax_wc_optic_stock_list_alerts', array( __CLASS__, 'stock_list_alerts' ) );
 	}
 
 	/**
@@ -517,6 +519,79 @@ class WC_Optic_Ajax {
 					(int) $result['products'],
 					(int) $result['internals']
 				),
+			)
+		);
+	}
+
+	/**
+	 * Stock management: paginated children for one parent.
+	 */
+	public static function stock_list_children() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
+		}
+
+		$product_id = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+		$page       = isset( $_POST['page'] ) ? absint( wp_unslash( $_POST['page'] ) ) : 1;
+		$per_page   = isset( $_POST['per_page'] ) ? absint( wp_unslash( $_POST['per_page'] ) ) : 50;
+		$search     = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
+
+		$result = WC_Optic_Stock::get_inventory_children_page( $product_id, $page, $per_page, $search );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+		}
+
+		$html_rows = array();
+		foreach ( $result['rows'] as $row ) {
+			$html_rows[] = WC_Optic_Admin_Stock::render_child_row_html( $row );
+		}
+
+		wp_send_json_success(
+			array(
+				'rows_html' => $html_rows,
+				'total'     => (int) $result['total'],
+				'page'      => (int) $result['page'],
+				'per_page'  => (int) $result['per_page'],
+				'pages'     => max( 1, (int) ceil( (int) $result['total'] / max( 1, (int) $result['per_page'] ) ) ),
+			)
+		);
+	}
+
+	/**
+	 * Stock alerts: DataTables serverSide endpoint.
+	 */
+	public static function stock_list_alerts() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json( array( 'draw' => 0, 'recordsTotal' => 0, 'recordsFiltered' => 0, 'data' => array() ), 403 );
+		}
+
+		$draw     = isset( $_REQUEST['draw'] ) ? absint( wp_unslash( $_REQUEST['draw'] ) ) : 1;
+		$start    = isset( $_REQUEST['start'] ) ? absint( wp_unslash( $_REQUEST['start'] ) ) : 0;
+		$length   = isset( $_REQUEST['length'] ) ? absint( wp_unslash( $_REQUEST['length'] ) ) : 25;
+		$search   = '';
+		if ( isset( $_REQUEST['search']['value'] ) ) {
+			$search = sanitize_text_field( wp_unslash( $_REQUEST['search']['value'] ) );
+		}
+
+		if ( $length < 1 || $length > 100 ) {
+			$length = 25;
+		}
+		$page = (int) floor( $start / $length ) + 1;
+
+		$result = WC_Optic_Stock::get_alerts_page( $page, $length, $search );
+		$data   = array();
+		foreach ( $result['rows'] as $alert ) {
+			$data[] = WC_Optic_Admin_Stock::render_alert_datatable_row( $alert );
+		}
+
+		wp_send_json(
+			array(
+				'draw'            => $draw,
+				'recordsTotal'    => (int) $result['total'],
+				'recordsFiltered' => (int) $result['total'],
+				'data'            => $data,
 			)
 		);
 	}

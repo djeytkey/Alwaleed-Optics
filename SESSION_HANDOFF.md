@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-15 (dernière mise à jour)  
+**Date :** 2026-09-18 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.7.4 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.8.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,15 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-15 (courante)
+### Session 2026-09-18 (courante)
+
+1. **Internes → table SQL** : `{prefix}wc_optic_children` (schema v4) = source de vérité ; migration depuis `_optic_child_configs` ; plus d’écriture du gros blob.
+2. **Stock scalable** : Management = parents only + AJAX paginé ; Alerts = DataTables server-side + QR page visible ; badge = `COUNT(is_low_stock)`.
+3. **WPML** : sync copie SQL children (`copy_product_children`) ; meta blob uniquement en fallback pré-migration.
+4. **Cart / restock** : deltas stock unitaire via `upsert_child` (pas de rewrite 5k rows).
+5. **Version** — bump **1.8.0**.
+
+### Session 2026-09-15 (précédente)
 
 1. **Convert — plafond internes** : `MAX_LEGACY_SYNTHETIC_CHILDREN` → **6000** (v1.7.2).
 2. **Settings — max internes Convert (v1.7.3)** : option `wc_optic_max_synthetic_children` dans Global settings (panneau Convert) ; `WC_Optic_SKU::get_max_synthetic_children()`.
@@ -457,6 +465,18 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-stock.php`, `admin-convert.php`, `wpml-config.xml` ; version **1.7.4**.
 
+### 2.27 Internes en table SQL + Stock AJAX (session 2026-09-18)
+
+- **Table** `{prefix}wc_optic_children` via `WC_Optic_Database::SCHEMA_VERSION = 4` / `create_children_table()`.
+- **Repository** `WC_Optic_Children` : `replace_product_children`, `upsert_child`, `get_configs` (paginé), `query_low_stock`, `count_low_stock_global`, `migrate_product_from_meta`, `copy_product_children`, `recompute_low_stock_flags`.
+- **SKU** : `persist_child_data` écrit SQL + supprime `_optic_child_configs` ; `get_child_configs` lit SQL (lazy migrate si blob restant) ; restock unitaire via `upsert_child`.
+- **Stock Management** : premier paint = parents (`child_count` / `low_count` SQL) ; expand → `wc_optic_stock_list_children` (50/page + search).
+- **Stock Alerts** : shell vide + DataTables `serverSide` → `wc_optic_stock_list_alerts` ; QR seulement pour la page courante.
+- **Badge** : `count_low_stock_alerts()` → SQL `COUNT` + transient.
+- **WPML** : sync ne copie plus le blob ; `copy_product_children` + `_optic_child_count`.
+
+**Fichiers :** `class-wc-optic-database.php`, `class-wc-optic-children.php`, `class-wc-optic-sku.php`, `class-wc-optic-stock.php`, `class-wc-optic-ajax.php`, `class-wc-optic-admin-stock.php`, `class-wc-optic-wpml.php`, `admin-stock.js`, `admin.css` ; version **1.8.0**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -703,14 +723,16 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 | `admin/class-wc-optic-admin-settings.php` | Settings globaux ; divisions + case **Show color selector** |
 | `class-wc-optic-divisions.php` | Divisions ; `show_color` par division |
 | `class-wc-optic-plugin.php` | `division_shows_color()` |
-| `admin/class-wc-optic-admin-stock.php` | **Nouveau (2026-06-11)** — page Stock (gestion + alertes) |
-| `class-wc-optic-stock.php` | **Nouveau (2026-06-11)** — inventaire, alertes, restock |
-| `class-wc-optic-ajax.php` | Restock + Convert + **load/save/remove/list child** |
+| `admin/class-wc-optic-admin-stock.php` | Page Stock — parents SSR + enfants/alertes AJAX (v1.8.0) |
+| `class-wc-optic-stock.php` | Inventaire, alertes SQL, restock upsert |
+| `class-wc-optic-children.php` | **Nouveau (1.8.0)** — table SQL internes CRUD / migrate / query |
+| `class-wc-optic-database.php` | Schema v4 + `wc_optic_children` |
+| `class-wc-optic-ajax.php` | Restock + Convert + child CRUD + **stock_list_children / stock_list_alerts** |
 | `admin/class-wc-optic-admin-import.php` | Import catalogue ; hook screen sous menu Alwaleed Optics |
 | `admin/class-wc-optic-admin-product.php` | Liste compacte + éditeur AJAX ; save = identité seule |
 | `class-wc-optic-catalog.php` | `sph_term_is_zero_power()`, `enumerate_power_range_values()` (force +0.00) |
-| `class-wc-optic-wpml.php` | Sync internes vers traductions, originaux Convert, String Translation |
-| `class-wc-optic-sku.php` | No-power, prix défaut, backorder ; upsert/remove ; anti-doublon ; **merge_children_from_ranges** |
+| `class-wc-optic-wpml.php` | Sync SQL children vers traductions, originaux Convert |
+| `class-wc-optic-sku.php` | Persist/lecture SQL ; `_optic_child_count` ; anti-doublon |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
 | `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, fusion lignes (`filter_cart_id`, `payload_cart_identity`) |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
@@ -861,6 +883,17 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 ## 8. Tests manuels recommandés
 
+### Stock SQL + AJAX (v1.8.0)
+
+- [ ] Après upgrade : table `{prefix}wc_optic_children` créée ; option `wc_optic_db_schema` = 4 ; migration termine (`wc_optic_children_migrated`)
+- [ ] Converted / Specifics : listes parents rapides ; colonnes Internals = counts (pas de blob postmeta)
+- [ ] Stock Management : 1ʳᵉ paint = lignes parents seulement ; expand charge 50 internes ; pagination / search
+- [ ] Stock Alerts : pagination serveur ; QR seulement sur la page visible ; restock retire l’alerte si stock OK
+- [ ] Badge menu Stock = count SQL (pas de scan complet)
+- [ ] Convert / rebuild produit à milliers d’internes : écrit SQL, `_optic_child_configs` absente
+- [ ] WPML : après convert, traductions reçoivent les rows SQL (pas seulement meta)
+- [ ] Storefront / panier inchangés (lecture via `get_child_configs` → SQL)
+
 ### Lentilles couleur
 
 - [ ] Ouverture fiche : **No power** sélectionné, pas de SPH, quantité seule, prix = +0.00
@@ -998,19 +1031,18 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** mis à jour à chaque bump — dernière entrée **[1.5.0] — 2026-09-12**.
-4. **Version plugin** : **1.5.0** (`woocommerce-optic-product.php`, `composer.json`). Convention : toujours synchroniser `CHANGELOG.md` + `SESSION_HANDOFF.md` lors d’un changement de version.
-5. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
-6. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
-7. Couleurs du toggle Eyewa sont des **approximations** (#f4f4f5, #111827) — ajuster si charte Alwaleed différente.
-8. **Backorder + menu admin + Stock (2026-06-10/11)** : livré en **1.2.4** (`CHANGELOG.md`).
-9. **Backorder désactivé globalement** : champs Custom masqués en admin produit ; `get_child_backorder_qty()` retourne 0.
-10. **`backorder_consumed`** est conservé à la sauvegarde produit via `preserve_child_backorder_consumed()` — ne pas supprimer le hidden field admin.
-11. **Autoload** : ne plus reporter `WC_Optic_Autoload::register()` après `plugins_loaded` — l’activation (et tout code avant ce hook) en a besoin.
-12. **Internes lazy (1.3.3)** : les champs éditeur utilisent le préfixe `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit) pour ne pas écraser la méta à l’Update WP. Doublon = même combinaison de puissances de la division, y compris internes désactivés.
-13. **Nouveau produit** : Add/Edit internes indisponibles tant que l’ID produit n’existe pas (premier Save WP requis).
-14. **Sync identité (1.3.4)** : un changement Toric → Color Lenses peut créer des doublons SPH ; l’identité/SKU sont quand même appliqués, avec warning UI — nettoyer les doublons à part.
-15. **Admin AJAX Convert (1.4.11)** : toujours préférer `window.ajaxurl` en admin ; ne pas se fier seul à `admin_url('admin-ajax.php')` localisé (staging / proxy / Cloudflare peuvent diverger). Autres écrans admin (`admin-product.js`, `admin-settings.js`, `admin-stock.js`) utilisent encore la config localisée — surveiller si le même symptôme apparaît.
+3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.8.0**.
+4. **SQL children (1.8.0)** : après migration, `_optic_child_configs` est vide ; ne pas réécrire le blob. Purge manuelle des anciennes meta déjà faite à la migration produit par produit.
+5. **Migration batches** : 20 produits/admin_init ; sur catalogues très grands, plusieurs hits admin avant `wc_optic_children_migrated=1`.
+6. **`is_low_stock` dénormalisé** : recalculé à l’écriture + via `recompute_low_stock_flags()` quand le seuil global / enabled change.
+7. **Stock expand-all** : déclenche un AJAX par parent — OK pour peu de parents ; éviter sur des centaines de parents.
+8. **`format_price_range_html()`** conservé en alias déprécié ; aucun appel interne ne produit plus de fourchette.
+9. Thème Flatsome **non présent** dans le workspace local au moment du dev — tests visuels à faire sur l’environnement WAMP réel.
+10. **Backorder désactivé globalement** : champs Custom masqués en admin produit ; `get_child_backorder_qty()` retourne 0.
+11. **`backorder_consumed`** est conservé à la sauvegarde produit via `preserve_child_backorder_consumed()`.
+12. **Autoload** : ne plus reporter `WC_Optic_Autoload::register()` après `plugins_loaded`.
+13. **Internes lazy (1.3.3)** : préfixe éditeur `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit).
+14. **Admin AJAX** : préférer `window.ajaxurl` si symptôme staging/proxy (Convert déjà corrigé).
 
 ---
 

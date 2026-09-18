@@ -34,7 +34,11 @@ class WC_Optic_Stock {
 	public static function set_alert_enabled( $value ) {
 		$enabled = ! empty( $value ) && 'no' !== (string) $value;
 		update_option( self::GLOBAL_ALERT_ENABLED_OPTION, $enabled ? 'yes' : 'no', false );
-		self::bust_alert_count_cache();
+		if ( class_exists( 'WC_Optic_Children' ) ) {
+			WC_Optic_Children::recompute_low_stock_flags();
+		} else {
+			self::bust_alert_count_cache();
+		}
 		return $enabled;
 	}
 
@@ -56,7 +60,11 @@ class WC_Optic_Stock {
 	public static function set_alert_qty( $value ) {
 		$qty = max( 0, absint( $value ) );
 		update_option( self::GLOBAL_ALERT_QTY_OPTION, $qty, false );
-		self::bust_alert_count_cache();
+		if ( class_exists( 'WC_Optic_Children' ) ) {
+			WC_Optic_Children::recompute_low_stock_flags();
+		} else {
+			self::bust_alert_count_cache();
+		}
 		return $qty;
 	}
 
@@ -118,44 +126,125 @@ class WC_Optic_Stock {
 	}
 
 	/**
-	 * Hierarchical inventory tree for the stock management tab.
+	 * Hierarchical inventory tree for the stock management tab (parents only).
+	 *
+	 * Children are loaded via AJAX when a parent is expanded.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function get_inventory_tree() {
-		$tree = array();
+		$tree           = array();
+		$low_by_product = array();
+		$use_sql        = class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready();
+
+		if ( $use_sql ) {
+			$low_by_product = WC_Optic_Children::low_stock_counts_by_product();
+		}
 
 		foreach ( self::get_optic_products() as $product ) {
-			$children = WC_Optic_SKU::get_enabled_child_configs( $product );
-			if ( empty( $children ) ) {
+			$product_id = absint( $product->get_id() );
+			if ( $use_sql && WC_Optic_Children::product_has_rows( $product_id ) ) {
+				$child_count = WC_Optic_Children::count_by_product( $product_id, array( 'enabled_only' => true ) );
+				$low_count   = isset( $low_by_product[ $product_id ] ) ? (int) $low_by_product[ $product_id ] : 0;
+			} else {
+				$children = WC_Optic_SKU::get_enabled_child_configs( $product );
+				if ( empty( $children ) ) {
+					continue;
+				}
+				$child_count = count( $children );
+				$low_count   = 0;
+				foreach ( $children as $config ) {
+					if ( self::child_is_low_stock( $config ) ) {
+						++$low_count;
+					}
+				}
+			}
+
+			if ( $child_count < 1 ) {
 				continue;
 			}
 
-			$division   = (string) $product->get_meta( '_optic_division', true );
-			$child_rows = array();
-
-			$low_count = 0;
-
-			foreach ( $children as $config ) {
-				$row = self::format_child_row( $product, $config, $division );
-				if ( ! empty( $row['is_low'] ) ) {
-					++$low_count;
-				}
-				$child_rows[] = $row;
-			}
-
 			$tree[] = array(
-				'product_id'  => $product->get_id(),
+				'product_id'  => $product_id,
 				'name'        => $product->get_name(),
 				'sku'         => (string) $product->get_sku(),
-				'edit_url'    => (string) get_edit_post_link( $product->get_id(), 'raw' ),
-				'child_count' => count( $child_rows ),
+				'edit_url'    => (string) get_edit_post_link( $product_id, 'raw' ),
+				'child_count' => $child_count,
 				'low_count'   => $low_count,
-				'children'    => $child_rows,
+				'children'    => array(),
 			);
 		}
 
 		return $tree;
+	}
+
+	/**
+	 * Paginated enabled children for one parent (Stock management AJAX).
+	 *
+	 * @param int    $product_id Parent product id.
+	 * @param int    $page       Page (1-based).
+	 * @param int    $per_page   Page size.
+	 * @param string $search     Optional search.
+	 * @return array{rows:array,total:int,page:int,per_page:int}|WP_Error
+	 */
+	public static function get_inventory_children_page( $product_id, $page = 1, $per_page = 50, $search = '' ) {
+		$product_id = absint( $product_id );
+		$page       = max( 1, (int) $page );
+		$per_page   = max( 1, min( 100, (int) $per_page ) );
+		$search     = trim( (string) $search );
+
+		$product = wc_get_product( $product_id );
+		if ( ! $product || 'optic_product' !== $product->get_type() ) {
+			return new WP_Error( 'wc_optic_stock', __( 'Product not found.', 'wc-optic' ) );
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$rows     = array();
+		$total    = 0;
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$args  = array(
+				'page'         => $page,
+				'per_page'     => $per_page,
+				'enabled_only' => true,
+				'search'       => $search,
+			);
+			$total = WC_Optic_Children::count_by_product( $product_id, $args );
+			foreach ( WC_Optic_Children::get_configs( $product_id, $args ) as $config ) {
+				$rows[] = self::format_child_row( $product, $config, $division );
+			}
+		} else {
+			$all = WC_Optic_SKU::get_enabled_child_configs( $product );
+			if ( '' !== $search ) {
+				$needle = strtolower( $search );
+				$all    = array_values(
+					array_filter(
+						$all,
+						static function ( $config ) use ( $needle, $division ) {
+							$blob = strtolower(
+								(string) ( $config['sku'] ?? '' ) . ' ' .
+								(string) ( $config['label'] ?? '' ) . ' ' .
+								WC_Optic_SKU::child_display_label( $config, $division )
+							);
+							return false !== strpos( $blob, $needle );
+						}
+					)
+				);
+			}
+			$total  = count( $all );
+			$offset = ( $page - 1 ) * $per_page;
+			$slice  = array_slice( $all, $offset, $per_page );
+			foreach ( $slice as $config ) {
+				$rows[] = self::format_child_row( $product, $config, $division );
+			}
+		}
+
+		return array(
+			'rows'     => $rows,
+			'total'    => $total,
+			'page'     => $page,
+			'per_page' => $per_page,
+		);
 	}
 
 	/**
@@ -173,41 +262,85 @@ class WC_Optic_Stock {
 		$unit_price         = WC_Optic_SKU::get_child_unit_price( $config );
 
 		return array(
-			'child_id'            => (string) ( $config['id'] ?? '' ),
-			'product_id'          => $product->get_id(),
-			'powers'              => WC_Optic_SKU::child_display_label( $config, $division ),
-			'sku'                 => (string) ( $config['sku'] ?? '' ),
-			'stock'               => null === $stock ? null : (int) $stock,
-			'backorder_units'     => (int) $backorder_qty,
-			'backorder_consumed'  => (int) $backorder_consumed,
-			'backorder_custom'    => ! empty( $config['backorder_custom'] ),
-			'alert_custom'        => ! empty( $config['alert_custom'] ),
-			'price'               => $unit_price,
-			'price_html'          => wc_price( $unit_price ),
-			'is_low'              => self::child_is_low_stock( $config ),
-			'alert_threshold'     => self::get_child_alert_qty( $config ),
+			'child_id'           => (string) ( $config['id'] ?? '' ),
+			'product_id'         => $product->get_id(),
+			'powers'             => WC_Optic_SKU::child_display_label( $config, $division ),
+			'sku'                => (string) ( $config['sku'] ?? '' ),
+			'stock'              => null === $stock ? null : (int) $stock,
+			'backorder_units'    => (int) $backorder_qty,
+			'backorder_consumed' => (int) $backorder_consumed,
+			'backorder_custom'   => ! empty( $config['backorder_custom'] ),
+			'alert_custom'       => ! empty( $config['alert_custom'] ),
+			'price'              => $unit_price,
+			'price_html'         => wc_price( $unit_price ),
+			'is_low'             => self::child_is_low_stock( $config ),
+			'alert_threshold'    => self::get_child_alert_qty( $config ),
 		);
 	}
 
 	/**
-	 * Low-stock alert rows for the alerts tab.
+	 * Low-stock alert rows for the alerts tab (legacy full scan — prefer get_alerts_page).
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function get_alerts() {
-		$alerts = array();
+		$page = self::get_alerts_page( 1, 500, '' );
+		return is_wp_error( $page ) ? array() : ( $page['rows'] ?? array() );
+	}
 
-		foreach ( self::get_optic_products() as $product ) {
-			$division = (string) $product->get_meta( '_optic_division', true );
+	/**
+	 * Paginated low-stock alerts (QR generated for this page only).
+	 *
+	 * @param int    $page     Page.
+	 * @param int    $per_page Per page.
+	 * @param string $search   Search.
+	 * @return array{rows:array,total:int,page:int,per_page:int}
+	 */
+	public static function get_alerts_page( $page = 1, $per_page = 25, $search = '' ) {
+		$page     = max( 1, (int) $page );
+		$per_page = max( 1, min( 100, (int) $per_page ) );
+		$search   = trim( (string) $search );
+		$alerts   = array();
+		$total    = 0;
 
-			foreach ( WC_Optic_SKU::get_enabled_child_configs( $product ) as $config ) {
-				if ( ! self::child_is_low_stock( $config ) ) {
+		if ( ! self::is_alert_enabled() ) {
+			return array(
+				'rows'     => array(),
+				'total'    => 0,
+				'page'     => $page,
+				'per_page' => $per_page,
+			);
+		}
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
+			$result = WC_Optic_Children::query_low_stock(
+				array(
+					'page'     => $page,
+					'per_page' => $per_page,
+					'search'   => $search,
+				)
+			);
+			$total = (int) ( $result['total'] ?? 0 );
+			$cache = array();
+			foreach ( $result['rows'] as $db_row ) {
+				$pid = absint( $db_row->product_id ?? 0 );
+				if ( ! isset( $cache[ $pid ] ) ) {
+					$product = wc_get_product( $pid );
+					$cache[ $pid ] = array(
+						'product'  => $product,
+						'division' => $product instanceof WC_Product ? (string) $product->get_meta( '_optic_division', true ) : '',
+					);
+				}
+				$product = $cache[ $pid ]['product'];
+				if ( ! $product instanceof WC_Product ) {
 					continue;
 				}
-
+				$config = WC_Optic_Children::row_to_config( $db_row );
+				if ( ! $config ) {
+					continue;
+				}
+				$row = self::format_child_row( $product, $config, $cache[ $pid ]['division'] );
 				$sku = (string) ( $config['sku'] ?? '' );
-				$row = self::format_child_row( $product, $config, $division );
-
 				$alerts[] = array_merge(
 					$row,
 					array(
@@ -216,9 +349,49 @@ class WC_Optic_Stock {
 					)
 				);
 			}
+		} else {
+			$all = array();
+			foreach ( self::get_optic_products() as $product ) {
+				$division = (string) $product->get_meta( '_optic_division', true );
+				foreach ( WC_Optic_SKU::get_enabled_child_configs( $product ) as $config ) {
+					if ( ! self::child_is_low_stock( $config ) ) {
+						continue;
+					}
+					$row = self::format_child_row( $product, $config, $division );
+					$sku = (string) ( $config['sku'] ?? '' );
+					if ( '' !== $search ) {
+						$blob = strtolower( $sku . ' ' . $product->get_name() . ' ' . ( $row['powers'] ?? '' ) );
+						if ( false === strpos( $blob, strtolower( $search ) ) ) {
+							continue;
+						}
+					}
+					$all[] = array_merge(
+						$row,
+						array(
+							'product_name' => $product->get_name(),
+							'qr_html'      => '',
+							'_sku'         => $sku,
+						)
+					);
+				}
+			}
+			$total  = count( $all );
+			$offset = ( $page - 1 ) * $per_page;
+			$slice  = array_slice( $all, $offset, $per_page );
+			foreach ( $slice as $row ) {
+				$sku              = (string) ( $row['_sku'] ?? $row['sku'] ?? '' );
+				unset( $row['_sku'] );
+				$row['qr_html'] = WC_Optic_QR::render_admin_block( $sku, '', 80 );
+				$alerts[]       = $row;
+			}
 		}
 
-		return $alerts;
+		return array(
+			'rows'     => $alerts,
+			'total'    => $total,
+			'page'     => $page,
+			'per_page' => $per_page,
+		);
 	}
 
 	/**
@@ -252,6 +425,10 @@ class WC_Optic_Stock {
 	public static function count_low_stock_alerts() {
 		if ( ! self::is_alert_enabled() ) {
 			return 0;
+		}
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
+			return WC_Optic_Children::count_low_stock_global();
 		}
 
 		$count = 0;
@@ -289,45 +466,50 @@ class WC_Optic_Stock {
 			return new WP_Error( 'wc_optic_stock', __( 'Product not found.', 'wc-optic' ) );
 		}
 
-		$configs        = WC_Optic_SKU::get_child_configs( $product );
-		$found          = false;
-		$updated_config = null;
-
-		foreach ( $configs as $index => $config ) {
-			if ( (string) ( $config['id'] ?? '' ) !== $child_id ) {
-				continue;
-			}
-
-			$current = WC_Optic_SKU::get_child_stock_qty( $config );
-			if ( null === $current ) {
-				$configs[ $index ]['stock_qty'] = (string) $qty;
-			} else {
-				$configs[ $index ]['stock_qty'] = (string) ( $current + $qty );
-			}
-
-			if ( $reset_backorder ) {
-				$configs[ $index ]['backorder_consumed'] = '0';
-			}
-
-			$updated_config = $configs[ $index ];
-			$found          = true;
-			break;
-		}
-
-		if ( ! $found || ! is_array( $updated_config ) ) {
+		$config = WC_Optic_SKU::get_child_config_by_id( $product, $child_id );
+		if ( ! is_array( $config ) ) {
 			return new WP_Error( 'wc_optic_stock', __( 'Internal product not found.', 'wc-optic' ) );
 		}
 
-		WC_Optic_SKU::persist_child_data( $product, $configs );
-		$product->save();
+		$current = WC_Optic_SKU::get_child_stock_qty( $config );
+		if ( null === $current ) {
+			$config['stock_qty'] = (string) $qty;
+		} else {
+			$config['stock_qty'] = (string) ( $current + $qty );
+		}
 
-		$new_stock = WC_Optic_SKU::get_child_stock_qty( $updated_config );
+		if ( $reset_backorder ) {
+			$config['backorder_consumed'] = '0';
+		}
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			WC_Optic_Children::upsert_child( $product_id, $config );
+			self::bust_alert_count_cache();
+		} else {
+			$configs = WC_Optic_SKU::get_child_configs( $product );
+			$found   = false;
+			foreach ( $configs as $index => $existing ) {
+				if ( (string) ( $existing['id'] ?? '' ) !== $child_id ) {
+					continue;
+				}
+				$configs[ $index ] = $config;
+				$found             = true;
+				break;
+			}
+			if ( ! $found ) {
+				return new WP_Error( 'wc_optic_stock', __( 'Internal product not found.', 'wc-optic' ) );
+			}
+			WC_Optic_SKU::persist_child_data( $product, $configs );
+			$product->save();
+		}
+
+		$new_stock = WC_Optic_SKU::get_child_stock_qty( $config );
 
 		return array(
 			'stock'              => null === $new_stock ? 0 : (int) $new_stock,
-			'is_low'             => self::child_is_low_stock( $updated_config ),
+			'is_low'             => self::child_is_low_stock( $config ),
 			'alert_count'        => self::get_alert_count(),
-			'backorder_consumed' => WC_Optic_SKU::get_child_backorder_consumed( $updated_config ),
+			'backorder_consumed' => WC_Optic_SKU::get_child_backorder_consumed( $config ),
 			'backorder_reset'    => (bool) $reset_backorder,
 		);
 	}

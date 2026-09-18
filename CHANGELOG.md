@@ -4,6 +4,21 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.8.0] — 2026-09-18
+
+### Ajouté
+
+- **Table SQL `wc_optic_children`** (schema v4) : source de vérité pour les internes (SKU, stock, powers, `config_json`, `is_low_stock`).
+- **Migration** meta `_optic_child_configs` → SQL (batches reprises via `admin_init`).
+- **Stock Management** : parents au premier paint ; enfants en AJAX paginé (`wc_optic_stock_list_children`, 50/page) + recherche.
+- **Stock Alerts** : DataTables server-side (`wc_optic_stock_list_alerts`) ; QR générés uniquement pour la page visible.
+- **Badge alertes** : `COUNT(*)` SQL indexé sur `is_low_stock`.
+
+### Changé
+
+- `persist_child_data` / `get_child_configs` / restock unitaire écrivent et lisent SQL (plus d’écriture du gros blob postmeta).
+- WPML sync copie les children SQL vers les traductions (`copy_product_children`).
+
 ## [1.7.4] — 2026-09-15
 
 ### Corrigé

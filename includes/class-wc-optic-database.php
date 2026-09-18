@@ -12,11 +12,12 @@ defined( 'ABSPATH' ) || exit;
  */
 class WC_Optic_Database {
 
-	const TABLE_CATALOG     = 'wc_optic_catalog';
+	const TABLE_CATALOG      = 'wc_optic_catalog';
 	const TABLE_DELETION_LOG = 'wc_optic_catalog_deletion_log';
+	const TABLE_CHILDREN     = 'wc_optic_children';
 
 	/** @var int Bump when adding DB tables or columns; see maybe_upgrade_schema(). */
-	const SCHEMA_VERSION = 3;
+	const SCHEMA_VERSION = 4;
 
 	/**
 	 * Create tables on activation.
@@ -46,6 +47,7 @@ class WC_Optic_Database {
 		dbDelta( $sql );
 
 		self::create_deletion_log_table();
+		self::create_children_table();
 
 		update_option( 'wc_optic_db_schema', self::SCHEMA_VERSION );
 
@@ -83,11 +85,60 @@ class WC_Optic_Database {
 	}
 
 	/**
+	 * Internal products table (replaces giant `_optic_child_configs` postmeta for queries).
+	 */
+	public static function create_children_table() {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table   = $wpdb->prefix . self::TABLE_CHILDREN;
+		$charset = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE {$table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			product_id bigint(20) unsigned NOT NULL,
+			child_key varchar(64) NOT NULL,
+			sku varchar(191) NOT NULL DEFAULT '',
+			label varchar(255) NOT NULL DEFAULT '',
+			enabled tinyint(1) NOT NULL DEFAULT 1,
+			sort_order int(11) NOT NULL DEFAULT 0,
+			unit_price decimal(20,6) NOT NULL DEFAULT 0,
+			stock_qty int(11) DEFAULT NULL,
+			backorder_custom tinyint(1) NOT NULL DEFAULT 0,
+			backorder_qty int(11) NOT NULL DEFAULT 0,
+			backorder_consumed int(11) NOT NULL DEFAULT 0,
+			alert_custom tinyint(1) NOT NULL DEFAULT 0,
+			alert_qty int(11) DEFAULT NULL,
+			sph_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			cyl_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			axis_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			add_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			search_blob varchar(512) NOT NULL DEFAULT '',
+			is_low_stock tinyint(1) NOT NULL DEFAULT 0,
+			config_json longtext NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY product_child (product_id, child_key),
+			KEY product_enabled_sort (product_id, enabled, sort_order),
+			KEY product_low (product_id, is_low_stock),
+			KEY is_low_stock (is_low_stock),
+			KEY sku (sku),
+			KEY search_blob (search_blob(191))
+		) {$charset};";
+
+		dbDelta( $sql );
+	}
+
+	/**
 	 * Run lightweight schema upgrades for existing installs.
 	 */
 	public static function maybe_upgrade_schema() {
 		$v = (int) get_option( 'wc_optic_db_schema', 0 );
 		if ( $v >= self::SCHEMA_VERSION ) {
+			if ( class_exists( 'WC_Optic_Children' ) ) {
+				WC_Optic_Children::maybe_migrate_from_meta();
+			}
 			return;
 		}
 		if ( $v < 2 ) {
@@ -96,7 +147,14 @@ class WC_Optic_Database {
 		if ( $v < 3 ) {
 			self::migrate_axe_to_axis();
 		}
+		if ( $v < 4 ) {
+			self::create_children_table();
+		}
 		update_option( 'wc_optic_db_schema', self::SCHEMA_VERSION );
+
+		if ( class_exists( 'WC_Optic_Children' ) ) {
+			WC_Optic_Children::maybe_migrate_from_meta();
+		}
 	}
 
 	/**
@@ -156,5 +214,15 @@ class WC_Optic_Database {
 	public static function table_deletion_log() {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE_DELETION_LOG;
+	}
+
+	/**
+	 * Internal children table name.
+	 *
+	 * @return string
+	 */
+	public static function table_children() {
+		global $wpdb;
+		return $wpdb->prefix . self::TABLE_CHILDREN;
 	}
 }

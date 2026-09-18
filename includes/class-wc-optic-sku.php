@@ -214,7 +214,24 @@ class WC_Optic_SKU {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function get_child_configs( WC_Product $product ) {
-		$division = (string) $product->get_meta( '_optic_division', true );
+		$product_id = absint( $product->get_id() );
+		$division   = (string) $product->get_meta( '_optic_division', true );
+
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
+			if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
+				return WC_Optic_Children::get_configs( $product_id );
+			}
+
+			// Lazy migrate leftover meta blob for this product.
+			$stored = $product->get_meta( self::CHILD_META_KEY, true );
+			if ( is_array( $stored ) && ! empty( $stored ) ) {
+				WC_Optic_Children::migrate_product_from_meta( $product_id );
+				if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
+					return WC_Optic_Children::get_configs( $product_id );
+				}
+			}
+		}
+
 		if ( '' === $division ) {
 			return array();
 		}
@@ -239,6 +256,13 @@ class WC_Optic_SKU {
 		$stored = $product->get_meta( self::CHILD_COUNT_META_KEY, true );
 		if ( is_numeric( $stored ) ) {
 			return max( 0, (int) $stored );
+		}
+
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$count = WC_Optic_Children::count_by_product( $product_id );
+			self::write_child_count_meta( $product, $count );
+			return $count;
 		}
 
 		$count = self::count_stored_child_rows( $product );
@@ -611,6 +635,12 @@ class WC_Optic_SKU {
 		if ( '' === $child_id ) {
 			return null;
 		}
+
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			return WC_Optic_Children::get_config_by_key( $product_id, $child_id );
+		}
+
 		foreach ( self::get_child_configs( $product ) as $config ) {
 			if ( sanitize_key( (string) ( $config['id'] ?? '' ) ) === $child_id ) {
 				return $config;
@@ -1616,7 +1646,17 @@ class WC_Optic_SKU {
 	 */
 	public static function persist_child_data( WC_Product $product, array $child_configs ) {
 		$child_configs = array_values( $child_configs );
-		$product->update_meta_data( self::CHILD_META_KEY, $child_configs );
+		$product_id    = absint( $product->get_id() );
+
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
+			WC_Optic_Children::replace_product_children( $product_id, $child_configs );
+			// Drop legacy blob so WC product loads stay light.
+			$product->delete_meta_data( self::CHILD_META_KEY );
+			delete_post_meta( $product_id, self::CHILD_META_KEY );
+		} else {
+			$product->update_meta_data( self::CHILD_META_KEY, $child_configs );
+		}
+
 		$product->update_meta_data( self::CHILD_COUNT_META_KEY, count( $child_configs ) );
 		$product->delete_meta_data( '_optic_selector_ui' );
 		self::bust_alert_count_cache();

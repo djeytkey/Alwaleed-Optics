@@ -56,6 +56,7 @@ class WC_Optic_Admin_Stock {
 			'nonce'            => wp_create_nonce( 'wc_optic_admin' ),
 			'activeTab'        => $tab,
 			'backorderEnabled' => WC_Optic_SKU::is_backorder_enabled(),
+			'perPage'          => 50,
 			'i18n'             => array(
 				'restockFailed'          => __( 'Could not update stock.', 'wc-optic' ),
 				'restockSuccess'         => __( 'Stock updated.', 'wc-optic' ),
@@ -65,6 +66,13 @@ class WC_Optic_Admin_Stock {
 				'resetBackorderCustom'   => __( 'Reset custom backorder allowance (%d unit(s) consumed)', 'wc-optic' ),
 				'resetBackorderNoSold'   => __( 'Reset backorder allowance', 'wc-optic' ),
 				'lowStockCount'          => __( '%d low stock', 'wc-optic' ),
+				'loading'                => __( 'Loading…', 'wc-optic' ),
+				'loadFailed'             => __( 'Could not load internal products.', 'wc-optic' ),
+				'noChildren'             => __( 'No internal products match.', 'wc-optic' ),
+				'prevPage'               => __( 'Previous', 'wc-optic' ),
+				'nextPage'               => __( 'Next', 'wc-optic' ),
+				'pageOf'                 => __( 'Page %1$d of %2$d', 'wc-optic' ),
+				'searchChildren'         => __( 'Search internals…', 'wc-optic' ),
 			),
 			'dt'        => 'alerts' === $tab ? self::get_datatables_i18n() : array(),
 		);
@@ -344,6 +352,7 @@ class WC_Optic_Admin_Stock {
 
 	/**
 	 * Render hierarchical stock management table (collapsible parent rows).
+	 * Children load via AJAX when expanded.
 	 */
 	protected static function render_management_tab() {
 		$tree = WC_Optic_Stock::get_inventory_tree();
@@ -377,19 +386,17 @@ class WC_Optic_Admin_Stock {
 			$child_count  = (int) $parent['child_count'];
 			$low_count    = (int) ( $parent['low_count'] ?? 0 );
 			$has_children = $child_count > 0;
-			$row_id      = 'wc-optic-stock-parent-' . $product_id;
-			$search_bits = array(
-				(string) $parent['name'],
-				(string) $parent['sku'],
+			$row_id       = 'wc-optic-stock-parent-' . $product_id;
+			$search_blob  = strtolower(
+				trim(
+					(string) $parent['name'] . ' ' . (string) $parent['sku']
+				)
 			);
-			foreach ( $parent['children'] as $child_row ) {
-				$search_bits[] = (string) ( $child_row['sku'] ?? '' );
-				$search_bits[] = (string) ( $child_row['powers'] ?? '' );
-			}
-			$search_blob = strtolower( implode( ' ', array_filter( $search_bits ) ) );
 
 			echo '<tr class="wc-optic-stock-parent" id="' . esc_attr( $row_id ) . '"';
 			echo ' data-product-id="' . esc_attr( (string) $product_id ) . '"';
+			echo ' data-child-count="' . esc_attr( (string) $child_count ) . '"';
+			echo ' data-loaded="0"';
 			echo ' data-search="' . esc_attr( $search_blob ) . '">';
 			echo '<td class="wc-optic-stock-col-expand">';
 			if ( $has_children ) {
@@ -428,17 +435,22 @@ class WC_Optic_Admin_Stock {
 
 			echo '<tr class="wc-optic-stock-children-row wc-optic-is-hidden" id="' . esc_attr( $row_id ) . '-children" data-parent-product-id="' . esc_attr( (string) $product_id ) . '">';
 			echo '<td colspan="3" class="wc-optic-stock-children-cell">';
-			echo '<div class="wc-optic-stock-children-panel">';
+			echo '<div class="wc-optic-stock-children-panel" data-product-id="' . esc_attr( (string) $product_id ) . '">';
+			echo '<div class="wc-optic-stock-children-toolbar">';
+			echo '<input type="search" class="wc-optic-stock-children-search" placeholder="' . esc_attr__( 'Search internals…', 'wc-optic' ) . '" autocomplete="off" />';
+			echo '<span class="wc-optic-stock-children-status" aria-live="polite"></span>';
+			echo '</div>';
 			echo '<table class="widefat wc-optic-stock-children-table">';
 			echo '<thead><tr>';
 			self::render_internal_stock_table_head();
-			echo '</tr></thead><tbody>';
-
-			foreach ( $parent['children'] as $child ) {
-				self::render_internal_stock_row( $child );
-			}
-
+			echo '</tr></thead><tbody class="wc-optic-stock-children-body">';
+			echo '<tr class="wc-optic-stock-children-placeholder"><td colspan="9">' . esc_html__( 'Expand to load internal products.', 'wc-optic' ) . '</td></tr>';
 			echo '</tbody></table>';
+			echo '<div class="wc-optic-stock-children-pager wc-optic-is-hidden">';
+			echo '<button type="button" class="button button-secondary wc-optic-stock-page-prev">' . esc_html__( 'Previous', 'wc-optic' ) . '</button> ';
+			echo '<span class="wc-optic-stock-page-label"></span> ';
+			echo '<button type="button" class="button button-secondary wc-optic-stock-page-next">' . esc_html__( 'Next', 'wc-optic' ) . '</button>';
+			echo '</div>';
 			echo '</div>';
 			echo '</td>';
 			echo '</tr>';
@@ -449,12 +461,12 @@ class WC_Optic_Admin_Stock {
 	}
 
 	/**
-	 * Render low-stock alerts DataTable.
+	 * Render low-stock alerts shell (rows loaded via DataTables AJAX).
 	 */
 	protected static function render_alerts_tab() {
-		$alerts = WC_Optic_Stock::get_alerts();
+		$alert_count = WC_Optic_Stock::get_alert_count();
 
-		if ( empty( $alerts ) ) {
+		if ( $alert_count < 1 ) {
 			echo '<div class="notice notice-success inline"><p>' . esc_html__( 'No stock alerts at the moment.', 'wc-optic' ) . '</p></div>';
 			return;
 		}
@@ -463,24 +475,78 @@ class WC_Optic_Admin_Stock {
 		echo '<table id="wc-optic-stock-alerts-dt" class="widefat wc-optic-stock-children-table wc-optic-stock-table wc-optic-stock-table--alerts display stripe" style="width:100%">';
 		echo '<thead><tr>';
 		self::render_internal_stock_table_head( true, true );
-		echo '</tr></thead><tbody>';
+		echo '</tr></thead><tbody></tbody></table>';
+		echo '</div>';
+	}
 
-		foreach ( $alerts as $alert ) {
-			self::render_internal_stock_row(
-				$alert,
-				'wc-optic-stock-alert',
-				function ( array $row ) {
-					echo '<td class="wc-optic-stock-alert__qr">';
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built via WC_Optic_QR.
-					echo $row['qr_html'] ?? '';
-					echo '</td>';
-					echo '<td class="wc-optic-stock-alert__product">' . esc_html( (string) ( $row['product_name'] ?? '' ) ) . '</td>';
-				}
-			);
+	/**
+	 * Build HTML for one management child row (AJAX).
+	 *
+	 * @param array<string, mixed> $child Child row.
+	 * @return string
+	 */
+	public static function render_child_row_html( array $child ) {
+		ob_start();
+		self::render_internal_stock_row( $child );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Build one alert row payload for DataTables serverSide.
+	 *
+	 * @param array<string, mixed> $alert Alert row.
+	 * @return array<string, mixed>
+	 */
+	public static function render_alert_datatable_row( array $alert ) {
+		$stock_label = null === ( $alert['stock'] ?? null ) ? '—' : (string) $alert['stock'];
+		$low_badge   = '';
+		if ( ! empty( $alert['is_low'] ) ) {
+			$low_badge = ' <span class="wc-optic-stock-low-badge" title="' . esc_attr__( 'Low stock', 'wc-optic' ) . '">' . esc_html__( 'Low', 'wc-optic' ) . '</span>';
 		}
 
-		echo '</tbody></table>';
-		echo '</div>';
+		ob_start();
+		self::render_source_badge( ! empty( $alert['backorder_custom'] ) );
+		$backorder_badge = (string) ob_get_clean();
+
+		ob_start();
+		self::render_source_badge( ! empty( $alert['alert_custom'] ) );
+		$alert_badge = (string) ob_get_clean();
+
+		$backorder_html = esc_html( (string) (int) ( $alert['backorder_units'] ?? 0 ) );
+		if ( (int) ( $alert['backorder_consumed'] ?? 0 ) > 0 ) {
+			$backorder_html .= ' <span class="description wc-optic-stock-backorder-sold">(' . esc_html(
+				sprintf(
+					/* translators: %d: consumed backorder units */
+					__( '%d sold', 'wc-optic' ),
+					(int) $alert['backorder_consumed']
+				)
+			) . ')</span>';
+		}
+
+		$actions = '<button type="button" class="button button-secondary wc-optic-restock-btn">' . esc_html__( 'Restock', 'wc-optic' ) . '</button>';
+
+		return array(
+			'DT_RowClass' => trim( 'wc-optic-stock-child wc-optic-stock-alert' . ( ! empty( $alert['is_low'] ) ? ' wc-optic-stock-child--low' : '' ) ),
+			'DT_RowAttr'  => array(
+				'data-product-id'         => (string) ( $alert['product_id'] ?? '' ),
+				'data-child-id'           => (string) ( $alert['child_id'] ?? '' ),
+				'data-sku'                => (string) ( $alert['sku'] ?? '' ),
+				'data-backorder-custom'   => ! empty( $alert['backorder_custom'] ) ? '1' : '0',
+				'data-backorder-consumed' => (string) (int) ( $alert['backorder_consumed'] ?? 0 ),
+				'data-backorder-units'    => (string) (int) ( $alert['backorder_units'] ?? 0 ),
+			),
+			(string) ( $alert['qr_html'] ?? '' ),
+			esc_html( (string) ( $alert['product_name'] ?? '' ) ),
+			esc_html( (string) ( $alert['powers'] ?? '' ) ),
+			'<code>' . esc_html( (string) ( $alert['sku'] ?? '' ) ) . '</code>',
+			'<span class="wc-optic-stock-qty-value">' . esc_html( $stock_label ) . '</span>' . $low_badge,
+			$backorder_html,
+			$backorder_badge,
+			esc_html( (string) ( $alert['alert_threshold'] ?? '' ) ),
+			$alert_badge,
+			(string) ( $alert['price_html'] ?? '' ),
+			$actions,
+		);
 	}
 
 	/**

@@ -8,9 +8,11 @@
 	var cfg = window.wcOpticStock || {};
 	var i18n = cfg.i18n || {};
 	var dtLang = cfg.dt || {};
+	var perPage = parseInt( cfg.perPage, 10 ) || 50;
 	var activeRow = null;
 	var alertsTable = null;
 	var eventsBound = false;
+	var childrenState = {};
 
 	function getRoot() {
 		return document.getElementById( 'wc-optic-stock-root' );
@@ -55,6 +57,146 @@
 		}
 	}
 
+	function getChildrenPanel( productId ) {
+		return qs(
+			'.wc-optic-stock-children-panel[data-product-id="' + productId + '"]'
+		);
+	}
+
+	function getState( productId ) {
+		if ( ! childrenState[ productId ] ) {
+			childrenState[ productId ] = {
+				page: 1,
+				search: '',
+				total: 0,
+				pages: 1,
+				loading: false,
+			};
+		}
+		return childrenState[ productId ];
+	}
+
+	function updatePager( productId ) {
+		var panel = getChildrenPanel( productId );
+		if ( ! panel ) {
+			return;
+		}
+		var state = getState( productId );
+		var pager = qs( '.wc-optic-stock-children-pager', panel );
+		var label = qs( '.wc-optic-stock-page-label', panel );
+		var prev = qs( '.wc-optic-stock-page-prev', panel );
+		var next = qs( '.wc-optic-stock-page-next', panel );
+		var status = qs( '.wc-optic-stock-children-status', panel );
+
+		if ( status ) {
+			status.textContent =
+				state.total > 0
+					? String( state.total ) +
+					  ' · ' +
+					  ( i18n.pageOf || 'Page %1$d of %2$d' )
+							.replace( '%1$d', String( state.page ) )
+							.replace( '%2$d', String( state.pages ) )
+					: '';
+		}
+
+		if ( ! pager ) {
+			return;
+		}
+
+		setHidden( pager, state.pages <= 1 );
+		if ( label ) {
+			label.textContent = ( i18n.pageOf || 'Page %1$d of %2$d' )
+				.replace( '%1$d', String( state.page ) )
+				.replace( '%2$d', String( state.pages ) );
+		}
+		if ( prev ) {
+			prev.disabled = state.page <= 1 || state.loading;
+		}
+		if ( next ) {
+			next.disabled = state.page >= state.pages || state.loading;
+		}
+	}
+
+	function loadChildren( productId, force ) {
+		if ( ! $ ) {
+			return;
+		}
+
+		var state = getState( productId );
+		if ( state.loading ) {
+			return;
+		}
+
+		var parentRow = qs(
+			'#wc-optic-stock-management tr.wc-optic-stock-parent[data-product-id="' +
+				productId +
+				'"]'
+		);
+		var panel = getChildrenPanel( productId );
+		var body = panel ? qs( '.wc-optic-stock-children-body', panel ) : null;
+		if ( ! panel || ! body ) {
+			return;
+		}
+
+		if ( ! force && parentRow && parentRow.getAttribute( 'data-loaded' ) === '1' ) {
+			return;
+		}
+
+		state.loading = true;
+		updatePager( productId );
+		body.innerHTML =
+			'<tr class="wc-optic-stock-children-placeholder"><td colspan="9">' +
+			( i18n.loading || 'Loading…' ) +
+			'</td></tr>';
+
+		$.post( cfg.ajaxUrl, {
+			action: 'wc_optic_stock_list_children',
+			nonce: cfg.nonce,
+			product_id: productId,
+			page: state.page,
+			per_page: perPage,
+			search: state.search,
+		} )
+			.done( function ( response ) {
+				if ( ! response || ! response.success || ! response.data ) {
+					body.innerHTML =
+						'<tr class="wc-optic-stock-children-placeholder"><td colspan="9">' +
+						( i18n.loadFailed || 'Error' ) +
+						'</td></tr>';
+					return;
+				}
+
+				var rows = response.data.rows_html || [];
+				state.total = parseInt( response.data.total, 10 ) || 0;
+				state.page = parseInt( response.data.page, 10 ) || 1;
+				state.pages = parseInt( response.data.pages, 10 ) || 1;
+
+				if ( ! rows.length ) {
+					body.innerHTML =
+						'<tr class="wc-optic-stock-children-placeholder"><td colspan="9">' +
+						( i18n.noChildren || 'None' ) +
+						'</td></tr>';
+				} else {
+					body.innerHTML = rows.join( '' );
+				}
+
+				if ( parentRow ) {
+					parentRow.setAttribute( 'data-loaded', '1' );
+				}
+				updatePager( productId );
+			} )
+			.fail( function () {
+				body.innerHTML =
+					'<tr class="wc-optic-stock-children-placeholder"><td colspan="9">' +
+					( i18n.loadFailed || 'Error' ) +
+					'</td></tr>';
+			} )
+			.always( function () {
+				state.loading = false;
+				updatePager( productId );
+			} );
+	}
+
 	function setRowExpanded( parentRow, expanded ) {
 		if ( ! parentRow ) {
 			return;
@@ -63,6 +205,7 @@
 		var btn = qs( '.wc-optic-stock-expand', parentRow );
 		var controls = btn ? btn.getAttribute( 'aria-controls' ) : '';
 		var childrenRow = controls ? document.getElementById( controls ) : null;
+		var productId = rowData( parentRow, 'product-id' );
 
 		parentRow.classList.toggle( 'wc-optic-stock-parent--expanded', expanded );
 
@@ -75,6 +218,10 @@
 		}
 
 		setHidden( childrenRow, ! expanded );
+
+		if ( expanded && productId ) {
+			loadChildren( productId, parentRow.getAttribute( 'data-loaded' ) !== '1' );
+		}
 	}
 
 	function toggleRow( parentRow ) {
@@ -315,16 +462,13 @@
 		updateParentLowCount( productId );
 
 		if ( alertsTable ) {
-			alertsTable.rows().invalidate( 'dom' ).draw( false );
+			alertsTable.ajax.reload( null, false );
 		}
 	}
 
 	function removeAlertRow( row ) {
 		if ( alertsTable && row ) {
-			alertsTable.row( row ).remove().draw( false );
-			if ( alertsTable.rows().count() < 1 ) {
-				window.location.reload();
-			}
+			alertsTable.ajax.reload( null, false );
 			return;
 		}
 
@@ -432,17 +576,36 @@
 		}
 
 		alertsTable = table.DataTable( {
+			serverSide: true,
+			processing: true,
 			pageLength: 25,
 			lengthMenu: [
-				[ 10, 25, 50, 100, -1 ],
-				[ 10, 25, 50, 100, 'All' ],
+				[ 10, 25, 50, 100 ],
+				[ 10, 25, 50, 100 ],
 			],
 			language: dtLang,
 			autoWidth: false,
-			order: [ [ 4, 'asc' ], [ 1, 'asc' ] ],
-			columnDefs: [
-				{ orderable: false, targets: [ 0, 10 ] },
-				{ type: 'num', targets: [ 4, 5, 7 ] },
+			order: [],
+			ajax: {
+				url: cfg.ajaxUrl,
+				type: 'POST',
+				data: function ( d ) {
+					d.action = 'wc_optic_stock_list_alerts';
+					d.nonce = cfg.nonce;
+				},
+			},
+			columns: [
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
+				{ orderable: false },
 			],
 		} );
 	}
@@ -469,6 +632,34 @@
 			return;
 		}
 
+		if ( closest( target, '.wc-optic-stock-page-prev' ) ) {
+			event.preventDefault();
+			var panelPrev = closest( target, '.wc-optic-stock-children-panel' );
+			if ( panelPrev ) {
+				var pidPrev = panelPrev.getAttribute( 'data-product-id' );
+				var stPrev = getState( pidPrev );
+				if ( stPrev.page > 1 ) {
+					stPrev.page -= 1;
+					loadChildren( pidPrev, true );
+				}
+			}
+			return;
+		}
+
+		if ( closest( target, '.wc-optic-stock-page-next' ) ) {
+			event.preventDefault();
+			var panelNext = closest( target, '.wc-optic-stock-children-panel' );
+			if ( panelNext ) {
+				var pidNext = panelNext.getAttribute( 'data-product-id' );
+				var stNext = getState( pidNext );
+				if ( stNext.page < stNext.pages ) {
+					stNext.page += 1;
+					loadChildren( pidNext, true );
+				}
+			}
+			return;
+		}
+
 		if ( closest( target, '.wc-optic-restock-btn' ) ) {
 			event.preventDefault();
 			openModal(
@@ -490,6 +681,25 @@
 	function onRootInput( event ) {
 		if ( event.target && event.target.id === 'wc-optic-stock-search' ) {
 			filterManagementTable( event.target.value );
+			return;
+		}
+
+		if (
+			event.target &&
+			event.target.classList.contains( 'wc-optic-stock-children-search' )
+		) {
+			var panel = closest( event.target, '.wc-optic-stock-children-panel' );
+			if ( ! panel ) {
+				return;
+			}
+			var productId = panel.getAttribute( 'data-product-id' );
+			var state = getState( productId );
+			state.search = event.target.value || '';
+			state.page = 1;
+			window.clearTimeout( state._searchTimer );
+			state._searchTimer = window.setTimeout( function () {
+				loadChildren( productId, true );
+			}, 300 );
 		}
 	}
 

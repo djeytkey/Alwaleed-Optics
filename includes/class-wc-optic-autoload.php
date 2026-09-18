@@ -38,6 +38,7 @@ class WC_Optic_Autoload {
 			'WC_Product_Optic_Product'     => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-product-optic-product.php',
 			'WC_Optic_Plugin'              => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-plugin.php',
 			'WC_Optic_Database'            => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-database.php',
+			'WC_Optic_Children'            => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-children.php',
 			'WC_Optic_Catalog'             => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-catalog.php',
 			'WC_Optic_Divisions'           => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-divisions.php',
 			'WC_Optic_Deletion_Log'        => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-deletion-log.php',
