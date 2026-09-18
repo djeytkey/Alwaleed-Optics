@@ -754,6 +754,7 @@
 				renderProductCard( current );
 				$( '#wc_optic_wizard_division' ).val( current.division || '' );
 				$( '#wc_optic_wizard_price' ).val( current.price || '' );
+				$( '#wc_optic_wizard_sale_price' ).val( current.sale_price || '' );
 				$( '#wc_optic_wizard_stock' ).val( '0' );
 				if ( isSpecificsMode() ) {
 					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardSpecifics || 'Add specifics' );
@@ -866,6 +867,7 @@
 			catalog: collectIdentity(),
 			ranges: collectRanges(),
 			unit_price: $( '#wc_optic_wizard_price' ).val() || '',
+			sale_price: $( '#wc_optic_wizard_sale_price' ).val() || '',
 			stock_qty: $( '#wc_optic_wizard_stock' ).val() || 0,
 		};
 		if ( isSpecificsMode() ) {

@@ -87,12 +87,12 @@ class WC_Optic_Pricing {
 	 * @return string
 	 */
 	public static function format_display_price_html( WC_Product $product ) {
-		$price = WC_Optic_SKU::get_default_display_price( $product );
-		if ( $price <= 0 ) {
+		$config = WC_Optic_SKU::get_default_display_child( $product );
+		if ( ! $config ) {
 			return '';
 		}
 
-		return wc_price( $price );
+		return WC_Optic_SKU::format_child_price_html( $config );
 	}
 
 	/**

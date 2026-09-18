@@ -675,15 +675,17 @@ class WC_Optic_SKU {
 	public static function build_child_list_row( array $config, $division, $index = 0 ) {
 		$stock = self::get_child_stock_qty( $config );
 		return array(
-			'id'       => (string) ( $config['id'] ?? '' ),
-			'label'    => (string) ( $config['label'] ?? '' ),
-			'powers'   => self::format_child_powers_label( $config, $division ),
-			'price'    => (string) ( $config['unit_price'] ?? '' ),
-			'stock'    => null === $stock ? '' : (string) $stock,
-			'enabled'  => ! empty( $config['enabled'] ),
-			'sku'      => (string) ( $config['sku'] ?? '' ),
-			'sort'     => isset( $config['sort'] ) ? (int) $config['sort'] : (int) $index,
-			'search'   => strtolower(
+			'id'        => (string) ( $config['id'] ?? '' ),
+			'label'     => (string) ( $config['label'] ?? '' ),
+			'powers'    => self::format_child_powers_label( $config, $division ),
+			'price'     => (string) ( $config['unit_price'] ?? '' ),
+			'sale'      => (string) ( $config['sale_price'] ?? '' ),
+			'priceHtml' => self::format_child_price_html( $config ),
+			'stock'     => null === $stock ? '' : (string) $stock,
+			'enabled'   => ! empty( $config['enabled'] ),
+			'sku'       => (string) ( $config['sku'] ?? '' ),
+			'sort'      => isset( $config['sort'] ) ? (int) $config['sort'] : (int) $index,
+			'search'    => strtolower(
 				implode(
 					' ',
 					array(
@@ -949,10 +951,13 @@ class WC_Optic_SKU {
 			$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
 			$in_stock  = null === $remaining || $remaining > 0;
 			$child_row = array(
-				'id'      => (string) ( $config['id'] ?? '' ),
-				'price'   => self::get_child_unit_price( $config ),
-				'stock'   => $remaining,
-				'inStock' => $in_stock,
+				'id'            => (string) ( $config['id'] ?? '' ),
+				'price'         => self::get_child_unit_price( $config ),
+				'regularPrice'  => self::get_child_regular_price( $config ),
+				'salePrice'     => self::get_child_sale_price( $config ),
+				'priceHtml'     => self::format_child_price_html( $config ),
+				'stock'         => $remaining,
+				'inStock'       => $in_stock,
 			);
 
 			if ( self::config_has_zero_sph( $config ) ) {
@@ -1122,13 +1127,15 @@ class WC_Optic_SKU {
 		// Plano (+0.00): only SPH — never require CYL / AXIS / ADD (any division).
 		if ( self::config_has_zero_sph( $config ) ) {
 			return array(
-				'child_id'   => (string) $config['id'],
-				'label'      => (string) $config['label'],
-				'display'    => self::child_display_label( $config, $division ),
-				'sku'        => (string) $config['sku'],
-				'unit_price' => self::get_child_unit_price( $config ),
-				'stock_qty'  => self::get_child_stock_qty( $config ),
-				'powers'     => array(),
+				'child_id'      => (string) $config['id'],
+				'label'         => (string) $config['label'],
+				'display'       => self::child_display_label( $config, $division ),
+				'sku'           => (string) $config['sku'],
+				'unit_price'    => self::get_child_unit_price( $config ),
+				'regular_price' => self::get_child_regular_price( $config ),
+				'sale_price'    => self::get_child_sale_price( $config ),
+				'stock_qty'     => self::get_child_stock_qty( $config ),
+				'powers'        => array(),
 			);
 		}
 
@@ -1146,13 +1153,15 @@ class WC_Optic_SKU {
 		}
 
 		return array(
-			'child_id'   => (string) $config['id'],
-			'label'      => (string) $config['label'],
-			'display'    => self::child_display_label( $config, $division ),
-			'sku'        => (string) $config['sku'],
-			'unit_price' => self::get_child_unit_price( $config ),
-			'stock_qty'  => self::get_child_stock_qty( $config ),
-			'powers'     => $powers,
+			'child_id'      => (string) $config['id'],
+			'label'         => (string) $config['label'],
+			'display'       => self::child_display_label( $config, $division ),
+			'sku'           => (string) $config['sku'],
+			'unit_price'    => self::get_child_unit_price( $config ),
+			'regular_price' => self::get_child_regular_price( $config ),
+			'sale_price'    => self::get_child_sale_price( $config ),
+			'stock_qty'     => self::get_child_stock_qty( $config ),
+			'powers'        => $powers,
 		);
 	}
 
@@ -1275,6 +1284,7 @@ class WC_Optic_SKU {
 			'enabled'            => empty( $raw['enabled'] ) ? false : true,
 			'sort'               => isset( $raw['sort'] ) ? (int) $raw['sort'] : $index,
 			'unit_price'         => '',
+			'sale_price'         => '',
 			'stock_qty'          => '',
 			'backorder_custom'   => ! empty( $raw['backorder_custom'] ),
 			'backorder_qty'      => '',
@@ -1288,6 +1298,13 @@ class WC_Optic_SKU {
 
 		if ( isset( $raw['unit_price'] ) && '' !== trim( (string) $raw['unit_price'] ) ) {
 			$out['unit_price'] = (string) wc_format_decimal( wp_unslash( $raw['unit_price'] ) );
+		}
+		if ( isset( $raw['sale_price'] ) && '' !== trim( (string) $raw['sale_price'] ) ) {
+			$sale = (string) wc_format_decimal( wp_unslash( $raw['sale_price'] ) );
+			// Keep sale only when strictly below regular (WooCommerce convention).
+			if ( '' !== $out['unit_price'] && (float) $sale < (float) $out['unit_price'] && (float) $sale >= 0 ) {
+				$out['sale_price'] = $sale;
+			}
 		}
 		if ( isset( $raw['stock_qty'] ) && '' !== trim( (string) $raw['stock_qty'] ) ) {
 			$out['stock_qty'] = (string) absint( wp_unslash( $raw['stock_qty'] ) );
@@ -1550,16 +1567,76 @@ class WC_Optic_SKU {
 	}
 
 	/**
-	 * Get one child's unit price.
+	 * Regular (list) price for one child.
+	 *
+	 * @param array $config Child config.
+	 * @return float
+	 */
+	public static function get_child_regular_price( array $config ) {
+		if ( empty( $config['unit_price'] ) ) {
+			return 0.0;
+		}
+		return (float) wc_format_decimal( $config['unit_price'] );
+	}
+
+	/**
+	 * Sale price for one child, or null if not on sale.
+	 *
+	 * @param array $config Child config.
+	 * @return float|null
+	 */
+	public static function get_child_sale_price( array $config ) {
+		if ( empty( $config['sale_price'] ) ) {
+			return null;
+		}
+		$sale    = (float) wc_format_decimal( $config['sale_price'] );
+		$regular = self::get_child_regular_price( $config );
+		if ( $sale < 0 || $regular <= 0 || $sale >= $regular ) {
+			return null;
+		}
+		return $sale;
+	}
+
+	/**
+	 * Whether the child is currently on sale.
+	 *
+	 * @param array $config Child config.
+	 * @return bool
+	 */
+	public static function child_is_on_sale( array $config ) {
+		return null !== self::get_child_sale_price( $config );
+	}
+
+	/**
+	 * Active unit price charged for one child (sale if set, else regular).
 	 *
 	 * @param array $config Child config.
 	 * @return float
 	 */
 	public static function get_child_unit_price( array $config ) {
-		if ( empty( $config['unit_price'] ) ) {
-			return 0.0;
+		$sale = self::get_child_sale_price( $config );
+		if ( null !== $sale ) {
+			return $sale;
 		}
-		return (float) wc_format_decimal( $config['unit_price'] );
+		return self::get_child_regular_price( $config );
+	}
+
+	/**
+	 * Price HTML for one child (WooCommerce sale strikethrough when applicable).
+	 *
+	 * @param array $config Child config.
+	 * @return string
+	 */
+	public static function format_child_price_html( array $config ) {
+		$regular = self::get_child_regular_price( $config );
+		$sale    = self::get_child_sale_price( $config );
+		if ( $regular <= 0 ) {
+			return '';
+		}
+		if ( null !== $sale ) {
+			return wc_format_sale_price( $regular, $sale );
+		}
+		return wc_price( $regular );
 	}
 
 	/**
@@ -1666,11 +1743,20 @@ class WC_Optic_SKU {
 			$product->update_meta_data( $meta_key, $index[ $type ] ?? array() );
 		}
 
-		$display_price = self::get_default_display_price( $product );
-
-		if ( $display_price > 0 ) {
-			$product->set_regular_price( (string) $display_price );
-			$product->set_price( (string) $display_price );
+		$display_child = self::get_default_display_child( $product );
+		if ( $display_child ) {
+			$regular = self::get_child_regular_price( $display_child );
+			$sale    = self::get_child_sale_price( $display_child );
+			if ( $regular > 0 ) {
+				$product->set_regular_price( (string) $regular );
+				if ( null !== $sale ) {
+					$product->set_sale_price( (string) $sale );
+					$product->set_price( (string) $sale );
+				} else {
+					$product->set_sale_price( '' );
+					$product->set_price( (string) $regular );
+				}
+			}
 		}
 	}
 
@@ -2296,11 +2382,12 @@ class WC_Optic_SKU {
 	 * @param string             $division    Division slug.
 	 * @param array<string, int> $catalog     Shared identity catalog.
 	 * @param array<string, int[]> $power_values Power ids by type.
-	 * @param mixed              $unit_price  Unit price.
+	 * @param mixed              $unit_price  Regular unit price.
 	 * @param mixed              $stock_qty   Stock qty.
+	 * @param mixed              $sale_price  Optional sale price.
 	 * @return array|WP_Error
 	 */
-	public static function build_children_from_spec( $division, array $catalog, array $power_values, $unit_price, $stock_qty ) {
+	public static function build_children_from_spec( $division, array $catalog, array $power_values, $unit_price, $stock_qty, $sale_price = '' ) {
 		$allowed = WC_Optic_Plugin::get_powers_for_division( $division );
 		if ( empty( $allowed ) ) {
 			return new WP_Error( 'wc_optic_missing_division', __( 'Optical division is required.', 'wc-optic' ) );
@@ -2382,6 +2469,7 @@ class WC_Optic_SKU {
 			return new WP_Error( 'wc_optic_missing_price', __( 'A unit price is required to generate internal products.', 'wc-optic' ) );
 		}
 
+		$sale  = ( '' === trim( (string) $sale_price ) ) ? '' : (string) wc_format_decimal( $sale_price );
 		$stock = ( '' === trim( (string) $stock_qty ) ) ? '0' : (string) absint( $stock_qty );
 		$combos = self::expand_power_combinations( $filtered );
 		$children = array();
@@ -2392,6 +2480,7 @@ class WC_Optic_SKU {
 					'enabled'    => true,
 					'sort'       => $index,
 					'unit_price' => $price,
+					'sale_price' => $sale,
 					'stock_qty'  => $stock,
 					'catalog'    => $identity,
 					'powers'     => $powers,
@@ -2488,9 +2577,10 @@ class WC_Optic_SKU {
 	 * @param array              $ranges     Ranges keyed by power.
 	 * @param mixed              $unit_price Unit price.
 	 * @param mixed              $stock_qty  Stock qty.
+	 * @param mixed              $sale_price Optional sale price.
 	 * @return array|WP_Error
 	 */
-	public static function build_children_from_ranges( $division, array $catalog, array $ranges, $unit_price, $stock_qty ) {
+	public static function build_children_from_ranges( $division, array $catalog, array $ranges, $unit_price, $stock_qty, $sale_price = '' ) {
 		$ranges       = self::normalize_power_ranges( $ranges, $division );
 		$allowed      = WC_Optic_Plugin::get_powers_for_division( $division );
 		$power_values = array();
@@ -2529,7 +2619,7 @@ class WC_Optic_SKU {
 			$power_values[ $power ] = $ids;
 		}
 
-		return self::build_children_from_spec( $division, $catalog, $power_values, $unit_price, $stock_qty );
+		return self::build_children_from_spec( $division, $catalog, $power_values, $unit_price, $stock_qty, $sale_price );
 	}
 
 	/**
@@ -2543,6 +2633,7 @@ class WC_Optic_SKU {
 	 * @param array              $ranges     Ranges keyed by power (extras to add).
 	 * @param mixed              $unit_price Unit price for new rows.
 	 * @param mixed              $stock_qty  Stock for new rows.
+	 * @param mixed              $sale_price Optional sale price for new rows.
 	 * @return array|WP_Error {
 	 *     @type array $children            Merged list.
 	 *     @type int   $added               New internals count.
@@ -2550,8 +2641,8 @@ class WC_Optic_SKU {
 	 *     @type int   $candidates          Combos generated from ranges before skip.
 	 * }
 	 */
-	public static function merge_children_from_ranges( array $existing, $division, array $catalog, array $ranges, $unit_price, $stock_qty ) {
-		$candidates = self::build_children_from_ranges( $division, $catalog, $ranges, $unit_price, $stock_qty );
+	public static function merge_children_from_ranges( array $existing, $division, array $catalog, array $ranges, $unit_price, $stock_qty, $sale_price = '' ) {
+		$candidates = self::build_children_from_ranges( $division, $catalog, $ranges, $unit_price, $stock_qty, $sale_price );
 		if ( is_wp_error( $candidates ) ) {
 			return $candidates;
 		}

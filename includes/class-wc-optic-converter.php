@@ -399,12 +399,18 @@ class WC_Optic_Converter {
 			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
 			$children  = WC_Optic_SKU::get_child_configs( $product );
 			$divs      = WC_Optic_Plugin::get_divisions();
+			$sale_seed = '';
+			$display   = WC_Optic_SKU::get_default_display_child( $product );
+			if ( $display && WC_Optic_SKU::child_is_on_sale( $display ) ) {
+				$sale_seed = (string) WC_Optic_SKU::get_child_sale_price( $display );
+			}
 
 			return array(
 				'id'            => $product->get_id(),
 				'name'          => $display_name ? $display_name : $product->get_name(),
 				'sku'           => (string) $product->get_sku(),
 				'price'         => self::get_source_price( $product ),
+				'sale_price'    => $sale_seed,
 				'price_html'    => $product->get_price_html(),
 				'edit_url'      => get_edit_post_link( $product->get_id(), 'raw' ),
 				'image'         => $image_url ? $image_url : '',
@@ -433,6 +439,14 @@ class WC_Optic_Converter {
 	 * @return string
 	 */
 	public static function get_source_price( WC_Product $product ) {
+		$display = WC_Optic_SKU::get_default_display_child( $product );
+		if ( $display ) {
+			$regular = WC_Optic_SKU::get_child_regular_price( $display );
+			if ( $regular > 0 ) {
+				return (string) wc_format_decimal( $regular );
+			}
+		}
+
 		$regular = $product->get_regular_price( 'edit' );
 		if ( '' !== trim( (string) $regular ) ) {
 			return (string) wc_format_decimal( $regular );
@@ -580,7 +594,8 @@ class WC_Optic_Converter {
 				$prepared['catalog'],
 				$prepared['ranges'],
 				$prepared['unit_price'],
-				$prepared['stock_qty']
+				$prepared['stock_qty'],
+				$prepared['sale_price'] ?? ''
 			);
 			if ( is_wp_error( $children ) ) {
 				return $children;
@@ -667,7 +682,8 @@ class WC_Optic_Converter {
 			$prepared['catalog'],
 			$prepared['ranges'],
 			$prepared['unit_price'],
-			$prepared['stock_qty']
+			$prepared['stock_qty'],
+			$prepared['sale_price'] ?? ''
 		);
 		if ( is_wp_error( $merged ) ) {
 			return $merged;
@@ -727,6 +743,8 @@ class WC_Optic_Converter {
 			$unit_price = self::get_source_price( $product );
 		}
 
+		$sale_price = isset( $args['sale_price'] ) ? (string) $args['sale_price'] : '';
+
 		$stock_qty = isset( $args['stock_qty'] ) && '' !== trim( (string) $args['stock_qty'] )
 			? (string) absint( $args['stock_qty'] )
 			: '0';
@@ -737,6 +755,7 @@ class WC_Optic_Converter {
 				'catalog'    => $catalog,
 				'ranges'     => $ranges,
 				'unit_price' => $unit_price,
+				'sale_price' => $sale_price,
 				'stock_qty'  => $stock_qty,
 			);
 		}
@@ -746,6 +765,7 @@ class WC_Optic_Converter {
 			'catalog'    => $catalog,
 			'ranges'     => WC_Optic_SKU::normalize_power_ranges( $ranges, $division ),
 			'unit_price' => $unit_price,
+			'sale_price' => $sale_price,
 			'stock_qty'  => $stock_qty,
 		);
 	}

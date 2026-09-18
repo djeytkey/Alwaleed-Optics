@@ -750,8 +750,10 @@ class WC_Optic_Admin_Convert {
 			echo ' <span class="description">(' . esc_html__( 'candidates before duplicate check', 'wc-optic' ) . ')</span>';
 		}
 		echo '</p>';
-		echo '<p><label for="wc_optic_wizard_price">' . esc_html__( 'Unit price', 'wc-optic' ) . '</label><br />';
+		echo '<p><label for="wc_optic_wizard_price">' . esc_html__( 'Regular price', 'wc-optic' ) . '</label><br />';
 		echo '<input type="text" id="wc_optic_wizard_price" class="wc_input_price regular-text" /></p>';
+		echo '<p><label for="wc_optic_wizard_sale_price">' . esc_html__( 'Sale price', 'wc-optic' ) . '</label><br />';
+		echo '<input type="text" id="wc_optic_wizard_sale_price" class="wc_input_price regular-text" placeholder="' . esc_attr__( 'Optional', 'wc-optic' ) . '" /></p>';
 		echo '<p><label for="wc_optic_wizard_stock">' . esc_html__( 'Default stock', 'wc-optic' ) . '</label><br />';
 		echo '<input type="number" id="wc_optic_wizard_stock" min="0" step="1" value="0" /></p>';
 		if ( 'rebuild' === $mode ) {

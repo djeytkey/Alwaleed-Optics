@@ -223,6 +223,7 @@
 			enabled: $block.find( '.wc-optic-child-enabled-input' ).is( ':checked' ) ? '1' : '',
 			sort: $block.find( '.wc-optic-child-sort' ).val() || '0',
 			unit_price: $block.find( '.wc-optic-child-unit-price' ).val() || '',
+			sale_price: $block.find( '.wc-optic-child-sale-price' ).val() || '',
 			stock_qty: $block.find( '.wc-optic-child-stock-qty' ).val() || '',
 			backorder_custom: $block.find( '.wc-optic-child-backorder-custom' ).is( ':checked' ) ? '1' : '',
 			backorder_qty: $block.find( '.wc-optic-child-backorder-qty' ).val() || '',
@@ -430,7 +431,7 @@
 			escapeHtml( row.powers || '' ) +
 			'</code></td>' +
 			'<td class="wc-optic-child-list__price">' +
-			escapeHtml( row.price || '' ) +
+			( row.priceHtml || escapeHtml( row.price || '' ) ) +
 			'</td>' +
 			'<td class="wc-optic-child-list__stock">' +
 			escapeHtml( row.stock || '' ) +

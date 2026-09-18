@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-18 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.8.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.8.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -19,7 +19,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 2. **Stock scalable** : Management = parents only + AJAX paginé ; Alerts = DataTables server-side + QR page visible ; badge = `COUNT(is_low_stock)`.
 3. **WPML** : sync copie SQL children (`copy_product_children`) ; meta blob uniquement en fallback pré-migration.
 4. **Cart / restock** : deltas stock unitaire via `upsert_child` (pas de rewrite 5k rows).
-5. **Version** — bump **1.8.0**.
+5. **Sale price (v1.8.1)** : Regular + Sale sur wizard Convert / éditeur interne ; affichage barré storefront + panier ; facturation = prix actif.
+6. **Version** — bump **1.8.1**.
 
 ### Session 2026-09-15 (précédente)
 
@@ -476,6 +477,16 @@ WC_Optic_Converter::convert_product() / preview()
 - **WPML** : sync ne copie plus le blob ; `copy_product_children` + `_optic_child_count`.
 
 **Fichiers :** `class-wc-optic-database.php`, `class-wc-optic-children.php`, `class-wc-optic-sku.php`, `class-wc-optic-stock.php`, `class-wc-optic-ajax.php`, `class-wc-optic-admin-stock.php`, `class-wc-optic-wpml.php`, `admin-stock.js`, `admin.css` ; version **1.8.0**.
+
+### 2.28 Sale price internes (session 2026-09-18)
+
+- Clé config `sale_price` (optionnelle) ; `unit_price` = regular.
+- Helpers : `get_child_regular_price`, `get_child_sale_price`, `child_is_on_sale`, `get_child_unit_price` (= actif), `format_child_price_html`.
+- Admin : Regular + Sale dans éditeur interne + wizard Convert / Specifics / Rebuild.
+- Storefront matrix expose `price` / `regularPrice` / `salePrice` / `priceHtml` ; JS affiche le barré.
+- Panier : `format_eye_price_html` ; payload conserve `regular_price` + `sale_price`.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-pricing.php`, `class-wc-optic-converter.php`, `class-wc-optic-cart.php`, `admin-product.php`, `admin-convert.php`, `admin-product.js`, `admin-convert.js`, `frontend.js` ; version **1.8.1**.
 
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 

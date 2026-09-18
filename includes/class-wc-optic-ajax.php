@@ -170,6 +170,7 @@ class WC_Optic_Ajax {
 			'ranges'      => $ranges,
 			'template_id' => isset( $_POST['template_id'] ) ? sanitize_key( wp_unslash( $_POST['template_id'] ) ) : '',
 			'unit_price'  => isset( $_POST['unit_price'] ) ? wc_format_decimal( wp_unslash( $_POST['unit_price'] ) ) : '',
+			'sale_price'  => isset( $_POST['sale_price'] ) ? wc_format_decimal( wp_unslash( $_POST['sale_price'] ) ) : '',
 			'stock_qty'   => isset( $_POST['stock_qty'] ) ? absint( wp_unslash( $_POST['stock_qty'] ) ) : 0,
 			'mode'        => self::posted_convert_mode(),
 		);

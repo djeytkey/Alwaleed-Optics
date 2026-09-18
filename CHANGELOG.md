@@ -4,6 +4,14 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.8.1] — 2026-09-18
+
+### Ajouté
+
+- **Sale price** sur les internes : champ optionnel Regular / Sale (wizard Convert + éditeur fiche produit).
+- Affichage storefront / panier avec barré WooCommerce (`wc_format_sale_price`) quand sale < regular.
+- Le prix facturé reste le prix actif (sale si défini).
+
 ## [1.8.0] — 2026-09-18
 
 ### Ajouté

@@ -272,7 +272,7 @@ class WC_Optic_Stock {
 			'backorder_custom'   => ! empty( $config['backorder_custom'] ),
 			'alert_custom'       => ! empty( $config['alert_custom'] ),
 			'price'              => $unit_price,
-			'price_html'         => wc_price( $unit_price ),
+			'price_html'         => WC_Optic_SKU::format_child_price_html( $config ),
 			'is_low'             => self::child_is_low_stock( $config ),
 			'alert_threshold'    => self::get_child_alert_qty( $config ),
 		);

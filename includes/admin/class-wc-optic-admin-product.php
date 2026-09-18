@@ -570,9 +570,20 @@ class WC_Optic_Admin_Product {
 		self::render_child_text_input(
 			$pf . '[unit_price]',
 			'wc_optic_child_' . $index_token . '_unit_price',
-			__( 'Unit price', 'wc-optic' ),
+			__( 'Regular price', 'wc-optic' ),
 			(string) ( $config['unit_price'] ?? '' ),
 			'wc-optic-child-unit-price wc_input_price',
+			'text',
+			array(),
+			true
+		);
+
+		self::render_child_text_input(
+			$pf . '[sale_price]',
+			'wc_optic_child_' . $index_token . '_sale_price',
+			__( 'Sale price', 'wc-optic' ),
+			(string) ( $config['sale_price'] ?? '' ),
+			'wc-optic-child-sale-price wc_input_price',
 			'text',
 			array(),
 			true

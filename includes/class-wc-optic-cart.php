@@ -866,7 +866,7 @@ class WC_Optic_Cart {
 		if ( $data['unit_price'] > 0 ) {
 			echo '<div class="wc-optic-line-summary__meta-row">';
 			echo '<span class="wc-optic-line-summary__meta-label">' . esc_html__( 'Unit price', 'wc-optic' ) . '</span>';
-			echo '<span class="wc-optic-line-summary__meta-value">' . wp_kses_post( wc_price( $data['unit_price'] ) ) . '</span>';
+			echo '<span class="wc-optic-line-summary__meta-value">' . wp_kses_post( self::format_eye_price_html( $eye ) ) . '</span>';
 			echo '</div>';
 		}
 
@@ -930,21 +930,44 @@ class WC_Optic_Cart {
 			return $price_html;
 		}
 
-		$o           = $cart_item[ self::CART_KEY ];
-		$qty_mode    = self::get_effective_qty_mode( $o );
-		$left_price  = isset( $o['left']['unit_price'] ) ? (float) wc_format_decimal( $o['left']['unit_price'] ) : 0.0;
-		$right_price = isset( $o['right']['unit_price'] ) ? (float) wc_format_decimal( $o['right']['unit_price'] ) : 0.0;
+		$o        = $cart_item[ self::CART_KEY ];
+		$qty_mode = self::get_effective_qty_mode( $o );
 
 		if ( 'dual' !== $qty_mode ) {
-			return $left_price > 0 ? wc_price( $left_price ) : $price_html;
+			$html = self::format_eye_price_html( $o['left'] ?? array() );
+			return $html ? $html : $price_html;
 		}
 
 		$out = '<div class="wc-optic-cart-eye-prices">';
-		$out .= '<span class="wc-optic-cart-eye-price"><span class="wc-optic-ltr" dir="ltr">' . esc_html__( 'OD', 'wc-optic' ) . '</span>: ' . wp_kses_post( wc_price( $right_price ) ) . '</span>';
-		$out .= '<span class="wc-optic-cart-eye-price"><span class="wc-optic-ltr" dir="ltr">' . esc_html__( 'OS', 'wc-optic' ) . '</span>: ' . wp_kses_post( wc_price( $left_price ) ) . '</span>';
+		$out .= '<span class="wc-optic-cart-eye-price"><span class="wc-optic-ltr" dir="ltr">' . esc_html__( 'OD', 'wc-optic' ) . '</span>: ' . wp_kses_post( self::format_eye_price_html( $o['right'] ?? array() ) ) . '</span>';
+		$out .= '<span class="wc-optic-cart-eye-price"><span class="wc-optic-ltr" dir="ltr">' . esc_html__( 'OS', 'wc-optic' ) . '</span>: ' . wp_kses_post( self::format_eye_price_html( $o['left'] ?? array() ) ) . '</span>';
 		$out .= '</div>';
 
 		return $out;
+	}
+
+	/**
+	 * Price HTML for one eye payload (sale strikethrough when applicable).
+	 *
+	 * @param array $eye Eye payload.
+	 * @return string
+	 */
+	public static function format_eye_price_html( array $eye ) {
+		$active  = isset( $eye['unit_price'] ) ? (float) wc_format_decimal( $eye['unit_price'] ) : 0.0;
+		$regular = isset( $eye['regular_price'] ) ? (float) wc_format_decimal( $eye['regular_price'] ) : $active;
+		$sale    = isset( $eye['sale_price'] ) && '' !== $eye['sale_price'] && null !== $eye['sale_price']
+			? (float) wc_format_decimal( $eye['sale_price'] )
+			: null;
+
+		if ( $active <= 0 && $regular <= 0 ) {
+			return '';
+		}
+
+		if ( null !== $sale && $regular > 0 && $sale < $regular ) {
+			return wc_format_sale_price( $regular, $sale );
+		}
+
+		return wc_price( $active > 0 ? $active : $regular );
 	}
 
 	/**

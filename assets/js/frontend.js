@@ -60,6 +60,34 @@
 		return format.replace( '%1$s', wcOpticFront.currencySymbol || '' ).replace( '%2$s', formatted );
 	}
 
+	function formatSalePriceHtml( regular, sale ) {
+		var reg = parseFloat( regular );
+		var sal = parseFloat( sale );
+		if ( isNaN( reg ) || reg <= 0 ) {
+			return '';
+		}
+		if ( ! isNaN( sal ) && sal >= 0 && sal < reg ) {
+			return (
+				'<del aria-hidden="true">' +
+				formatPrice( reg ) +
+				'</del> <ins>' +
+				formatPrice( sal ) +
+				'</ins>'
+			);
+		}
+		return formatPrice( reg );
+	}
+
+	function formatChildPriceHtml( child ) {
+		if ( ! child ) {
+			return '';
+		}
+		if ( child.priceHtml ) {
+			return child.priceHtml;
+		}
+		return formatSalePriceHtml( child.regularPrice || child.price, child.salePrice );
+	}
+
 	function getEyeContainer( eye ) {
 		return $( '.wc-optic-eye[data-eye="' + eye + '"]' );
 	}
@@ -240,7 +268,7 @@
 	function getEyeResolvedData( eye ) {
 		var child = syncResolvedChildField( eye );
 		if ( ! child ) {
-			return { price: 0, stock: null, inStock: false };
+			return { price: 0, regularPrice: 0, salePrice: null, priceHtml: '', stock: null, inStock: false };
 		}
 		var stock = child.stock;
 		if ( stock === '' || typeof stock === 'undefined' ) {
@@ -251,8 +279,18 @@
 				stock = null;
 			}
 		}
+		var sale =
+			child.salePrice === null || typeof child.salePrice === 'undefined' || child.salePrice === ''
+				? null
+				: parseFloat( child.salePrice );
+		if ( sale !== null && isNaN( sale ) ) {
+			sale = null;
+		}
 		return {
 			price: parseFloat( child.price ) || 0,
+			regularPrice: parseFloat( child.regularPrice ) || parseFloat( child.price ) || 0,
+			salePrice: sale,
+			priceHtml: formatChildPriceHtml( child ),
 			stock: stock,
 			inStock: childHasStock( child ),
 		};
@@ -440,7 +478,11 @@
 			if ( $label.length ) {
 				$label.text( getI18n( 'selectedPrice', 'Selected price' ) + ':' );
 			}
-			$unitDisplay.text( formatPrice( pricing.displayPrice ) );
+			if ( pricing.displayHtml ) {
+				$unitDisplay.html( pricing.displayHtml );
+			} else {
+				$unitDisplay.text( formatPrice( pricing.displayPrice ) );
+			}
 			if ( $totalRow.length ) {
 				$totalRow.prop( 'hidden', false );
 				$totalDisplay.text( formatPrice( pricing.total ) );
@@ -473,30 +515,44 @@
 		var samePowers = eyesHaveSameSelection();
 		var same = ! different || samePowers;
 		var perEye = different && ! samePowers;
-		var leftPrice = getEyeFieldPrice( 'left' );
-		var rightPrice = same ? leftPrice : getEyeFieldPrice( 'right' );
+		var leftData = getEyeResolvedData( 'left' );
+		var rightData = same ? leftData : getEyeResolvedData( 'right' );
+		var leftPrice = leftData.price;
+		var rightPrice = rightData.price;
 		var qty = Math.max( 1, parseInt( $( '#wc_optic_qty' ).val(), 10 ) || 1 );
 		var qtyLeft = Math.max( 1, parseInt( $( '#wc_optic_qty_left' ).val(), 10 ) || 1 );
 		var qtyRight = Math.max( 1, parseInt( $( '#wc_optic_qty_right' ).val(), 10 ) || 1 );
 		var displayPrice = 0;
 		var total = 0;
+		var displayHtml = '';
 
 		if ( perEye ) {
-			total = ( leftPrice * qtyLeft ) + ( rightPrice * qtyRight );
+			total = leftPrice * qtyLeft + rightPrice * qtyRight;
 			displayPrice = leftPrice + rightPrice;
+			displayHtml =
+				leftData.priceHtml +
+				' + ' +
+				rightData.priceHtml;
 		} else if ( different && samePowers ) {
 			total = leftPrice * ( qtyLeft + qtyRight );
 			displayPrice = leftPrice;
+			displayHtml = leftData.priceHtml;
 		} else if ( same ) {
 			total = leftPrice * qty;
 			displayPrice = leftPrice;
+			displayHtml = leftData.priceHtml;
 		} else {
 			total = ( leftPrice + rightPrice ) * qty;
 			displayPrice = leftPrice + rightPrice;
+			displayHtml =
+				leftData.priceHtml +
+				' + ' +
+				rightData.priceHtml;
 		}
 
 		return {
 			displayPrice: displayPrice,
+			displayHtml: displayHtml,
 			total: total,
 		};
 	}
