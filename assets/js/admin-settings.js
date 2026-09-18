@@ -134,20 +134,66 @@
 	function buildEmptyRow() {
 		var suffix = newRowSuffix();
 		var pf = 'wc_optic_row[' + suffix + ']';
+		var isColor = !!( wcOpticAdmin && wcOpticAdmin.isColorTab );
+		var imageCell = '';
+		if ( isColor ) {
+			imageCell =
+				'<td class="wc-optic-catalog-image-cell">' +
+				'<div class="wc-optic-catalog-image" data-has-image="0">' +
+				'<input type="hidden" class="wc-optic-catalog-image-id" name="' +
+				pf +
+				'[image_id]" value="0" />' +
+				'<span class="wc-optic-catalog-image-preview" hidden></span>' +
+				'<button type="button" class="button wc-optic-catalog-image-select">' +
+				( wcOpticAdmin.i18n.selectImage || 'Select image' ) +
+				'</button> ' +
+				'<button type="button" class="button-link wc-optic-catalog-image-remove" hidden>' +
+				( wcOpticAdmin.i18n.removeImage || 'Remove' ) +
+				'</button>' +
+				'</div></td>';
+		}
 		var html =
-			'<tr class="wc-optic-new-row">' +
+			'<tr class="wc-optic-new-row' +
+			( isColor ? ' wc-optic-catalog-color-row' : '' ) +
+			'">' +
 			'<td><input type="text" name="' +
 			pf +
 			'[name]" value="" class="regular-text wc-optic-catalog-name" autocomplete="off" required /></td>' +
 			'<td><input type="text" name="' +
 			pf +
 			'[sku_fragment]" value="" class="regular-text wc-optic-catalog-fragment" autocomplete="off" required /></td>' +
+			imageCell +
 			'<td><input type="number" name="' +
 			pf +
 			'[sort_order]" value="0" class="small-text" /></td>' +
 			'<td></td>' +
 			'</tr>';
 		return $( html );
+	}
+
+	/**
+	 * Sync preview / buttons for a catalog image cell.
+	 *
+	 * @param {jQuery} $wrap Image wrap.
+	 * @param {number} id Attachment id.
+	 * @param {string} url Thumbnail url.
+	 */
+	function setCatalogImage( $wrap, id, url ) {
+		var $preview = $wrap.find( '.wc-optic-catalog-image-preview' );
+		var $select = $wrap.find( '.wc-optic-catalog-image-select' );
+		var $remove = $wrap.find( '.wc-optic-catalog-image-remove' );
+		$wrap.find( '.wc-optic-catalog-image-id' ).val( id || 0 );
+		if ( id && url ) {
+			$wrap.attr( 'data-has-image', '1' );
+			$preview.html( '<img src="' + url + '" alt="" />' ).prop( 'hidden', false );
+			$select.text( wcOpticAdmin.i18n.changeImage || 'Change image' );
+			$remove.prop( 'hidden', false );
+		} else {
+			$wrap.attr( 'data-has-image', '0' );
+			$preview.empty().prop( 'hidden', true );
+			$select.text( wcOpticAdmin.i18n.selectImage || 'Select image' );
+			$remove.prop( 'hidden', true );
+		}
 	}
 
 	/**
@@ -256,6 +302,34 @@
 		} );
 
 		updateHiddenDivisionsSection();
+
+		$( document ).on( 'click', '.wc-optic-catalog-image-select', function ( e ) {
+			e.preventDefault();
+			var $wrap = $( this ).closest( '.wc-optic-catalog-image' );
+			if ( typeof wp === 'undefined' || ! wp.media ) {
+				return;
+			}
+			var frame = wp.media( {
+				title: wcOpticAdmin.i18n.imageTitle || 'Choose color swatch image',
+				button: { text: wcOpticAdmin.i18n.imageButton || 'Use this image' },
+				multiple: false,
+				library: { type: 'image' },
+			} );
+			frame.on( 'select', function () {
+				var attachment = frame.state().get( 'selection' ).first().toJSON();
+				var url =
+					attachment.sizes && attachment.sizes.thumbnail
+						? attachment.sizes.thumbnail.url
+						: attachment.url;
+				setCatalogImage( $wrap, attachment.id, url );
+			} );
+			frame.open();
+		} );
+
+		$( document ).on( 'click', '.wc-optic-catalog-image-remove', function ( e ) {
+			e.preventDefault();
+			setCatalogImage( $( this ).closest( '.wc-optic-catalog-image' ), 0, '' );
+		} );
 
 		$( document ).on( 'click', '.wc-optic-delete-row', function ( e ) {
 			e.preventDefault();

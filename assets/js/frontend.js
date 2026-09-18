@@ -24,8 +24,38 @@
 	}
 
 	function supportsNoPowerMode() {
+		if ( hasColorSwatches() ) {
+			var child = getNoPowerChildForColor( getSelectedColorId() );
+			return !!( child && childHasStock( child ) );
+		}
 		var matrix = getMatrix();
 		return matrix.supportsNoPowerMode === true;
+	}
+
+	function hasColorSwatches() {
+		var matrix = getMatrix();
+		return matrix.showColorSwatches === true && ( matrix.colors || [] ).length >= 2;
+	}
+
+	function getSelectedColorId() {
+		if ( ! hasColorSwatches() ) {
+			return '';
+		}
+		var $sel = $( '.wc-optic-color-swatch.is-selected' );
+		if ( $sel.length ) {
+			return String( $sel.data( 'color' ) || '' );
+		}
+		var first = ( getMatrix().colors || [] )[ 0 ];
+		return first ? String( first.id ) : '';
+	}
+
+	function getNoPowerChildForColor( colorId ) {
+		var matrix = getMatrix();
+		if ( hasColorSwatches() ) {
+			var map = matrix.noPowerByColor || {};
+			return colorId && map[ String( colorId ) ] ? map[ String( colorId ) ] : null;
+		}
+		return matrix.noPowerChild || null;
 	}
 
 	function isNoPowerMode() {
@@ -37,8 +67,7 @@
 	}
 
 	function getNoPowerChild() {
-		var matrix = getMatrix();
-		return matrix.noPowerChild || null;
+		return getNoPowerChildForColor( getSelectedColorId() );
 	}
 
 	function formatPrice( amount ) {
@@ -114,7 +143,11 @@
 	}
 
 	function childrenMatching( partial ) {
+		var colorId = getSelectedColorId();
 		return getMatrix().children.filter( function ( child ) {
+			if ( colorId && String( child.color || 0 ) !== String( colorId ) ) {
+				return false;
+			}
 			for ( var key in partial ) {
 				if ( ! Object.prototype.hasOwnProperty.call( partial, key ) ) {
 					continue;
@@ -426,6 +459,8 @@
 		var $singleQty = $( '.wc-optic-qty--single' );
 		var $dualQty = $( '.wc-optic-qty--dual' );
 
+		syncNoPowerTabAvailability();
+
 		if ( noPower ) {
 			$prescription.prop( 'hidden', true );
 			$differentToggle.prop( 'hidden', true );
@@ -437,8 +472,11 @@
 			syncNoPowerChildFields();
 		} else {
 			$prescription.prop( 'hidden', false );
-			if ( $differentToggle.length && ( getMatrix().children || [] ).length > 1 ) {
+			if ( $differentToggle.length && childrenMatching( {} ).length > 1 ) {
 				$differentToggle.prop( 'hidden', false );
+			} else if ( $differentToggle.length ) {
+				$differentToggle.prop( 'hidden', true );
+				$( '#wc_optic_different_power' ).prop( 'checked', false );
 			}
 			$( '.wc-optic-eye--left select.wc-optic-power-dropdown' ).prop( 'required', true );
 			initEyeCascade( 'left' );
@@ -452,6 +490,60 @@
 		updatePriceDisplay();
 	}
 
+	function syncNoPowerTabAvailability() {
+		var $noPowerInput = $( '#wc_optic_tab_no_power' );
+		var $noPowerLabel = $( 'label[for="wc_optic_tab_no_power"]' );
+		if ( ! $noPowerInput.length ) {
+			return;
+		}
+		var available = false;
+		if ( hasColorSwatches() ) {
+			var child = getNoPowerChildForColor( getSelectedColorId() );
+			available = !!( child && childHasStock( child ) );
+		} else {
+			available = getMatrix().supportsNoPowerMode === true;
+		}
+		$noPowerInput.prop( 'disabled', ! available );
+		$noPowerLabel.toggleClass( 'wc-optic-power-mode__tab--disabled', ! available );
+		if ( ! available && $noPowerInput.is( ':checked' ) ) {
+			$( '#wc_optic_tab_power' ).prop( 'checked', true );
+		}
+	}
+
+	function syncColorSelectedLabel() {
+		var $label = $( '.wc-optic-color-selected-label' );
+		if ( ! $label.length ) {
+			return;
+		}
+		var $sel = $( '.wc-optic-color-swatch.is-selected' );
+		$label.text( $sel.length ? String( $sel.attr( 'aria-label' ) || $sel.attr( 'title' ) || '' ) : '' );
+	}
+
+	function onColorSwatchSelect( $btn ) {
+		if ( ! $btn || ! $btn.length ) {
+			return;
+		}
+		$( '.wc-optic-color-swatch' )
+			.removeClass( 'is-selected' )
+			.attr( 'aria-checked', 'false' );
+		$btn.addClass( 'is-selected' ).attr( 'aria-checked', 'true' );
+		syncColorSelectedLabel();
+		syncNoPowerTabAvailability();
+		if ( ! supportsNoPowerMode() ) {
+			$( '#wc_optic_tab_power' ).prop( 'checked', true );
+		}
+		if ( supportsNoPowerMode() || $( 'input[name="wc_optic_power_mode"]' ).length ) {
+			togglePowerMode();
+		} else {
+			initEyeCascade( 'left' );
+			toggleSamePower();
+			syncQuantityStockLimits();
+			syncLineQuantity();
+			updateAddToCartState();
+			updatePriceDisplay();
+		}
+	}
+
 	function getDefaultPriceHtml() {
 		if ( typeof wcOpticFront === 'undefined' ) {
 			return '';
@@ -463,7 +555,10 @@
 				return formatChildPriceHtml( noPower );
 			}
 		}
-		var children = matrix.children || [];
+		var children = childrenMatching( {} );
+		if ( ! children.length ) {
+			children = matrix.children || [];
+		}
 		var best = null;
 		var bestPrice = 0;
 		for ( var i = 0; i < children.length; i++ ) {
@@ -726,7 +821,11 @@
 		}
 
 		initPowerDropdowns( $form );
-		if ( supportsNoPowerMode() ) {
+		if ( hasColorSwatches() ) {
+			syncColorSelectedLabel();
+			syncNoPowerTabAvailability();
+		}
+		if ( supportsNoPowerMode() || $( 'input[name="wc_optic_power_mode"]' ).length ) {
 			togglePowerMode();
 		} else {
 			initEyeCascade( 'left' );
@@ -740,6 +839,11 @@
 		$( 'input[name="wc_optic_power_mode"]' ).on( 'change', togglePowerMode );
 		$( '#wc_optic_different_power' ).on( 'change', toggleSamePower );
 		$( '#wc_optic_qty, #wc_optic_qty_left, #wc_optic_qty_right' ).on( 'change input', syncLineQuantity );
+
+		$form.on( 'click', '.wc-optic-color-swatch', function ( e ) {
+			e.preventDefault();
+			onColorSwatchSelect( $( this ) );
+		} );
 
 		$form.on( 'change', 'select.wc-optic-power-dropdown', function () {
 			var $select = $( this );

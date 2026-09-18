@@ -122,9 +122,10 @@ class WC_Optic_Catalog {
 	 * @param string $slug Slug.
 	 * @param string $sku_fragment SKU fragment.
 	 * @param int    $sort_order Order.
+	 * @param int    $image_id Attachment id (used for colors).
 	 * @return int|false Insert id or false on duplicate/error.
 	 */
-	public static function insert( $term_type, $name, $slug, $sku_fragment = '', $sort_order = 0 ) {
+	public static function insert( $term_type, $name, $slug, $sku_fragment = '', $sort_order = 0, $image_id = 0 ) {
 		global $wpdb;
 		$table = WC_Optic_Database::table_catalog();
 		$slug  = self::sanitize_slug( $slug ? $slug : $name );
@@ -137,9 +138,10 @@ class WC_Optic_Catalog {
 				'name'         => $name,
 				'sku_fragment' => $sku_fragment,
 				'sort_order'   => (int) $sort_order,
+				'image_id'     => absint( $image_id ),
 				'created_at'   => current_time( 'mysql' ),
 			),
-			array( '%s', '%s', '%s', '%s', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
 		);
 		if ( ! $res ) {
 			return false;

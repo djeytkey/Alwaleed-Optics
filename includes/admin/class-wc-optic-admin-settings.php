@@ -31,6 +31,7 @@ class WC_Optic_Admin_Settings {
 		wp_enqueue_style( 'dashicons' );
 		wp_enqueue_script( 'selectWoo' );
 		wp_enqueue_style( 'woocommerce_admin_styles' );
+		wp_enqueue_media();
 		wp_enqueue_script(
 			'wc-optic-admin-settings',
 			WC_OPTIC_PLUGIN_URL . 'assets/js/admin-settings.js',
@@ -54,7 +55,13 @@ class WC_Optic_Admin_Settings {
 					'hideDivisionLabel'   => __( 'Hide division', 'wc-optic' ),
 					'divisionPowerRequired' => __( 'Select at least one power for each division.', 'wc-optic' ),
 					'showColorSelector'   => __( 'Show color selector', 'wc-optic' ),
+					'selectImage'         => __( 'Select image', 'wc-optic' ),
+					'changeImage'         => __( 'Change image', 'wc-optic' ),
+					'removeImage'         => __( 'Remove', 'wc-optic' ),
+					'imageTitle'          => __( 'Choose color swatch image', 'wc-optic' ),
+					'imageButton'         => __( 'Use this image', 'wc-optic' ),
 				),
+				'isColorTab' => ( 'color' === ( isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '' ) ), // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				'divisionPowers' => WC_Optic_Divisions::get_available_powers(),
 				'divisionPowerLabels' => array_map(
 					function ( $power ) {
@@ -128,9 +135,15 @@ class WC_Optic_Admin_Settings {
 
 		$rows = WC_Optic_Catalog::get_terms( $active );
 		echo '<p class="description">' . esc_html__( 'Enter a display name and the SKU fragment used when building product SKUs. Both fields are required for each row you save.', 'wc-optic' ) . '</p>';
+		if ( 'color' === $active ) {
+			echo '<p class="description">' . esc_html__( 'Optional swatch image: shown as a round preview on multi-color product pages.', 'wc-optic' ) . '</p>';
+		}
 		echo '<table class="widefat striped wc-optic-settings-table"><thead><tr>';
 		echo '<th>' . esc_html__( 'Name', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'SKU fragment', 'wc-optic' ) . '</th>';
+		if ( 'color' === $active ) {
+			echo '<th>' . esc_html__( 'Swatch image', 'wc-optic' ) . '</th>';
+		}
 		echo '<th>' . esc_html__( 'Sort', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Actions', 'wc-optic' ) . '</th>';
 		echo '</tr></thead><tbody>';
@@ -648,10 +661,26 @@ class WC_Optic_Admin_Settings {
 	protected static function render_row( $type, $row, $suffix ) {
 		$id = $row ? (int) $row->id : 0;
 		$pf = 'wc_optic_row[' . $suffix . ']';
-		echo '<tr>';
+		echo '<tr' . ( 'color' === $type ? ' class="wc-optic-catalog-color-row"' : '' ) . '>';
 		$frag_val = $row && isset( $row->sku_fragment ) ? (string) $row->sku_fragment : '';
 		echo '<td><input type="text" name="' . esc_attr( $pf ) . '[name]" value="' . esc_attr( $row ? $row->name : '' ) . '" class="regular-text wc-optic-catalog-name" autocomplete="off" required /></td>';
 		echo '<td><input type="text" name="' . esc_attr( $pf ) . '[sku_fragment]" value="' . esc_attr( $frag_val ) . '" class="regular-text wc-optic-catalog-fragment" autocomplete="off" required /></td>';
+		if ( 'color' === $type ) {
+			$image_id  = $row && isset( $row->image_id ) ? absint( $row->image_id ) : 0;
+			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+			echo '<td class="wc-optic-catalog-image-cell">';
+			echo '<div class="wc-optic-catalog-image" data-has-image="' . ( $image_url ? '1' : '0' ) . '">';
+			echo '<input type="hidden" class="wc-optic-catalog-image-id" name="' . esc_attr( $pf ) . '[image_id]" value="' . esc_attr( (string) $image_id ) . '" />';
+			echo '<span class="wc-optic-catalog-image-preview"' . ( $image_url ? '' : ' hidden' ) . '>';
+			if ( $image_url ) {
+				echo '<img src="' . esc_url( $image_url ) . '" alt="" />';
+			}
+			echo '</span>';
+			echo '<button type="button" class="button wc-optic-catalog-image-select">' . esc_html( $image_url ? __( 'Change image', 'wc-optic' ) : __( 'Select image', 'wc-optic' ) ) . '</button> ';
+			echo '<button type="button" class="button-link wc-optic-catalog-image-remove"' . ( $image_url ? '' : ' hidden' ) . '>' . esc_html__( 'Remove', 'wc-optic' ) . '</button>';
+			echo '</div>';
+			echo '</td>';
+		}
 		echo '<td><input type="number" name="' . esc_attr( $pf ) . '[sort_order]" value="' . esc_attr( $row ? (int) $row->sort_order : 0 ) . '" class="small-text" /></td>';
 		echo '<td>';
 		if ( $id ) {
@@ -696,6 +725,7 @@ class WC_Optic_Admin_Settings {
 			$frag = isset( $data['sku_fragment'] ) ? WC_Optic_Catalog::sanitize_sku_fragment( $data['sku_fragment'] ) : '';
 			$sort = isset( $data['sort_order'] ) ? (int) $data['sort_order'] : 0;
 			$id   = isset( $data['id'] ) ? (int) $data['id'] : 0;
+			$image_id = ( 'color' === $active && isset( $data['image_id'] ) ) ? absint( $data['image_id'] ) : 0;
 
 			if ( '' === trim( $name ) && '' === $frag ) {
 				continue;
@@ -717,21 +747,22 @@ class WC_Optic_Admin_Settings {
 				if ( $other && (int) $other->id !== $id ) {
 					$slug = WC_Optic_Catalog::sanitize_slug( $name ) . '-' . $id;
 				}
-				WC_Optic_Catalog::update(
-					$id,
-					array(
-						'name'           => $name,
-						'slug'           => $slug,
-						'sku_fragment'   => $frag,
-						'sort_order'     => $sort,
-					)
+				$update = array(
+					'name'         => $name,
+					'slug'         => $slug,
+					'sku_fragment' => $frag,
+					'sort_order'   => $sort,
 				);
+				if ( 'color' === $active ) {
+					$update['image_id'] = $image_id;
+				}
+				WC_Optic_Catalog::update( $id, $update );
 			} else {
 				if ( WC_Optic_Catalog::get_by_slug( $active, $slug ) ) {
 					++$skipped_duplicate;
 					continue;
 				}
-				WC_Optic_Catalog::insert( $active, $name, $slug, $frag, $sort );
+				WC_Optic_Catalog::insert( $active, $name, $slug, $frag, $sort, $image_id );
 			}
 		}
 

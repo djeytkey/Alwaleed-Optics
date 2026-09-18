@@ -17,7 +17,7 @@ class WC_Optic_Database {
 	const TABLE_CHILDREN     = 'wc_optic_children';
 
 	/** @var int Bump when adding DB tables or columns; see maybe_upgrade_schema(). */
-	const SCHEMA_VERSION = 4;
+	const SCHEMA_VERSION = 5;
 
 	/**
 	 * Create tables on activation.
@@ -37,6 +37,7 @@ class WC_Optic_Database {
 			name varchar(255) NOT NULL,
 			sku_fragment varchar(64) NOT NULL DEFAULT '',
 			sort_order int(11) NOT NULL DEFAULT 0,
+			image_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY type_slug (term_type, slug),
@@ -150,11 +151,29 @@ class WC_Optic_Database {
 		if ( $v < 4 ) {
 			self::create_children_table();
 		}
+		if ( $v < 5 ) {
+			self::migrate_catalog_image_id();
+		}
 		update_option( 'wc_optic_db_schema', self::SCHEMA_VERSION );
 
 		if ( class_exists( 'WC_Optic_Children' ) ) {
 			WC_Optic_Children::maybe_migrate_from_meta();
 		}
+	}
+
+	/**
+	 * Add image_id column to catalog table (swatches for colors).
+	 */
+	public static function migrate_catalog_image_id() {
+		global $wpdb;
+		$table = self::table_catalog();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$col = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", 'image_id' ) );
+		if ( ! empty( $col ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN image_id bigint(20) unsigned NOT NULL DEFAULT 0 AFTER sort_order" );
 	}
 
 	/**

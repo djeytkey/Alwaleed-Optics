@@ -481,13 +481,19 @@ class WC_Optic_SKU {
 			return '';
 		}
 		if ( self::config_has_zero_sph( $config ) ) {
-			return 'nopower|' . (string) (int) ( $config['powers']['sph'] ?? 0 );
+			$key = 'nopower|' . (string) (int) ( $config['powers']['sph'] ?? 0 );
+		} else {
+			$parts = array();
+			foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
+				$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
+			}
+			$key = implode( '|', $parts );
 		}
-		$parts = array();
-		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
-			$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
+		// Multi-color parents: same SPH (etc.) may exist once per color.
+		if ( WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$key .= '|c:' . (string) (int) ( $config['catalog']['color'] ?? 0 );
 		}
-		return implode( '|', $parts );
+		return $key;
 	}
 
 	/**
@@ -933,11 +939,14 @@ class WC_Optic_SKU {
 	 * @return array<string, mixed>
 	 */
 	public static function get_storefront_matrix( WC_Product $product ) {
-		$division = (string) $product->get_meta( '_optic_division', true );
-		$powers   = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
-		$children = array();
-		$term_ids = array();
-		$no_power_child = null;
+		$division   = (string) $product->get_meta( '_optic_division', true );
+		$powers     = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
+		$show_color = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$children   = array();
+		$term_ids   = array();
+		$color_ids  = array();
+		$no_power_child     = null;
+		$no_power_by_color  = array();
 
 		foreach ( $powers as $power ) {
 			$term_ids[ $power ] = array();
@@ -950,20 +959,32 @@ class WC_Optic_SKU {
 
 			$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
 			$in_stock  = null === $remaining || $remaining > 0;
+			$color_id  = $show_color ? (int) ( $config['catalog']['color'] ?? 0 ) : 0;
+			if ( $color_id > 0 ) {
+				$color_ids[ $color_id ] = true;
+			}
+
 			$child_row = array(
-				'id'            => (string) ( $config['id'] ?? '' ),
-				'price'         => self::get_child_unit_price( $config ),
-				'regularPrice'  => self::get_child_regular_price( $config ),
-				'salePrice'     => self::get_child_sale_price( $config ),
-				'priceHtml'     => self::format_child_price_html( $config ),
-				'stock'         => $remaining,
-				'inStock'       => $in_stock,
+				'id'           => (string) ( $config['id'] ?? '' ),
+				'price'        => self::get_child_unit_price( $config ),
+				'regularPrice' => self::get_child_regular_price( $config ),
+				'salePrice'    => self::get_child_sale_price( $config ),
+				'priceHtml'    => self::format_child_price_html( $config ),
+				'stock'        => $remaining,
+				'inStock'      => $in_stock,
+				'color'        => $color_id,
 			);
 
 			if ( self::config_has_zero_sph( $config ) ) {
 				// Never include plano in the powered prescription cascade.
 				if ( null === $no_power_child || ( $in_stock && empty( $no_power_child['inStock'] ) ) ) {
 					$no_power_child = $child_row;
+				}
+				if ( $color_id > 0 ) {
+					$prev = $no_power_by_color[ (string) $color_id ] ?? null;
+					if ( null === $prev || ( $in_stock && empty( $prev['inStock'] ) ) ) {
+						$no_power_by_color[ (string) $color_id ] = $child_row;
+					}
 				}
 				continue;
 			}
@@ -996,10 +1017,59 @@ class WC_Optic_SKU {
 			}
 		}
 
+		$colors = array();
+		if ( ! empty( $color_ids ) ) {
+			$color_rows = array();
+			foreach ( array_keys( $color_ids ) as $cid ) {
+				$row = WC_Optic_Catalog::get_valid_term( (int) $cid, 'color' );
+				if ( ! $row ) {
+					continue;
+				}
+				$color_rows[] = $row;
+			}
+			usort(
+				$color_rows,
+				static function ( $a, $b ) {
+					$sa = isset( $a->sort_order ) ? (int) $a->sort_order : 0;
+					$sb = isset( $b->sort_order ) ? (int) $b->sort_order : 0;
+					if ( $sa === $sb ) {
+						return strcasecmp( (string) $a->name, (string) $b->name );
+					}
+					return $sa <=> $sb;
+				}
+			);
+			foreach ( $color_rows as $row ) {
+				$image_id  = isset( $row->image_id ) ? absint( $row->image_id ) : 0;
+				$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+				$colors[]  = array(
+					'id'       => (string) (int) $row->id,
+					'name'     => WC_Optic_Catalog::get_display_name( $row ),
+					'imageId'  => $image_id,
+					'imageUrl' => $image_url ? (string) $image_url : '',
+				);
+			}
+		}
+
+		$show_swatches = count( $colors ) >= 2;
+		$supports_no_power = false;
+		if ( $show_swatches ) {
+			foreach ( $no_power_by_color as $np ) {
+				if ( ! empty( $np['inStock'] ) ) {
+					$supports_no_power = true;
+					break;
+				}
+			}
+		} else {
+			$supports_no_power = ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] );
+		}
+
 		return array(
 			'division'            => $division,
-			'supportsNoPowerMode' => ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] ),
+			'supportsNoPowerMode' => $supports_no_power,
 			'noPowerChild'        => $no_power_child,
+			'noPowerByColor'      => $show_swatches ? $no_power_by_color : new \stdClass(),
+			'showColorSwatches'   => $show_swatches,
+			'colors'              => $show_swatches ? $colors : array(),
 			'powers'              => $powers,
 			'children'            => $children,
 			'terms'               => $terms,
@@ -2122,13 +2192,22 @@ class WC_Optic_SKU {
 	 * @return array
 	 */
 	public static function apply_identity_to_children( array $identity, array $children, $division ) {
-		$identity = self::normalize_identity_catalog( $identity );
-		$out      = array();
+		$identity       = self::normalize_identity_catalog( $identity );
+		$preserve_color = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$out            = array();
 		foreach ( array_values( $children ) as $index => $config ) {
 			if ( ! is_array( $config ) ) {
 				continue;
 			}
-			$config['catalog'] = $identity;
+			$merged = $identity;
+			// Keep each child's own color when the division uses selectable colors.
+			if ( $preserve_color ) {
+				$existing_color = isset( $config['catalog']['color'] ) ? (int) $config['catalog']['color'] : 0;
+				if ( $existing_color > 0 ) {
+					$merged['color'] = $existing_color;
+				}
+			}
+			$config['catalog'] = $merged;
 			$out[]             = self::normalize_child_config( $config, $division, $index );
 		}
 		return $out;

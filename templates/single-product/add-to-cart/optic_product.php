@@ -18,6 +18,8 @@ if ( ! $division ) {
 
 $storefront_matrix    = WC_Optic_SKU::get_storefront_matrix( $product );
 $supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] );
+$show_color_swatches  = ! empty( $storefront_matrix['showColorSwatches'] );
+$storefront_colors    = $show_color_swatches && ! empty( $storefront_matrix['colors'] ) ? $storefront_matrix['colors'] : array();
 $can_choose_different = count( $storefront_matrix['children'] ?? array() ) > 1;
 
 if ( ! WC_Optic_Frontend::has_child_options( $product ) ) {
@@ -49,6 +51,47 @@ do_action( 'woocommerce_before_add_to_cart_form' );
 	</div>
 
 	<div class="wc-optic-config-card">
+		<?php if ( $show_color_swatches && ! empty( $storefront_colors ) ) : ?>
+			<div class="wc-optic-config-table__row wc-optic-color-row">
+				<div class="wc-optic-config-table__label">
+					<strong><?php esc_html_e( 'Color', 'wc-optic' ); ?></strong>
+				</div>
+				<div class="wc-optic-config-table__values">
+					<div class="wc-optic-color-swatches" role="radiogroup" aria-label="<?php esc_attr_e( 'Lens color', 'wc-optic' ); ?>">
+						<?php foreach ( $storefront_colors as $index => $color ) : ?>
+							<?php
+							$cid   = isset( $color['id'] ) ? (string) $color['id'] : '';
+							$cname = isset( $color['name'] ) ? (string) $color['name'] : '';
+							$curl  = isset( $color['imageUrl'] ) ? (string) $color['imageUrl'] : '';
+							if ( '' === $cid ) {
+								continue;
+							}
+							$selected = 0 === (int) $index;
+							?>
+							<button
+								type="button"
+								class="wc-optic-color-swatch<?php echo $selected ? ' is-selected' : ''; ?>"
+								role="radio"
+								aria-checked="<?php echo $selected ? 'true' : 'false'; ?>"
+								data-color="<?php echo esc_attr( $cid ); ?>"
+								title="<?php echo esc_attr( $cname ); ?>"
+								aria-label="<?php echo esc_attr( $cname ); ?>"
+							>
+								<span class="wc-optic-color-swatch__disc"<?php echo $curl ? ' style="background-image:url(' . esc_url( $curl ) . ')"' : ''; ?>></span>
+								<span class="wc-optic-color-swatch__name"><?php echo esc_html( $cname ); ?></span>
+							</button>
+						<?php endforeach; ?>
+					</div>
+					<p class="wc-optic-color-selected-label" aria-live="polite">
+						<?php
+						$first_name = isset( $storefront_colors[0]['name'] ) ? (string) $storefront_colors[0]['name'] : '';
+						echo esc_html( $first_name );
+						?>
+					</p>
+				</div>
+			</div>
+		<?php endif; ?>
+
 		<?php if ( $supports_no_power ) : ?>
 			<div class="wc-optic-config-table__row wc-optic-power-mode-row">
 				<div class="wc-optic-config-table__values wc-optic-power-mode-row__values">

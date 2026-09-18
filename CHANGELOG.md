@@ -4,6 +4,20 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.0] — 2026-09-18
+
+### Ajouté
+
+- **Pastilles couleur storefront** : sur les parents multi-couleurs (2+ `catalog.color` distincts), rangée de swatches ronds (image catalogue) avant No power / Power ; filtre SPH + résolution panier par couleur.
+- **Image swatch** sur les termes Catalog → Colors (`image_id`, schema v5) + sélecteur média dans Optic Settings.
+- **No power par couleur** : `noPowerByColor` dans la matrice storefront.
+
+### Changé
+
+- Unicité des internes : la clé de combinaison inclut la couleur quand la division affiche la couleur (même SPH autorisé une fois par couleur).
+- Sync identité : ne réécrit plus la couleur d’un interne qui en a déjà une (préserve les parents multi-couleurs).
+- Parents mono-couleur : pas de rangée swatches (comportement inchangé).
+
 ## [1.8.2] — 2026-09-18
 
 ### Corrigé
