@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.4] — 2026-09-22
+
+### Corrigé
+
+- **Toggle No power disparu après lazy matrix (1.9.3)** : restauration du build matrice via configs (chemin pré-1.9.3) pour l’AJAX ; stub SQL détecte les internos plano (`sph_id` / label / SKU) ; toggle visible dès le paint (pas masqué pendant le loading).
+
 ## [1.9.3] — 2026-09-22
 
 ### Corrigé

@@ -1020,6 +1020,9 @@ class WC_Optic_SKU {
 	/**
 	 * Build storefront cascade data (children + term labels) for JS resolution.
 	 *
+	 * Uses hydrated configs (same path as pre-1.9.3) so No power / color detection stays correct.
+	 * Large catalogs still lazy-load this via AJAX; the page itself only ships a stub.
+	 *
 	 * @param WC_Product $product Product.
 	 * @return array<string, mixed>
 	 */
@@ -1029,11 +1032,7 @@ class WC_Optic_SKU {
 			return self::$matrix_cache[ $product_id ];
 		}
 
-		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
-			$matrix = self::build_storefront_matrix_from_sql( $product );
-		} else {
-			$matrix = self::build_storefront_matrix_from_configs( $product, self::get_enabled_child_configs( $product ) );
-		}
+		$matrix = self::build_storefront_matrix_from_configs( $product, self::get_enabled_child_configs( $product ) );
 
 		if ( $product_id ) {
 			self::$matrix_cache[ $product_id ] = $matrix;
@@ -1503,20 +1502,17 @@ class WC_Optic_SKU {
 
 		$show_swatches = count( $colors ) >= 2;
 
-		// Shared plano (no per-color catalog.color): expose it for every swatch color.
-		if ( $no_power_child && empty( $no_power_by_color ) && ! empty( $color_ids ) ) {
-			foreach ( array_keys( $color_ids ) as $cid ) {
-				$row            = $no_power_child;
-				$row['color']   = (int) $cid;
-				$no_power_by_color[ (string) (int) $cid ] = $row;
+		// Pre-1.9.3 behavior: toggle only when an in-stock plano child exists.
+		$supports_no_power = false;
+		if ( $show_swatches ) {
+			foreach ( $no_power_by_color as $np ) {
+				if ( ! empty( $np['inStock'] ) ) {
+					$supports_no_power = true;
+					break;
+				}
 			}
-		}
-
-		// Show toggle whenever a plano internal exists (tab enablement is stock-based in JS).
-		$supports_no_power = null !== $no_power_child || ! empty( $no_power_by_color );
-		if ( ! $supports_no_power && self::division_supports_no_power_mode( $division ) ) {
-			// Keep false — stub/lazy may still advertise support until AJAX fills children.
-			$supports_no_power = false;
+		} else {
+			$supports_no_power = ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] );
 		}
 
 		return array(
@@ -1553,7 +1549,7 @@ class WC_Optic_SKU {
 			'lazy'                => true,
 			'productId'           => absint( $product->get_id() ),
 			'division'            => $division,
-			'supportsNoPowerMode' => self::division_supports_no_power_mode( $division ),
+			'supportsNoPowerMode' => self::product_has_in_stock_no_power_child( $product ),
 			'noPowerChild'        => null,
 			'noPowerByColor'      => new \stdClass(),
 			'showColorSwatches'   => false,
@@ -1563,6 +1559,67 @@ class WC_Optic_SKU {
 			'terms'               => array(),
 			'labels'              => $labels,
 		);
+	}
+
+	/**
+	 * Fast SQL check: enabled in-stock plano (+0.00) internal exists.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	public static function product_has_in_stock_no_power_child( WC_Product $product ) {
+		global $wpdb;
+		$product_id = absint( $product->get_id() );
+		if ( $product_id < 1 ) {
+			return false;
+		}
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$table      = WC_Optic_Children::table();
+			$zero_ids   = array_map( 'absint', array_keys( self::get_zero_power_sph_ids() ) );
+			$zero_ids   = array_values( array_filter( $zero_ids ) );
+			$stock_sql  = '(stock_qty IS NULL OR (stock_qty + IF(backorder_custom = 1, backorder_qty, 0) - backorder_consumed) > 0)';
+			$params     = array( $product_id );
+			$sph_clause = '0=1';
+			if ( ! empty( $zero_ids ) ) {
+				$sph_clause = 'sph_id IN (' . implode( ',', $zero_ids ) . ')';
+			}
+			// Fallback text match for rows whose sph_id column was never backfilled.
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$found = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table}
+					WHERE product_id = %d AND enabled = 1 AND {$stock_sql}
+					AND (
+						{$sph_clause}
+						OR label LIKE %s
+						OR search_blob LIKE %s
+						OR sku LIKE %s
+						OR sku LIKE %s
+					)
+					LIMIT 1",
+					$product_id,
+					'%No power%',
+					'%no power%',
+					'%+0.00%',
+					'%+000%'
+				)
+			);
+			if ( ! empty( $found ) ) {
+				return true;
+			}
+		}
+
+		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
+			if ( ! self::config_has_zero_sph( $config ) ) {
+				continue;
+			}
+			$sellable = self::get_child_sellable_qty( $config );
+			if ( null === $sellable || $sellable > 0 ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

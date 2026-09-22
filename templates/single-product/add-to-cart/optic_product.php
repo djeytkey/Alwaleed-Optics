@@ -18,8 +18,7 @@ if ( ! $division ) {
 
 $storefront_matrix    = WC_Optic_SKU::get_storefront_matrix_for_page( $product );
 $matrix_lazy          = ! empty( $storefront_matrix['lazy'] );
-$supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] )
-	|| WC_Optic_SKU::division_supports_no_power_mode( $division );
+$supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] );
 $show_color_swatches  = ! empty( $storefront_matrix['showColorSwatches'] );
 $storefront_colors    = $show_color_swatches && ! empty( $storefront_matrix['colors'] ) ? $storefront_matrix['colors'] : array();
 $can_choose_different = WC_Optic_SKU::get_child_count( $product ) > 1;

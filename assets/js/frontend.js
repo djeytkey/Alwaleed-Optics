@@ -25,23 +25,15 @@
 
 	function supportsNoPowerMode() {
 		var matrix = getMatrix();
-		if ( ! matrix ) {
-			return false;
+		// While the full matrix is still loading, trust the stub flag (server already checked plano stock).
+		if ( matrix && matrix.lazy ) {
+			return matrix.supportsNoPowerMode === true;
 		}
-		// Prefer matrix flag from PHP (product has at least one plano / +0.00 internal).
-		if ( matrix.supportsNoPowerMode === true ) {
-			return true;
+		if ( hasColorSwatches() ) {
+			var child = getNoPowerChildForColor( getSelectedColorId() );
+			return !!( child && childHasStock( child ) );
 		}
-		if ( matrix.noPowerChild ) {
-			return true;
-		}
-		var map = matrix.noPowerByColor || {};
-		for ( var key in map ) {
-			if ( Object.prototype.hasOwnProperty.call( map, key ) && map[ key ] ) {
-				return true;
-			}
-		}
-		return false;
+		return !!( matrix && matrix.supportsNoPowerMode === true );
 	}
 
 	function hasColorSwatches() {
@@ -508,14 +500,19 @@
 		if ( ! $noPowerInput.length ) {
 			return;
 		}
+		var matrix = getMatrix();
+		// Stub: keep No power enabled until full matrix arrives.
+		if ( matrix && matrix.lazy ) {
+			var stubOk = matrix.supportsNoPowerMode === true;
+			$noPowerInput.prop( 'disabled', ! stubOk );
+			$noPowerLabel.toggleClass( 'wc-optic-power-mode__tab--disabled', ! stubOk );
+			return;
+		}
 		var child = null;
 		if ( hasColorSwatches() ) {
 			child = getNoPowerChildForColor( getSelectedColorId() );
-			if ( ! child ) {
-				child = getMatrix().noPowerChild || null;
-			}
 		} else {
-			child = getMatrix().noPowerChild || null;
+			child = matrix.noPowerChild || null;
 		}
 		var available = !!( child && childHasStock( child ) );
 		$noPowerInput.prop( 'disabled', ! available );
@@ -890,9 +887,15 @@
 	}
 
 	function ensurePowerModeUi() {
+		var matrix = getMatrix();
 		var $card = $( '.wc-optic-config-card' );
 		var $row = $( '.wc-optic-power-mode-row' );
 		if ( ! supportsNoPowerMode() ) {
+			// Keep server-rendered toggle visible until the real matrix arrives.
+			if ( matrix && matrix.lazy && $row.length ) {
+				$row.prop( 'hidden', false );
+				return;
+			}
 			if ( $row.length ) {
 				$row.prop( 'hidden', true );
 			}
@@ -989,6 +992,10 @@
 		if ( ! $form.length ) {
 			return;
 		}
+
+		// Show No power / Power immediately from the stub (before AJAX finishes).
+		ensurePowerModeUi();
+		syncNoPowerTabAvailability();
 
 		$( 'input[name="wc_optic_power_mode"]' ).on( 'change', togglePowerMode );
 		$( '#wc_optic_different_power' ).on( 'change', toggleSamePower );

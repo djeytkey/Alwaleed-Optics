@@ -78,10 +78,15 @@ html[dir="rtl"] .wc-optic-eyes--stack {
 	min-width: 3.5rem;
 }
 
-.wc-optic-cart-form.wc-optic-is-loading .wc-optic-config-card,
+.wc-optic-cart-form.wc-optic-is-loading .wc-optic-config-card > *:not(.wc-optic-power-mode-row),
 .wc-optic-cart-form.wc-optic-is-loading .single_add_to_cart_button {
 	opacity: 0.45;
 	pointer-events: none;
+}
+
+.wc-optic-cart-form.wc-optic-is-loading .wc-optic-power-mode-row {
+	opacity: 1;
+	pointer-events: auto;
 }
 
 .wc-optic-matrix-loading {
