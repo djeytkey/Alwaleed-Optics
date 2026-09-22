@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-22 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.5 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.6 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -20,7 +20,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 3. **Perf fiche produit (v1.9.3)** : lazy matrix AJAX si >150 internes ; prix parent ; stock SQL ; cache runtime ; reserved map batch.
 4. **Toggle No power régression (v1.9.4)** : matrice AJAX = configs (comme avant) ; stub détecte plano en SQL ; toggle rendu avant fin AJAX.
 5. **Convert multi-couleurs (v1.9.5)** : wizard Colors en multi-select ; génération cartésienne couleurs × puissances en un seul Convert (ex. Gray / Sterling Gray / Honey / Brown).
-6. **Version** — bump **1.9.5**.
+6. **Panier / checkout couleur (v1.9.6)** : POST `wc_optic_color` ; résolution par couleur ; affichage **Color** dans le résumé ligne.
+7. **Version** — bump **1.9.6**.
 
 ### Session 2026-09-18 (précédente)
 
@@ -553,6 +554,17 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-admin-convert.php`, `admin-convert.js`, `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php` ; version **1.9.5**.
 
+### 2.34 Panier / checkout — couleur (session 2026-09-22)
+
+- **Cause :** pastilles UI seulement (pas de POST) ; `find_no_power_child` / `find_child_by_powers` prenaient le 1ᵉʳ interne ; résumé ligne n’affichait que Powers / prix / qty.
+- **Fix :**
+  - Hidden `wc_optic_color` (template + JS) synchronisé avec la pastille.
+  - `find_no_power_child( $product, $color_id )` / `find_child_by_powers( …, $color_id )` ; Power mode préfère `wc_optic_{eye}_child` si valide.
+  - Payload œil : `color_id` + `color_label` via `get_config_color_payload()`.
+  - Affichage **Color** dans `render_line_eye_column` (panier/checkout) et résumé commande admin.
+
+**Fichiers :** `class-wc-optic-cart.php`, `class-wc-optic-sku.php`, `optic_product.php`, `frontend.js` ; version **1.9.6**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -810,7 +822,7 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 | `class-wc-optic-wpml.php` | Sync SQL children vers traductions, originaux Convert |
 | `class-wc-optic-sku.php` | Persist/lecture SQL ; matrice couleurs ; unicité `|c:` ; preserve color ; **cartesien multi-color Convert** |
 | `class-wc-optic-pricing.php` | `format_display_price_html()`, filtre `get_price_html` |
-| `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, fusion lignes (`filter_cart_id`, `payload_cart_identity`) |
+| `class-wc-optic-cart.php` | Panier, **stock sellable/backorder**, fusion lignes (`filter_cart_id`, `payload_cart_identity`) ; **affichage Color** (v1.9.6) |
 | `class-wc-optic-frontend.php` | Puissance en cascade, stock HTML ; code child-choice retiré |
 | `class-wc-optic-flatsome.php` | Détection Flatsome + assets panier/checkout |
 | `class-wc-optic-plugin.php` | `WC_Optic_Admin_Menu::hooks()`, Flatsome, etc. |
@@ -828,7 +840,7 @@ Sur staging (Cloudflare + o2switch), l’URL absolue pouvait entrer en boucle de
 
 | Fichier | Changements |
 |---------|---------------|
-| `assets/js/frontend.js` | Power mode, **filtre couleur**, prix défaut, pas de range |
+| `assets/js/frontend.js` | Power mode, **filtre couleur**, prix défaut, `wc_optic_color` POST (v1.9.6) |
 | `assets/js/admin-settings.js` | Divisions + **média image Colors** |
 | `assets/css/frontend.css` | Pill toggle + **pastilles rondes** |
 | `assets/css/admin.css` | Preview swatch Settings |
@@ -1003,6 +1015,13 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Meta parent `_optic_identity_catalog.color` = première couleur seulement ; chaque interne a sa couleur
 - [ ] Storefront : pastilles pour les 4 couleurs ; filtre SPH / No power OK
 
+### Panier / checkout couleur (v1.9.6)
+
+- [ ] Choisir Honey (ou autre) + No power → panier affiche **Color: Honey**
+- [ ] Même couleur + Power SPH → panier / checkout affichent la couleur
+- [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
+- [ ] Commande admin : résumé œil inclut Color
+
 ### Converted / Specifics perf (v1.9.1)
 
 - [ ] Ouverture Converted / Specifics : premier paint rapide (pas de freeze)
@@ -1154,7 +1173,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.5**.
+3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.6**.
 4. **SQL children (1.8.0)** : après migration, `_optic_child_configs` est vide ; ne pas réécrire le blob. Purge manuelle des anciennes meta déjà faite à la migration produit par produit.
 5. **Migration batches** : 20 produits/admin_init ; sur catalogues très grands, plusieurs hits admin avant `wc_optic_children_migrated=1`.
 6. **`is_low_stock` dénormalisé** : recalculé à l’écriture + via `recompute_low_stock_flags()` quand le seuil global / enabled change.
@@ -1166,7 +1185,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 12. **Autoload** : ne plus reporter `WC_Optic_Autoload::register()` après `plugins_loaded`.
 13. **Internes lazy (1.3.3)** : préfixe éditeur `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit).
 14. **Admin AJAX** : préférer `window.ajaxurl` si symptôme staging/proxy (Convert déjà corrigé).
-15. **Pastilles (1.9.0) + Convert multi-color (1.9.5)** : wizard Convert = multi-select Colors → cartésien couleurs × puissances. Meta parent = 1ʳᵉ couleur seulement ; swatches sans `image_id` = disque gris. Attention au plafond `get_max_synthetic_children()` (total = combos × N couleurs).
+15. **Pastilles (1.9.0) + Convert multi-color (1.9.5) + panier couleur (1.9.6)** : wizard Convert = multi-select Colors → cartésien ; POST `wc_optic_color` pour panier ; meta parent = 1ʳᵉ couleur ; swatches sans `image_id` = disque gris. Attention au plafond `get_max_synthetic_children()` (total = combos × N couleurs). Lignes déjà en panier avant 1.9.6 n’affichent la couleur qu’après re-add.
 16. **WPML stock (1.9.2)** : les traductions gardent des rows SQL miroir ; le badge ignore ces rows. Restock ne fait pas un `copy_product_children` complet.
 
 ---

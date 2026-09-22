@@ -94,13 +94,14 @@ class WC_Optic_Cart {
 
 		$divisions  = WC_Optic_Plugin::get_divisions();
 		$power_mode = 'power';
+		$color_id   = isset( $_POST['wc_optic_color'] ) ? absint( wp_unslash( $_POST['wc_optic_color'] ) ) : 0;
 		if ( WC_Optic_SKU::product_supports_no_power_mode( $product ) ) {
 			$posted_mode = isset( $_POST['wc_optic_power_mode'] ) ? sanitize_key( wp_unslash( $_POST['wc_optic_power_mode'] ) ) : 'no_power';
 			$power_mode  = 'power' === $posted_mode ? 'power' : 'no_power';
 		}
 
 		if ( 'no_power' === $power_mode ) {
-			$no_power_config = WC_Optic_SKU::find_no_power_child( $product );
+			$no_power_config = WC_Optic_SKU::find_no_power_child( $product, $color_id );
 			if ( ! $no_power_config ) {
 				self::$parse_cache[ $product_id ] = new WP_Error( 'wc_optic', __( 'This product is not available without power.', 'wc-optic' ) );
 				return self::$parse_cache[ $product_id ];
@@ -118,8 +119,8 @@ class WC_Optic_Cart {
 			$different = empty( $_POST['wc_optic_different_power'] ) ? false : true;
 			$same      = ! $different;
 			$qty_mode  = $same ? 'single' : 'dual';
-			$left      = self::parse_eye_child( $product, 'left', $division );
-			$right     = $same ? $left : self::parse_eye_child( $product, 'right', $division );
+			$left      = self::parse_eye_child( $product, 'left', $division, $color_id );
+			$right     = $same ? $left : self::parse_eye_child( $product, 'right', $division, $color_id );
 
 			if ( is_wp_error( $left ) ) {
 				self::$parse_cache[ $product_id ] = $left;
@@ -189,13 +190,27 @@ class WC_Optic_Cart {
 	/**
 	 * Parse one selected internal child for one eye from POST.
 	 *
-	 * @param WC_Product $product          Product.
-	 * @param string     $eye              left|right.
-	 * @param string     $division         Product division.
+	 * @param WC_Product $product  Product.
+	 * @param string     $eye      left|right.
+	 * @param string     $division Product division.
+	 * @param int        $color_id Optional catalog color id.
 	 * @return array|WP_Error
 	 */
-	protected static function parse_eye_child( WC_Product $product, $eye, $division ) {
+	protected static function parse_eye_child( WC_Product $product, $eye, $division, $color_id = 0 ) {
 		$eye          = 'right' === $eye ? 'right' : 'left';
+		$color_id     = absint( $color_id );
+		$posted_child = isset( $_POST[ 'wc_optic_' . $eye . '_child' ] ) ? sanitize_key( wp_unslash( $_POST[ 'wc_optic_' . $eye . '_child' ] ) ) : '';
+		if ( '' !== $posted_child ) {
+			$config = WC_Optic_SKU::find_child_config( $product, $posted_child, true );
+			if ( $config ) {
+				if ( $color_id > 0 && (int) ( $config['catalog']['color'] ?? 0 ) !== $color_id ) {
+					$config = null;
+				} else {
+					return WC_Optic_SKU::build_eye_payload_from_child( $config, $division );
+				}
+			}
+		}
+
 		$power_types  = WC_Optic_Plugin::get_powers_for_division( $division );
 		$power_ids    = array();
 		$powers_ready = true;
@@ -213,7 +228,7 @@ class WC_Optic_Cart {
 			return new WP_Error( 'wc_optic', __( 'Please select all prescription values before adding to cart.', 'wc-optic' ) );
 		}
 
-		$config = WC_Optic_SKU::find_child_by_powers( $product, $power_ids, true );
+		$config = WC_Optic_SKU::find_child_by_powers( $product, $power_ids, true, $color_id );
 		if ( ! $config ) {
 			return new WP_Error( 'wc_optic', __( 'This prescription combination is not available.', 'wc-optic' ) );
 		}
@@ -541,6 +556,11 @@ class WC_Optic_Cart {
 		echo '<div class="wc-optic-order-summary__eye-title">' . esc_html( $title ) . '</div>';
 
 		echo '<div class="wc-optic-order-summary__eye-meta">';
+		$eye         = isset( $payload[ $eye_key ] ) && is_array( $payload[ $eye_key ] ) ? $payload[ $eye_key ] : array();
+		$color_label = isset( $eye['color_label'] ) ? trim( (string) $eye['color_label'] ) : '';
+		if ( '' !== $color_label ) {
+			self::render_admin_order_meta_row( __( 'Color', 'wc-optic' ), $color_label );
+		}
 		if ( '' !== $data['display'] ) {
 			self::render_admin_order_meta_row( __( 'Internal product', 'wc-optic' ), $data['display'] );
 		}
@@ -849,6 +869,14 @@ class WC_Optic_Cart {
 		echo '<div class="wc-optic-line-summary__eye wc-optic-line-summary__eye--' . esc_attr( $col ) . '">';
 		echo '<div class="wc-optic-line-summary__eye-title">' . esc_html( $title ) . '</div>';
 		echo '<div class="wc-optic-line-summary__eye-meta">';
+
+		$color_label = isset( $eye['color_label'] ) ? trim( (string) $eye['color_label'] ) : '';
+		if ( '' !== $color_label ) {
+			echo '<div class="wc-optic-line-summary__meta-row">';
+			echo '<span class="wc-optic-line-summary__meta-label">' . esc_html__( 'Color', 'wc-optic' ) . '</span>';
+			echo '<span class="wc-optic-line-summary__meta-value">' . esc_html( $color_label ) . '</span>';
+			echo '</div>';
+		}
 
 		if ( '' !== $powers_html ) {
 			echo '<div class="wc-optic-line-summary__meta-row wc-optic-line-summary__meta-row--powers">';

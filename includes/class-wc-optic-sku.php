@@ -451,9 +451,10 @@ class WC_Optic_SKU {
 	 * @param WC_Product $product      Product.
 	 * @param array      $power_ids    Map power slug => catalog row id.
 	 * @param bool       $enabled_only Only enabled children.
+	 * @param int        $color_id     Optional catalog color id (multi-color parents).
 	 * @return array<string, mixed>|null
 	 */
-	public static function find_child_by_powers( WC_Product $product, array $power_ids, $enabled_only = true ) {
+	public static function find_child_by_powers( WC_Product $product, array $power_ids, $enabled_only = true, $color_id = 0 ) {
 		$division = (string) $product->get_meta( '_optic_division', true );
 		if ( ! $division ) {
 			return null;
@@ -469,12 +470,16 @@ class WC_Optic_SKU {
 			$normalized[ $power ] = $id;
 		}
 
-		$configs = $enabled_only ? self::get_enabled_child_configs( $product ) : self::get_child_configs( $product );
+		$color_id = absint( $color_id );
+		$configs  = $enabled_only ? self::get_enabled_child_configs( $product ) : self::get_child_configs( $product );
 		foreach ( $configs as $config ) {
+			if ( $color_id > 0 && (int) ( $config['catalog']['color'] ?? 0 ) !== $color_id ) {
+				continue;
+			}
 			$match = true;
 			foreach ( $required as $power ) {
-				$child_id = isset( $config['powers'][ $power ] ) ? (int) $config['powers'][ $power ] : 0;
-				if ( $child_id !== $normalized[ $power ] ) {
+				$child_power_id = isset( $config['powers'][ $power ] ) ? (int) $config['powers'][ $power ] : 0;
+				if ( $child_power_id !== $normalized[ $power ] ) {
 					$match = false;
 					break;
 				}
@@ -1695,13 +1700,18 @@ class WC_Optic_SKU {
 	/**
 	 * Find the enabled no-power child for a color lenses product.
 	 *
-	 * @param WC_Product $product Product.
+	 * @param WC_Product $product  Product.
+	 * @param int        $color_id Optional catalog color id (multi-color parents).
 	 * @return array<string, mixed>|null
 	 */
-	public static function find_no_power_child( WC_Product $product ) {
+	public static function find_no_power_child( WC_Product $product, $color_id = 0 ) {
 		$division = (string) $product->get_meta( '_optic_division', true );
+		$color_id = absint( $color_id );
 
 		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
+			if ( $color_id > 0 && (int) ( $config['catalog']['color'] ?? 0 ) !== $color_id ) {
+				continue;
+			}
 			if ( self::config_has_zero_sph( $config ) && self::child_is_complete( $config, $division ) ) {
 				return $config;
 			}
@@ -1794,18 +1804,23 @@ class WC_Optic_SKU {
 	 * @return array|WP_Error
 	 */
 	public static function build_eye_payload_from_child( array $config, $division ) {
+		$color = self::get_config_color_payload( $config );
+
 		// Plano (+0.00): only SPH — never require CYL / AXIS / ADD (any division).
 		if ( self::config_has_zero_sph( $config ) ) {
-			return array(
-				'child_id'      => (string) $config['id'],
-				'label'         => (string) $config['label'],
-				'display'       => self::child_display_label( $config, $division ),
-				'sku'           => (string) $config['sku'],
-				'unit_price'    => self::get_child_unit_price( $config ),
-				'regular_price' => self::get_child_regular_price( $config ),
-				'sale_price'    => self::get_child_sale_price( $config ),
-				'stock_qty'     => self::get_child_stock_qty( $config ),
-				'powers'        => array(),
+			return array_merge(
+				array(
+					'child_id'      => (string) $config['id'],
+					'label'         => (string) $config['label'],
+					'display'       => self::child_display_label( $config, $division ),
+					'sku'           => (string) $config['sku'],
+					'unit_price'    => self::get_child_unit_price( $config ),
+					'regular_price' => self::get_child_regular_price( $config ),
+					'sale_price'    => self::get_child_sale_price( $config ),
+					'stock_qty'     => self::get_child_stock_qty( $config ),
+					'powers'        => array(),
+				),
+				$color
 			);
 		}
 
@@ -1822,16 +1837,40 @@ class WC_Optic_SKU {
 			);
 		}
 
+		return array_merge(
+			array(
+				'child_id'      => (string) $config['id'],
+				'label'         => (string) $config['label'],
+				'display'       => self::child_display_label( $config, $division ),
+				'sku'           => (string) $config['sku'],
+				'unit_price'    => self::get_child_unit_price( $config ),
+				'regular_price' => self::get_child_regular_price( $config ),
+				'sale_price'    => self::get_child_sale_price( $config ),
+				'stock_qty'     => self::get_child_stock_qty( $config ),
+				'powers'        => $powers,
+			),
+			$color
+		);
+	}
+
+	/**
+	 * Color fields for cart / order eye payload.
+	 *
+	 * @param array $config Child config.
+	 * @return array{color_id:int,color_label:string}
+	 */
+	public static function get_config_color_payload( array $config ) {
+		$color_id = (int) ( $config['catalog']['color'] ?? 0 );
+		$label    = '';
+		if ( $color_id > 0 ) {
+			$row = WC_Optic_Catalog::get_valid_term( $color_id, 'color' );
+			if ( $row ) {
+				$label = WC_Optic_Catalog::get_display_name( $row );
+			}
+		}
 		return array(
-			'child_id'      => (string) $config['id'],
-			'label'         => (string) $config['label'],
-			'display'       => self::child_display_label( $config, $division ),
-			'sku'           => (string) $config['sku'],
-			'unit_price'    => self::get_child_unit_price( $config ),
-			'regular_price' => self::get_child_regular_price( $config ),
-			'sale_price'    => self::get_child_sale_price( $config ),
-			'stock_qty'     => self::get_child_stock_qty( $config ),
-			'powers'        => $powers,
+			'color_id'    => $color_id,
+			'color_label' => $label,
 		);
 	}
 

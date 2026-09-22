@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.6] — 2026-09-22
+
+### Corrigé
+
+- **Panier / checkout — couleur manquante** : la pastille sélectionnée est postée (`wc_optic_color`) ; résolution no-power / puissance filtre par couleur ; le résumé ligne affiche **Color** (panier, checkout, commande admin).
+
 ## [1.9.5] — 2026-09-22
 
 ### Ajouté

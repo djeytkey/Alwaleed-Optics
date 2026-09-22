@@ -93,6 +93,10 @@ do_action( 'woocommerce_before_add_to_cart_form' );
 						echo esc_html( $first_name );
 						?>
 					</p>
+					<?php
+					$first_color_id = isset( $storefront_colors[0]['id'] ) ? (string) $storefront_colors[0]['id'] : '';
+					?>
+					<input type="hidden" name="wc_optic_color" id="wc_optic_color" value="<?php echo esc_attr( $first_color_id ); ?>" />
 				</div>
 			</div>
 		<?php endif; ?>

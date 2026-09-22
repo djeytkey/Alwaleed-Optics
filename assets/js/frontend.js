@@ -531,6 +531,14 @@
 		$label.text( $sel.length ? String( $sel.attr( 'aria-label' ) || $sel.attr( 'title' ) || '' ) : '' );
 	}
 
+	function syncColorHiddenInput() {
+		var $input = $( '#wc_optic_color' );
+		if ( ! $input.length ) {
+			return;
+		}
+		$input.val( getSelectedColorId() || '' );
+	}
+
 	function onColorSwatchSelect( $btn ) {
 		if ( ! $btn || ! $btn.length ) {
 			return;
@@ -540,6 +548,7 @@
 			.attr( 'aria-checked', 'false' );
 		$btn.addClass( 'is-selected' ).attr( 'aria-checked', 'true' );
 		syncColorSelectedLabel();
+		syncColorHiddenInput();
 		syncNoPowerTabAvailability();
 		if ( ! supportsNoPowerMode() ) {
 			$( '#wc_optic_tab_power' ).prop( 'checked', true );
@@ -846,10 +855,15 @@
 					'<div class="wc-optic-config-table__values">' +
 					'<div class="wc-optic-color-swatches" role="radiogroup"></div>' +
 					'<p class="wc-optic-color-selected-label" aria-live="polite"></p>' +
+					'<input type="hidden" name="wc_optic_color" id="wc_optic_color" value="" />' +
 					'</div></div>'
 			);
 			$row.find( 'strong' ).text( getI18n( 'color', 'Color' ) );
 			$card.prepend( $row );
+		} else if ( ! $row.find( '#wc_optic_color' ).length ) {
+			$row.find( '.wc-optic-config-table__values' ).append(
+				'<input type="hidden" name="wc_optic_color" id="wc_optic_color" value="" />'
+			);
 		}
 
 		$row.prop( 'hidden', false );
@@ -884,6 +898,7 @@
 		} );
 		$swatches.html( html );
 		syncColorSelectedLabel();
+		syncColorHiddenInput();
 	}
 
 	function ensurePowerModeUi() {
@@ -940,6 +955,7 @@
 		initPowerDropdowns( $form );
 		if ( hasColorSwatches() ) {
 			syncColorSelectedLabel();
+			syncColorHiddenInput();
 		}
 		syncNoPowerTabAvailability();
 		if ( supportsNoPowerMode() || $( 'input[name="wc_optic_power_mode"]' ).length ) {
