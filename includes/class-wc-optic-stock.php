@@ -14,7 +14,7 @@ class WC_Optic_Stock {
 
 	const GLOBAL_ALERT_ENABLED_OPTION = 'wc_optic_stock_alert_enabled';
 	const GLOBAL_ALERT_QTY_OPTION     = 'wc_optic_stock_alert_qty';
-	const ALERT_COUNT_TRANSIENT       = 'wc_optic_alert_count';
+	const ALERT_COUNT_TRANSIENT       = 'wc_optic_alert_count_v2';
 
 	/**
 	 * Whether low-stock alerts are enabled globally.
@@ -104,6 +104,8 @@ class WC_Optic_Stock {
 	/**
 	 * All optic products for inventory views.
 	 *
+	 * WPML: default-language originals only (translations are stock mirrors).
+	 *
 	 * @return WC_Product[]
 	 */
 	public static function get_optic_products() {
@@ -111,18 +113,46 @@ class WC_Optic_Stock {
 			return array();
 		}
 
-		$products = wc_get_products(
-			array(
-				'type'    => 'optic_product',
-				'status'  => array( 'publish', 'draft', 'private' ),
-				'limit'   => -1,
-				'orderby' => 'title',
-				'order'   => 'ASC',
-				'return'  => 'objects',
-			)
-		);
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
+		}
 
-		return is_array( $products ) ? $products : array();
+		try {
+			$products = wc_get_products(
+				array(
+					'type'    => 'optic_product',
+					'status'  => array( 'publish', 'draft', 'private' ),
+					'limit'   => -1,
+					'orderby' => 'title',
+					'order'   => 'ASC',
+					'return'  => 'objects',
+				)
+			);
+			if ( ! is_array( $products ) ) {
+				return array();
+			}
+
+			if ( ! $wpml ) {
+				return $products;
+			}
+
+			$out = array();
+			foreach ( $products as $product ) {
+				if ( ! $product instanceof WC_Product ) {
+					continue;
+				}
+				if ( ! WC_Optic_WPML::is_original_product( $product->get_id() ) ) {
+					continue;
+				}
+				$out[] = $product;
+			}
+			return $out;
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
 	}
 
 	/**
@@ -461,6 +491,14 @@ class WC_Optic_Stock {
 			return new WP_Error( 'wc_optic_stock', __( 'Invalid restock request.', 'wc-optic' ) );
 		}
 
+		// Always restock the WPML original; translations receive the stock via sync.
+		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
+			$original_id = WC_Optic_WPML::get_original_product_id( $product_id );
+			if ( $original_id > 0 ) {
+				$product_id = $original_id;
+			}
+		}
+
 		$product = wc_get_product( $product_id );
 		if ( ! $product || 'optic_product' !== $product->get_type() ) {
 			return new WP_Error( 'wc_optic_stock', __( 'Product not found.', 'wc-optic' ) );
@@ -501,6 +539,10 @@ class WC_Optic_Stock {
 			}
 			WC_Optic_SKU::persist_child_data( $product, $configs );
 			$product->save();
+		}
+
+		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
+			WC_Optic_WPML::sync_child_stock_to_translations( $product_id, $config );
 		}
 
 		$new_stock = WC_Optic_SKU::get_child_stock_qty( $config );

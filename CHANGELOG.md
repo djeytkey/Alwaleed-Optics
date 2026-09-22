@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.2] — 2026-09-22
+
+### Corrigé
+
+- **Stock Alerts / badge** : le total n’inclut plus les copies WPML (originaux uniquement) — le compteur gonflé venait des internes dupliqués sur les traductions.
+- **Restock** : met à jour le stock de l’original puis synchronise le même interne (`child_key`) vers toutes les traductions.
+
 ## [1.9.1] — 2026-09-22
 
 ### Corrigé

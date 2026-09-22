@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-18 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -16,7 +16,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 ### Session 2026-09-22 (courante)
 
 1. **Perf Converted / Specifics (v1.9.1)** : DataTables `serverSide` comme Stock Alerts ; plus de chargement de tous les internes via `get_price_html()` sur la liste.
-2. **Version** — bump **1.9.1**.
+2. **Stock Alerts WPML (v1.9.2)** : badge/total = originaux seulement ; restock sync stock vers traductions (pas de full copy).
+3. **Version** — bump **1.9.2**.
 
 ### Session 2026-09-18 (précédente)
 
@@ -514,6 +515,15 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-converter.php`, `class-wc-optic-admin-convert.php`, `class-wc-optic-ajax.php`, `admin-convert.js` ; version **1.9.1**.
 
+### 2.31 Stock Alerts — originaux WPML + restock sync (session 2026-09-22)
+
+- **Problème :** `COUNT(*)` sur `is_low_stock` incluait les internes des traductions → badge ~2–4× le réel.
+- **Compteur / liste alerts** : JOIN `icl_translations` (`source_language_code IS NULL`) via `WC_Optic_WPML::sql_original_product_filter()`.
+- **Stock Management** : `get_optic_products()` filtre les originaux.
+- **Restock** : résout vers l’original puis `sync_child_stock_to_translations()` (upsert du seul `child_key`, pas `copy_product_children`).
+
+**Fichiers :** `class-wc-optic-wpml.php`, `class-wc-optic-children.php`, `class-wc-optic-stock.php` ; version **1.9.2**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -964,6 +974,13 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Rebuild / Add specifics wizard inchangé
 - [ ] Select all = page courante seulement
 
+### Stock Alerts WPML (v1.9.2)
+
+- [ ] Badge / onglet Alerts ≈ somme des internes low-stock des **originaux** seulement (pas × langues)
+- [ ] Liste Alerts n’affiche pas les fiches traduction
+- [ ] Restock sur un alerte : stock MAJ sur original **et** traduction(s)
+- [ ] Après restock hors seuil : badge diminue d’**1** (pas de doublon traduction)
+
 ### Fiche produit — UI
 
 - [ ] Pas de ligne « Optical division »
@@ -1092,7 +1109,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.1**.
+3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.2**.
 4. **SQL children (1.8.0)** : après migration, `_optic_child_configs` est vide ; ne pas réécrire le blob. Purge manuelle des anciennes meta déjà faite à la migration produit par produit.
 5. **Migration batches** : 20 produits/admin_init ; sur catalogues très grands, plusieurs hits admin avant `wc_optic_children_migrated=1`.
 6. **`is_low_stock` dénormalisé** : recalculé à l’écriture + via `recompute_low_stock_flags()` quand le seuil global / enabled change.
@@ -1105,6 +1122,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 13. **Internes lazy (1.3.3)** : préfixe éditeur `wc_optic_edit_child` (jamais `_optic_child_configs` en POST produit).
 14. **Admin AJAX** : préférer `window.ajaxurl` si symptôme staging/proxy (Convert déjà corrigé).
 15. **Pastilles (1.9.0)** : Convert ne génère pas encore une grille couleur × SPH ; les multi-couleurs doivent déjà avoir des `catalog.color` distincts sur les internes. Swatches sans `image_id` = disque gris.
+16. **WPML stock (1.9.2)** : les traductions gardent des rows SQL miroir ; le badge ignore ces rows. Restock ne fait pas un `copy_product_children` complet.
 
 ---
 

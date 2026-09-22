@@ -377,6 +377,136 @@ class WC_Optic_WPML {
 	}
 
 	/**
+	 * SQL JOIN + WHERE fragments to keep only WPML original products.
+	 *
+	 * When WPML is inactive, both fragments are empty (no filtering).
+	 *
+	 * @param string $product_id_column Column ref, e.g. `c.product_id` or `product_id`.
+	 * @return array{join:string,where:string}
+	 */
+	public static function sql_original_product_filter( $product_id_column = 'product_id' ) {
+		if ( ! self::is_active() ) {
+			return array(
+				'join'  => '',
+				'where' => '',
+			);
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'icl_translations';
+		$col   = preg_replace( '/[^a-zA-Z0-9_`.]/', '', (string) $product_id_column );
+		if ( '' === $col ) {
+			$col = 'product_id';
+		}
+
+		return array(
+			'join'  => " INNER JOIN {$table} AS wc_optic_wpml_t ON wc_optic_wpml_t.element_id = {$col} AND wc_optic_wpml_t.element_type = 'post_product' ",
+			'where' => ' AND wc_optic_wpml_t.source_language_code IS NULL ',
+		);
+	}
+
+	/**
+	 * Translation product ids for a source product (excludes the source itself).
+	 *
+	 * @param int $product_id Source product id.
+	 * @return int[]
+	 */
+	public static function get_translation_product_ids( $product_id ) {
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::is_active() ) {
+			return array();
+		}
+
+		$trid = apply_filters( 'wpml_element_trid', null, $product_id, 'post_product' );
+		if ( ! $trid ) {
+			return array();
+		}
+
+		$translations = apply_filters( 'wpml_get_element_translations', null, $trid, 'post_product' );
+		if ( ! is_array( $translations ) ) {
+			return array();
+		}
+
+		$ids = array();
+		foreach ( $translations as $translation ) {
+			$target_id = isset( $translation->element_id ) ? (int) $translation->element_id : 0;
+			if ( $target_id < 1 || $target_id === $product_id ) {
+				continue;
+			}
+			$ids[] = $target_id;
+		}
+		return $ids;
+	}
+
+	/**
+	 * Push one internal's stock fields from an original to its translations (restock).
+	 *
+	 * Avoids a full children copy (too heavy for 5k+ internals).
+	 *
+	 * @param int   $product_id Original product id.
+	 * @param array $config     Updated child config (must include id / stock_qty).
+	 */
+	public static function sync_child_stock_to_translations( $product_id, array $config ) {
+		if ( ! self::is_active() || self::$syncing ) {
+			return;
+		}
+
+		$product_id = absint( $product_id );
+		$child_key  = sanitize_key( (string) ( $config['id'] ?? '' ) );
+		if ( $product_id < 1 || '' === $child_key ) {
+			return;
+		}
+
+		$targets = self::get_translation_product_ids( $product_id );
+		if ( empty( $targets ) ) {
+			return;
+		}
+
+		$use_sql = class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready();
+		self::$syncing = true;
+
+		try {
+			foreach ( $targets as $target_id ) {
+				if ( $use_sql ) {
+					$existing = WC_Optic_Children::get_config_by_key( $target_id, $child_key );
+					if ( is_array( $existing ) ) {
+						$existing['stock_qty']          = $config['stock_qty'] ?? $existing['stock_qty'];
+						$existing['backorder_consumed'] = $config['backorder_consumed'] ?? $existing['backorder_consumed'];
+						WC_Optic_Children::upsert_child( $target_id, $existing );
+					} else {
+						WC_Optic_Children::upsert_child( $target_id, $config );
+					}
+					continue;
+				}
+
+				$target = wc_get_product( $target_id );
+				if ( ! $target instanceof WC_Product ) {
+					continue;
+				}
+				$configs = WC_Optic_SKU::get_child_configs( $target );
+				$found   = false;
+				foreach ( $configs as $index => $row ) {
+					if ( (string) ( $row['id'] ?? '' ) !== $child_key ) {
+						continue;
+					}
+					$configs[ $index ]['stock_qty']          = $config['stock_qty'] ?? $row['stock_qty'];
+					$configs[ $index ]['backorder_consumed'] = $config['backorder_consumed'] ?? $row['backorder_consumed'];
+					$found = true;
+					break;
+				}
+				if ( ! $found ) {
+					$configs[] = $config;
+				}
+				WC_Optic_SKU::persist_child_data( $target, $configs );
+				$target->save();
+			}
+		} finally {
+			self::$syncing = false;
+			WC_Optic_Stock::bust_alert_count_cache();
+		}
+	}
+
+	/**
 	 * After an original optic product is saved, copy internals to translations.
 	 *
 	 * @param WC_Product $product Product.

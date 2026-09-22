@@ -78,6 +78,9 @@ class WC_Optic_Children {
 	/**
 	 * Global low-stock count (enabled rows).
 	 *
+	 * When WPML is active, only default-language originals are counted
+	 * (translation copies are excluded from the badge / alerts total).
+	 *
 	 * @return int
 	 */
 	public static function count_low_stock_global() {
@@ -85,9 +88,12 @@ class WC_Optic_Children {
 		if ( ! self::table_ready() ) {
 			return 0;
 		}
-		$table = self::table();
+		$table  = self::table();
+		$filter = class_exists( 'WC_Optic_WPML' ) ? WC_Optic_WPML::sql_original_product_filter( 'c.product_id' ) : array( 'join' => '', 'where' => '' );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE enabled = 1 AND is_low_stock = 1" );
+		$sql = "SELECT COUNT(*) FROM {$table} c {$filter['join']} WHERE c.enabled = 1 AND c.is_low_stock = 1 {$filter['where']}";
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return (int) $wpdb->get_var( $sql );
 	}
 
 	/**
@@ -267,24 +273,27 @@ class WC_Optic_Children {
 		$per_page = max( 1, min( 100, (int) ( $args['per_page'] ?? 25 ) ) );
 		$search   = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
 		$table    = self::table();
+		$filter   = class_exists( 'WC_Optic_WPML' ) ? WC_Optic_WPML::sql_original_product_filter( 'c.product_id' ) : array( 'join' => '', 'where' => '' );
 
-		$where  = array( 'enabled = 1', 'is_low_stock = 1' );
+		$where  = array( 'c.enabled = 1', 'c.is_low_stock = 1' );
 		$params = array();
 		if ( '' !== $search ) {
-			$where[]  = '(sku LIKE %s OR search_blob LIKE %s OR label LIKE %s)';
+			$where[]  = '(c.sku LIKE %s OR c.search_blob LIKE %s OR c.label LIKE %s)';
 			$like     = '%' . $wpdb->esc_like( $search ) . '%';
 			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
 		}
 
-		$where_sql = implode( ' AND ', $where );
-		$count_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where_sql}";
+		$where_sql = implode( ' AND ', $where ) . $filter['where'];
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count_sql = "SELECT COUNT(*) FROM {$table} c {$filter['join']} WHERE {$where_sql}";
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$total = $params ? (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) ) : (int) $wpdb->get_var( $count_sql );
 
-		$offset   = ( $page - 1 ) * $per_page;
-		$list_sql = "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY product_id ASC, sort_order ASC, id ASC LIMIT %d OFFSET %d";
+		$offset = ( $page - 1 ) * $per_page;
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$list_sql = "SELECT c.* FROM {$table} c {$filter['join']} WHERE {$where_sql} ORDER BY c.product_id ASC, c.sort_order ASC, c.id ASC LIMIT %d OFFSET %d";
 		$params[] = $per_page;
 		$params[] = $offset;
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
