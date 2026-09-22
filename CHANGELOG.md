@@ -11,6 +11,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Fiche produit lente (milliers d’internes)** : plus de scans O(N) répétés au chargement. Prix = meta parent synchronisée ; stock HTML = `COUNT` SQL ; matrice storefront en AJAX différé si `> 150` internes ; réservations panier en une passe ; cache requête pour configs/matrice.
 - **Matrice AJAX accélérée** : build depuis colonnes SQL + cache zero-SPH (plus de milliers de `SELECT` catalog) ; labels termes en batch.
 - **Toggle No power / Power** : détection plano dans le build SQL + `supportsNoPowerMode` si `noPowerChild` ou `noPowerByColor` en stock ; UI injectée après AJAX si besoin.
+- **Toggle multi-couleur / SAMA** : JS ne masque plus le toggle quand `showColorSwatches` ; `division_supports_no_power_mode` inclut toutes les divisions `show_color` (ex. `sama_color_lenses`).
 
 ## [1.9.2] — 2026-09-22
 

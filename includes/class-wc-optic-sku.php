@@ -1117,7 +1117,14 @@ class WC_Optic_SKU {
 			if ( $regular <= 0 && is_array( $decoded ) && isset( $decoded['unit_price'] ) && '' !== trim( (string) $decoded['unit_price'] ) ) {
 				$regular = (float) wc_format_decimal( $decoded['unit_price'] );
 			}
-			if ( $regular <= 0 ) {
+			// Never drop plano rows for a missing column price — hydrate from JSON if needed.
+			if ( $regular <= 0 && ! $is_no_power ) {
+				continue;
+			}
+			if ( $regular <= 0 && $is_no_power && is_array( $decoded ) ) {
+				$regular = self::get_child_regular_price( $decoded );
+			}
+			if ( $regular <= 0 && ! $is_no_power ) {
 				continue;
 			}
 
@@ -1200,6 +1207,18 @@ class WC_Optic_SKU {
 			$children[]          = $child_row;
 		}
 
+		// Safety net: if plano SPH rows were missed (e.g. price column empty), pull them by sph_id.
+		if ( null === $no_power_child && ! empty( $zero_sph ) ) {
+			$fallback = self::load_sql_no_power_fallback( $product_id, $zero_sph, $show_color, $reserved_map );
+			if ( $fallback ) {
+				$no_power_child = $fallback['child'];
+				foreach ( $fallback['by_color'] as $cid => $row ) {
+					$no_power_by_color[ (string) $cid ] = $row;
+					$color_ids[ (int) $cid ]            = true;
+				}
+			}
+		}
+
 		return self::finalize_storefront_matrix(
 			$product_id,
 			$division,
@@ -1209,6 +1228,117 @@ class WC_Optic_SKU {
 			$color_ids,
 			$no_power_child,
 			$no_power_by_color
+		);
+	}
+
+	/**
+	 * Load enabled plano (+0.00) children by sph_id when the main matrix loop missed them.
+	 *
+	 * @param int   $product_id   Product id.
+	 * @param array $zero_sph     Map of zero-power SPH ids.
+	 * @param bool  $show_color   Whether colors are used.
+	 * @param array $reserved_map Cart reservations.
+	 * @return array{child:array,by_color:array}|null
+	 */
+	protected static function load_sql_no_power_fallback( $product_id, array $zero_sph, $show_color, array $reserved_map ) {
+		global $wpdb;
+		$product_id = absint( $product_id );
+		$ids        = array_map( 'absint', array_keys( $zero_sph ) );
+		$ids        = array_values( array_filter( $ids ) );
+		if ( $product_id < 1 || empty( $ids ) || ! class_exists( 'WC_Optic_Children' ) || ! WC_Optic_Children::table_ready() ) {
+			return null;
+		}
+
+		$table   = WC_Optic_Children::table();
+		$in_list = implode( ',', $ids );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE product_id = %d AND enabled = 1 AND sph_id IN ({$in_list}) ORDER BY sort_order ASC, id ASC LIMIT 50",
+				$product_id
+			)
+		);
+		if ( empty( $rows ) ) {
+			return null;
+		}
+
+		$no_power_child    = null;
+		$no_power_by_color = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_object( $row ) ) {
+				continue;
+			}
+			$decoded = null;
+			$json    = isset( $row->config_json ) ? (string) $row->config_json : '';
+			if ( '' !== $json ) {
+				$tmp = json_decode( $json, true );
+				if ( is_array( $tmp ) ) {
+					$decoded = $tmp;
+				}
+			}
+
+			$regular = isset( $row->unit_price ) ? (float) wc_format_decimal( $row->unit_price ) : 0.0;
+			if ( $regular <= 0 && is_array( $decoded ) && isset( $decoded['unit_price'] ) ) {
+				$regular = (float) wc_format_decimal( $decoded['unit_price'] );
+			}
+			$sale = null;
+			if ( is_array( $decoded ) && ! empty( $decoded['sale_price'] ) ) {
+				$sale_num = (float) wc_format_decimal( $decoded['sale_price'] );
+				if ( $sale_num >= 0 && $regular > 0 && $sale_num < $regular ) {
+					$sale = $sale_num;
+				}
+			}
+			$color_id = ( $show_color && is_array( $decoded ) ) ? (int) ( $decoded['catalog']['color'] ?? 0 ) : 0;
+			$child_id = isset( $row->child_key ) ? (string) $row->child_key : '';
+			$sellable = null;
+			if ( isset( $row->stock_qty ) && null !== $row->stock_qty && '' !== (string) $row->stock_qty ) {
+				$stock = max( 0, (int) $row->stock_qty );
+				$bo    = 0;
+				if ( self::is_backorder_enabled() ) {
+					$bo = ! empty( $row->backorder_custom )
+						? max( 0, (int) ( $row->backorder_qty ?? 0 ) )
+						: self::get_global_backorder_qty();
+				}
+				$sellable = max( 0, $stock + max( 0, $bo - max( 0, (int) ( $row->backorder_consumed ?? 0 ) ) ) );
+			} elseif ( is_array( $decoded ) ) {
+				$sellable = self::get_child_sellable_qty( $decoded );
+			}
+			$reserved  = ( $child_id && isset( $reserved_map[ $child_id ] ) ) ? (int) $reserved_map[ $child_id ] : 0;
+			$remaining = null === $sellable ? null : max( 0, (int) $sellable - $reserved );
+			$in_stock  = null === $remaining || $remaining > 0;
+			$price     = null !== $sale ? $sale : $regular;
+			if ( $price <= 0 && is_array( $decoded ) ) {
+				$price = self::get_child_unit_price( $decoded );
+			}
+
+			$child_row = array(
+				'id'           => $child_id,
+				'price'        => $price,
+				'regularPrice' => $regular > 0 ? $regular : $price,
+				'salePrice'    => $sale,
+				'stock'        => $remaining,
+				'inStock'      => $in_stock,
+				'color'        => $color_id,
+			);
+
+			if ( null === $no_power_child || ( $in_stock && empty( $no_power_child['inStock'] ) ) ) {
+				$no_power_child = $child_row;
+			}
+			if ( $color_id > 0 ) {
+				$prev = $no_power_by_color[ (string) $color_id ] ?? null;
+				if ( null === $prev || ( $in_stock && empty( $prev['inStock'] ) ) ) {
+					$no_power_by_color[ (string) $color_id ] = $child_row;
+				}
+			}
+		}
+
+		if ( null === $no_power_child ) {
+			return null;
+		}
+
+		return array(
+			'child'    => $no_power_child,
+			'by_color' => $no_power_by_color,
 		);
 	}
 
@@ -1371,15 +1501,22 @@ class WC_Optic_SKU {
 			}
 		}
 
-		$show_swatches     = count( $colors ) >= 2;
-		$supports_no_power = ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] );
-		if ( ! $supports_no_power ) {
-			foreach ( $no_power_by_color as $np ) {
-				if ( ! empty( $np['inStock'] ) ) {
-					$supports_no_power = true;
-					break;
-				}
+		$show_swatches = count( $colors ) >= 2;
+
+		// Shared plano (no per-color catalog.color): expose it for every swatch color.
+		if ( $no_power_child && empty( $no_power_by_color ) && ! empty( $color_ids ) ) {
+			foreach ( array_keys( $color_ids ) as $cid ) {
+				$row            = $no_power_child;
+				$row['color']   = (int) $cid;
+				$no_power_by_color[ (string) (int) $cid ] = $row;
 			}
+		}
+
+		// Show toggle whenever a plano internal exists (tab enablement is stock-based in JS).
+		$supports_no_power = null !== $no_power_child || ! empty( $no_power_by_color );
+		if ( ! $supports_no_power && self::division_supports_no_power_mode( $division ) ) {
+			// Keep false — stub/lazy may still advertise support until AJAX fills children.
+			$supports_no_power = false;
 		}
 
 		return array(
@@ -1467,11 +1604,20 @@ class WC_Optic_SKU {
 	/**
 	 * Whether a division supports the no-power / power storefront toggle.
 	 *
+	 * Color-lens divisions (show_color), including sama_color_lenses — not only color_lenses.
+	 *
 	 * @param string $division Division slug.
 	 * @return bool
 	 */
 	public static function division_supports_no_power_mode( $division ) {
-		return 'color_lenses' === sanitize_key( (string) $division );
+		$division = sanitize_key( (string) $division );
+		if ( '' === $division ) {
+			return false;
+		}
+		if ( 'color_lenses' === $division || false !== strpos( $division, 'color_lens' ) ) {
+			return true;
+		}
+		return WC_Optic_Plugin::division_shows_color( $division );
 	}
 
 	/**

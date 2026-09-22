@@ -534,8 +534,8 @@ WC_Optic_Converter::convert_product() / preview()
   - Stock HTML / in-stock = `count_enabled` / `count_sellable` / `product_has_sellable_rows`.
   - Matrice : pas de `priceHtml` ; reserved qty via `get_reserved_quantities_map()` (1 scan panier).
   - Si `child_count > 150` : stub + AJAX `wc_optic_storefront_matrix` après paint.
-  - **Build matrice SQL** : détection plano (+0.00) robuste ; `supportsNoPowerMode` si `noPowerChild` **ou** `noPowerByColor` en stock (plus seulement le chemin multi-couleur).
-- Build matrice SQL (`build_storefront_matrix_from_sql`) + `get_zero_power_sph_ids()` ; labels termes en batch.
+  - Build matrice SQL (`build_storefront_matrix_from_sql`) + `get_zero_power_sph_ids()` ; labels termes en batch.
+  - **Toggle No power** : `division_supports_no_power_mode` = toutes divisions `show_color` (SAMA inclus) ; JS `supportsNoPowerMode()` lit le flag matrice (plus de masquage si pastilles) ; fallback SQL `sph_id IN (plano)`.
 
 **Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-pricing.php`, `class-wc-optic-frontend.php`, `class-wc-optic-cart.php`, `class-wc-optic-children.php`, `class-wc-optic-ajax.php`, `optic_product.php`, `frontend.js`, `frontend.css` ; version **1.9.3**.
 

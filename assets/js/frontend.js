@@ -24,12 +24,24 @@
 	}
 
 	function supportsNoPowerMode() {
-		if ( hasColorSwatches() ) {
-			var child = getNoPowerChildForColor( getSelectedColorId() );
-			return !!( child && childHasStock( child ) );
-		}
 		var matrix = getMatrix();
-		return matrix.supportsNoPowerMode === true;
+		if ( ! matrix ) {
+			return false;
+		}
+		// Prefer matrix flag from PHP (product has at least one plano / +0.00 internal).
+		if ( matrix.supportsNoPowerMode === true ) {
+			return true;
+		}
+		if ( matrix.noPowerChild ) {
+			return true;
+		}
+		var map = matrix.noPowerByColor || {};
+		for ( var key in map ) {
+			if ( Object.prototype.hasOwnProperty.call( map, key ) && map[ key ] ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	function hasColorSwatches() {
@@ -496,13 +508,16 @@
 		if ( ! $noPowerInput.length ) {
 			return;
 		}
-		var available = false;
+		var child = null;
 		if ( hasColorSwatches() ) {
-			var child = getNoPowerChildForColor( getSelectedColorId() );
-			available = !!( child && childHasStock( child ) );
+			child = getNoPowerChildForColor( getSelectedColorId() );
+			if ( ! child ) {
+				child = getMatrix().noPowerChild || null;
+			}
 		} else {
-			available = getMatrix().supportsNoPowerMode === true;
+			child = getMatrix().noPowerChild || null;
 		}
+		var available = !!( child && childHasStock( child ) );
 		$noPowerInput.prop( 'disabled', ! available );
 		$noPowerLabel.toggleClass( 'wc-optic-power-mode__tab--disabled', ! available );
 		if ( ! available && $noPowerInput.is( ':checked' ) ) {
@@ -922,8 +937,8 @@
 		initPowerDropdowns( $form );
 		if ( hasColorSwatches() ) {
 			syncColorSelectedLabel();
-			syncNoPowerTabAvailability();
 		}
+		syncNoPowerTabAvailability();
 		if ( supportsNoPowerMode() || $( 'input[name="wc_optic_power_mode"]' ).length ) {
 			togglePowerMode();
 		} else {
