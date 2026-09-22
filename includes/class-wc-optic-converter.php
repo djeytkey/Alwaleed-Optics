@@ -27,6 +27,13 @@ class WC_Optic_Converter {
 	protected static $converted_stats_cache = null;
 
 	/**
+	 * Request-level cache for converted product id lists (keyed by search).
+	 *
+	 * @var array<string, int[]>
+	 */
+	protected static $converted_ids_cache = array();
+
+	/**
 	 * Counts for the Convert product list (simple totals vs eligible vs displayed).
 	 *
 	 * @return array{total_simple:int, eligible:int, excluded_wpml:int, excluded_ineligible:int}
@@ -221,6 +228,8 @@ class WC_Optic_Converter {
 	/**
 	 * Counts for the Converted products tab.
 	 *
+	 * Uses id lists + `_optic_child_count` / SQL (no per-product child hydrate).
+	 *
 	 * @return array{total_optic:int, converted:int, excluded_wpml:int, excluded_empty:int}
 	 */
 	public static function get_converted_stats() {
@@ -253,6 +262,9 @@ class WC_Optic_Converter {
 				'excluded_empty' => 0,
 			);
 
+			// Build converted set without nested WPML switch (already switched).
+			$converted_map = array_fill_keys( self::collect_converted_ids_unlocked( '' ), true );
+
 			foreach ( $ids as $product_id ) {
 				$product_id = absint( $product_id );
 				if ( ! $product_id ) {
@@ -262,15 +274,11 @@ class WC_Optic_Converter {
 					++$stats['excluded_wpml'];
 					continue;
 				}
-				$product = wc_get_product( $product_id );
-				if ( ! $product instanceof WC_Product ) {
-					continue;
-				}
-				if ( ! self::is_converted( $product ) ) {
+				if ( isset( $converted_map[ $product_id ] ) ) {
+					++$stats['converted'];
+				} else {
 					++$stats['excluded_empty'];
-					continue;
 				}
-				++$stats['converted'];
 			}
 
 			self::$converted_stats_cache = $stats;
@@ -280,6 +288,201 @@ class WC_Optic_Converter {
 				WC_Optic_WPML::restore_language();
 			}
 		}
+	}
+
+	/**
+	 * Optic product IDs that already have internals (ids only — list hot path).
+	 *
+	 * @param string $search Optional title/SKU search.
+	 * @return int[]
+	 */
+	public static function get_converted_product_ids( $search = '' ) {
+		$search    = trim( (string) $search );
+		$cache_key = md5( $search );
+		if ( isset( self::$converted_ids_cache[ $cache_key ] ) ) {
+			return self::$converted_ids_cache[ $cache_key ];
+		}
+
+		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
+		if ( $wpml ) {
+			WC_Optic_WPML::switch_to_default_language();
+		}
+
+		try {
+			$ids = self::collect_converted_ids_unlocked( $search );
+			$out = array();
+			foreach ( $ids as $product_id ) {
+				$product_id = absint( $product_id );
+				if ( ! $product_id ) {
+					continue;
+				}
+				if ( $wpml && ! WC_Optic_WPML::is_original_product( $product_id ) ) {
+					continue;
+				}
+				$out[] = $product_id;
+			}
+			self::$converted_ids_cache[ $cache_key ] = $out;
+			return $out;
+		} finally {
+			if ( $wpml ) {
+				WC_Optic_WPML::restore_language();
+			}
+		}
+	}
+
+	/**
+	 * Collect converted product ids (caller handles WPML language switch).
+	 *
+	 * @param string $search Search.
+	 * @return int[]
+	 */
+	protected static function collect_converted_ids_unlocked( $search = '' ) {
+		$search = trim( (string) $search );
+		$ids    = array();
+
+		$query_args = array(
+			'type'       => 'optic_product',
+			'status'     => array( 'publish', 'draft', 'private' ),
+			'limit'      => -1,
+			'return'     => 'ids',
+			'orderby'    => 'title',
+			'order'      => 'ASC',
+			'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				array(
+					'key'     => WC_Optic_SKU::CHILD_COUNT_META_KEY,
+					'value'   => 0,
+					'compare' => '>',
+					'type'    => 'NUMERIC',
+				),
+			),
+		);
+		if ( '' !== $search ) {
+			$query_args['s'] = $search;
+		}
+
+		$meta_ids = wc_get_products( $query_args );
+		if ( is_array( $meta_ids ) ) {
+			$ids = array_map( 'absint', $meta_ids );
+		}
+
+		if ( class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
+			$sql_ids = self::query_converted_ids_from_sql( $search );
+			if ( ! empty( $sql_ids ) ) {
+				$ids = array_values( array_unique( array_merge( $ids, $sql_ids ) ) );
+				$ids = self::order_product_ids_by_title( $ids );
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Product ids that have at least one SQL child row.
+	 *
+	 * @param string $search Optional search against post title / SKU.
+	 * @return int[]
+	 */
+	protected static function query_converted_ids_from_sql( $search = '' ) {
+		global $wpdb;
+		if ( ! class_exists( 'WC_Optic_Children' ) || ! WC_Optic_Children::table_ready() ) {
+			return array();
+		}
+
+		$children = WC_Optic_Children::table();
+		$search   = trim( (string) $search );
+
+		if ( '' === $search ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$ids = $wpdb->get_col( "SELECT DISTINCT product_id FROM {$children} ORDER BY product_id ASC" );
+			return array_map( 'absint', is_array( $ids ) ? $ids : array() );
+		}
+
+		$like = '%' . $wpdb->esc_like( $search ) . '%';
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT DISTINCT c.product_id
+			FROM {$children} c
+			INNER JOIN {$wpdb->posts} p ON p.ID = c.product_id AND p.post_type = 'product'
+			LEFT JOIN {$wpdb->postmeta} sku ON sku.post_id = c.product_id AND sku.meta_key = '_sku'
+			WHERE p.post_title LIKE %s OR sku.meta_value LIKE %s
+			ORDER BY p.post_title ASC",
+			$like,
+			$like
+		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$ids = $wpdb->get_col( $sql );
+		return array_map( 'absint', is_array( $ids ) ? $ids : array() );
+	}
+
+	/**
+	 * Sort product ids by post title (ASC).
+	 *
+	 * @param int[] $ids Product ids.
+	 * @return int[]
+	 */
+	protected static function order_product_ids_by_title( array $ids ) {
+		$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
+		if ( count( $ids ) < 2 ) {
+			return $ids;
+		}
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$sql = $wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts} WHERE ID IN ($placeholders) ORDER BY post_title ASC",
+			$ids
+		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$ordered = $wpdb->get_col( $sql );
+		return array_map( 'absint', is_array( $ordered ) ? $ordered : $ids );
+	}
+
+	/**
+	 * Paginated converted products for DataTables serverSide (Converted / Specifics).
+	 *
+	 * @param int    $page     1-based page.
+	 * @param int    $per_page Page size.
+	 * @param string $search   Search string.
+	 * @return array{rows:array<int,array<string,mixed>>,total:int}
+	 */
+	public static function query_converted_page( $page, $per_page, $search = '' ) {
+		$page     = max( 1, (int) $page );
+		$per_page = max( 1, min( 100, (int) $per_page ) );
+		$ids      = self::get_converted_product_ids( $search );
+		$total    = count( $ids );
+		$slice    = array_slice( $ids, ( $page - 1 ) * $per_page, $per_page );
+		$divs     = WC_Optic_Plugin::get_divisions();
+		$rows     = array();
+
+		foreach ( $slice as $product_id ) {
+			$product = wc_get_product( $product_id );
+			if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+				continue;
+			}
+			$division  = (string) $product->get_meta( '_optic_division', true );
+			$div_label = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
+			$price_raw = $product->get_regular_price( 'edit' );
+			if ( '' === $price_raw || null === $price_raw ) {
+				$price_raw = $product->get_price( 'edit' );
+			}
+			$price_num = '' !== (string) $price_raw ? (float) wc_format_decimal( $price_raw ) : 0.0;
+
+			$rows[] = array(
+				'id'             => (int) $product_id,
+				'name'           => $product->get_name(),
+				'sku'            => (string) $product->get_sku(),
+				'division'       => $division,
+				'division_label' => $div_label,
+				'child_count'    => WC_Optic_SKU::get_child_count( $product ),
+				'price'          => $price_num,
+				'price_html'     => $price_num > 0 ? wc_price( $price_num ) : '—',
+			);
+		}
+
+		return array(
+			'rows'  => $rows,
+			'total' => $total,
+		);
 	}
 
 	/**
@@ -297,56 +500,22 @@ class WC_Optic_Converter {
 		$args     = wp_parse_args( $args, $defaults );
 
 		$limit = (int) $args['limit'];
+		$page  = max( 1, absint( $args['page'] ) );
+		$ids   = self::get_converted_product_ids( (string) $args['search'] );
+
 		if ( -1 !== $limit ) {
 			$limit = max( 1, absint( $limit ) );
+			$ids   = array_slice( $ids, ( $page - 1 ) * $limit, $limit );
 		}
 
-		$query_args = array(
-			'type'    => 'optic_product',
-			'status'  => array( 'publish', 'draft', 'private' ),
-			'limit'   => $limit,
-			'page'    => max( 1, absint( $args['page'] ) ),
-			'orderby' => 'title',
-			'order'   => 'ASC',
-			'return'  => 'objects',
-		);
-
-		$search = trim( (string) $args['search'] );
-		if ( '' !== $search ) {
-			$query_args['s'] = $search;
-		}
-
-		$wpml = class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active();
-		if ( $wpml ) {
-			WC_Optic_WPML::switch_to_default_language();
-		}
-
-		try {
-			$products = wc_get_products( $query_args );
-			if ( ! is_array( $products ) ) {
-				return array();
-			}
-
-			$out = array();
-			foreach ( $products as $product ) {
-				if ( ! $product instanceof WC_Product ) {
-					continue;
-				}
-				if ( ! self::is_converted( $product ) ) {
-					continue;
-				}
-				if ( $wpml && ! WC_Optic_WPML::is_original_product( $product->get_id() ) ) {
-					continue;
-				}
+		$out = array();
+		foreach ( $ids as $product_id ) {
+			$product = wc_get_product( $product_id );
+			if ( $product instanceof WC_Product ) {
 				$out[] = $product;
 			}
-
-			return $out;
-		} finally {
-			if ( $wpml ) {
-				WC_Optic_WPML::restore_language();
-			}
 		}
+		return $out;
 	}
 
 	/**

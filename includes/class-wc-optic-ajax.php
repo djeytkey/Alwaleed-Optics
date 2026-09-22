@@ -35,6 +35,7 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_reset_all_internals', array( __CLASS__, 'reset_all_internals' ) );
 		add_action( 'wp_ajax_wc_optic_stock_list_children', array( __CLASS__, 'stock_list_children' ) );
 		add_action( 'wp_ajax_wc_optic_stock_list_alerts', array( __CLASS__, 'stock_list_alerts' ) );
+		add_action( 'wp_ajax_wc_optic_convert_list_products', array( __CLASS__, 'convert_list_products' ) );
 	}
 
 	/**
@@ -585,6 +586,52 @@ class WC_Optic_Ajax {
 		$data   = array();
 		foreach ( $result['rows'] as $alert ) {
 			$data[] = WC_Optic_Admin_Stock::render_alert_datatable_row( $alert );
+		}
+
+		wp_send_json(
+			array(
+				'draw'            => $draw,
+				'recordsTotal'    => (int) $result['total'],
+				'recordsFiltered' => (int) $result['total'],
+				'data'            => $data,
+			)
+		);
+	}
+
+	/**
+	 * Converted / Specifics: DataTables serverSide endpoint.
+	 */
+	public static function convert_list_products() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json(
+				array(
+					'draw'            => 0,
+					'recordsTotal'    => 0,
+					'recordsFiltered' => 0,
+					'data'            => array(),
+				),
+				403
+			);
+		}
+
+		$draw   = isset( $_REQUEST['draw'] ) ? absint( wp_unslash( $_REQUEST['draw'] ) ) : 1;
+		$start  = isset( $_REQUEST['start'] ) ? absint( wp_unslash( $_REQUEST['start'] ) ) : 0;
+		$length = isset( $_REQUEST['length'] ) ? absint( wp_unslash( $_REQUEST['length'] ) ) : 25;
+		$search = '';
+		if ( isset( $_REQUEST['search']['value'] ) ) {
+			$search = sanitize_text_field( wp_unslash( $_REQUEST['search']['value'] ) );
+		}
+
+		if ( $length < 1 || $length > 100 ) {
+			$length = 25;
+		}
+		$page = (int) floor( $start / $length ) + 1;
+
+		$result = WC_Optic_Converter::query_converted_page( $page, $length, $search );
+		$data   = array();
+		foreach ( $result['rows'] as $row ) {
+			$data[] = WC_Optic_Admin_Convert::render_converted_datatable_row( $row );
 		}
 
 		wp_send_json(

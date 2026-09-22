@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-18 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.1 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-18 (courante)
+### Session 2026-09-22 (courante)
+
+1. **Perf Converted / Specifics (v1.9.1)** : DataTables `serverSide` comme Stock Alerts ; plus de chargement de tous les internes via `get_price_html()` sur la liste.
+2. **Version** — bump **1.9.1**.
+
+### Session 2026-09-18 (précédente)
 
 1. **Internes → table SQL** : `{prefix}wc_optic_children` (schema v4) = source de vérité ; migration depuis `_optic_child_configs` ; plus d’écriture du gros blob.
 2. **Stock scalable** : Management = parents only + AJAX paginé ; Alerts = DataTables server-side + QR page visible ; badge = `COUNT(is_low_stock)`.
@@ -501,6 +506,14 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-database.php`, `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-admin-settings.php`, `admin-settings.js`, `admin.css`, `optic_product.php`, `frontend.js`, `frontend.css` ; version **1.9.0**.
 
+### 2.30 Perf Converted / Specifics (session 2026-09-22)
+
+- Cause : SSR de tous les parents + `get_price_html()` → `get_default_display_child()` → `get_child_configs()` (tous les internes) par ligne.
+- Fix : shell vide + DataTables `serverSide` → `wc_optic_convert_list_products` ; `query_converted_page()` ; prix = `wc_price` parent (pas de filtre optic) ; Internals = `get_child_count()`.
+- Stats : plus de `wc_get_product` + hydrate pour chaque optic ; ids via meta `_optic_child_count` + SQL `DISTINCT product_id`.
+
+**Fichiers :** `class-wc-optic-converter.php`, `class-wc-optic-admin-convert.php`, `class-wc-optic-ajax.php`, `admin-convert.js` ; version **1.9.1**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -943,6 +956,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Sync identité admin : ne remplace pas les couleurs distinctes des internes
 - [ ] Même SPH sur 2 couleurs : sauvegarde OK (unicité inclut couleur)
 
+### Converted / Specifics perf (v1.9.1)
+
+- [ ] Ouverture Converted / Specifics : premier paint rapide (pas de freeze)
+- [ ] Pagination / recherche DataTables charge ~25 parents via AJAX
+- [ ] Colonne Internals = counts (pas de chargement des N internes)
+- [ ] Rebuild / Add specifics wizard inchangé
+- [ ] Select all = page courante seulement
+
 ### Fiche produit — UI
 
 - [ ] Pas de ligne « Optical division »
@@ -1071,7 +1092,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.0**.
+3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.1**.
 4. **SQL children (1.8.0)** : après migration, `_optic_child_configs` est vide ; ne pas réécrire le blob. Purge manuelle des anciennes meta déjà faite à la migration produit par produit.
 5. **Migration batches** : 20 produits/admin_init ; sur catalogues très grands, plusieurs hits admin avant `wc_optic_children_migrated=1`.
 6. **`is_low_stock` dénormalisé** : recalculé à l’écriture + via `recompute_low_stock_flags()` quand le seuil global / enabled change.

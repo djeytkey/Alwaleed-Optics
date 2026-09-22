@@ -65,6 +65,7 @@ class WC_Optic_Admin_Convert {
 			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),
 			'rebuildMode'       => 'converted' === $tab,
 			'specificsMode'     => 'specifics' === $tab,
+			'serverSideList'    => in_array( $tab, array( 'converted', 'specifics' ), true ),
 			'canResetAll'       => WC_Optic_Converter::current_user_can_reset_all_internals(),
 			'resetStats'        => WC_Optic_Converter::current_user_can_reset_all_internals() ? WC_Optic_Converter::get_converted_stats() : array(),
 			'dt'                => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ) ? self::get_datatables_i18n() : array(),
@@ -473,7 +474,7 @@ class WC_Optic_Admin_Convert {
 			echo esc_html( $product->get_name() );
 			echo '</label></td>';
 			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
-			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
+			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( wc_price( (float) $product->get_price( 'edit' ) ) ) . '</td>';
 			echo '</tr>';
 		}
 		echo '</tbody></table>';
@@ -486,14 +487,7 @@ class WC_Optic_Admin_Convert {
 	 * Converted tab: rebuild optic products (replace internals).
 	 */
 	protected static function render_converted_tab() {
-		$stats    = WC_Optic_Converter::get_converted_stats();
-		$products = WC_Optic_Converter::get_converted_products(
-			array(
-				'limit' => WC_Optic_Converter::CONVERT_LIST_LIMIT,
-				'page'  => 1,
-			)
-		);
-		$divs = WC_Optic_Plugin::get_divisions();
+		$stats = WC_Optic_Converter::get_converted_stats();
 
 		echo '<p class="description">' . esc_html__( 'Select optic products that were converted earlier, then rebuild them with the wizard (new division, identity, and power ranges). Existing internals are replaced.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
@@ -524,39 +518,11 @@ class WC_Optic_Admin_Convert {
 		echo '</p>';
 
 		echo '<p class="wc-optic-convert-toolbar">';
-		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all matching rows', 'wc-optic' ) . '</label> ';
+		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all on this page', 'wc-optic' ) . '</label> ';
 		echo '<button type="button" class="button button-primary" id="wc-optic-start-wizard">' . esc_html__( 'Rebuild selected', 'wc-optic' ) . '</button>';
 		echo '</p>';
 
-		echo '<div class="wc-optic-datatable-wrap wc-optic-convert-datatable-wrap">';
-		echo '<table class="widefat wc-optic-convert-datatable display" id="wc-optic-convert-table" width="100%">';
-		echo '<thead><tr>';
-		echo '<th>' . esc_html__( 'Product', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'SKU (parent)', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Division', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Internals', 'wc-optic' ) . '</th>';
-		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
-		echo '</tr></thead><tbody>';
-		foreach ( $products as $product ) {
-			$product_id = $product->get_id();
-			$division   = (string) $product->get_meta( '_optic_division', true );
-			$div_label  = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
-			$child_n    = WC_Optic_SKU::get_child_count( $product );
-			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
-			echo '<td class="wc-optic-convert-product-name">';
-			echo '<label class="wc-optic-convert-product-label">';
-			echo '<input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product_id ) . '" /> ';
-			echo esc_html( $product->get_name() );
-			echo '</label></td>';
-			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
-			echo '<td class="wc-optic-convert-division" data-division="' . esc_attr( $division ) . '">' . esc_html( $div_label ) . '</td>';
-			echo '<td class="wc-optic-convert-child-count" data-order="' . esc_attr( (string) $child_n ) . '">' . esc_html( (string) $child_n ) . '</td>';
-			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
-			echo '</tr>';
-		}
-		echo '</tbody></table>';
-		echo '</div>';
-
+		self::render_converted_list_shell();
 		self::render_wizard_modal( 'rebuild' );
 	}
 
@@ -564,14 +530,7 @@ class WC_Optic_Admin_Convert {
 	 * Specifics tab: add extra power combinations without rebuilding.
 	 */
 	protected static function render_specifics_tab() {
-		$stats    = WC_Optic_Converter::get_converted_stats();
-		$products = WC_Optic_Converter::get_converted_products(
-			array(
-				'limit' => WC_Optic_Converter::CONVERT_LIST_LIMIT,
-				'page'  => 1,
-			)
-		);
-		$divs = WC_Optic_Plugin::get_divisions();
+		$stats = WC_Optic_Converter::get_converted_stats();
 
 		echo '<p class="description">' . esc_html__( 'Add extra power combinations to already-converted products. SPH +0.00 creates a single no-power lens (no CYL / AXIS / ADD). Existing internals are kept; duplicate prescriptions are skipped.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
@@ -602,10 +561,18 @@ class WC_Optic_Admin_Convert {
 		echo '</p>';
 
 		echo '<p class="wc-optic-convert-toolbar">';
-		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all matching rows', 'wc-optic' ) . '</label> ';
+		echo '<label><input type="checkbox" id="wc-optic-convert-select-all" /> ' . esc_html__( 'Select all on this page', 'wc-optic' ) . '</label> ';
 		echo '<button type="button" class="button button-primary" id="wc-optic-start-wizard">' . esc_html__( 'Add specifics', 'wc-optic' ) . '</button>';
 		echo '</p>';
 
+		self::render_converted_list_shell();
+		self::render_wizard_modal( 'specifics' );
+	}
+
+	/**
+	 * Empty DataTables shell for Converted / Specifics (rows via AJAX).
+	 */
+	protected static function render_converted_list_shell() {
 		echo '<div class="wc-optic-datatable-wrap wc-optic-convert-datatable-wrap">';
 		echo '<table class="widefat wc-optic-convert-datatable display" id="wc-optic-convert-table" width="100%">';
 		echo '<thead><tr>';
@@ -614,28 +581,41 @@ class WC_Optic_Admin_Convert {
 		echo '<th>' . esc_html__( 'Division', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Internals', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
-		echo '</tr></thead><tbody>';
-		foreach ( $products as $product ) {
-			$product_id = $product->get_id();
-			$division   = (string) $product->get_meta( '_optic_division', true );
-			$div_label  = ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division;
-			$child_n    = WC_Optic_SKU::get_child_count( $product );
-			echo '<tr class="wc-optic-convert-row" data-product-id="' . esc_attr( (string) $product_id ) . '">';
-			echo '<td class="wc-optic-convert-product-name">';
-			echo '<label class="wc-optic-convert-product-label">';
-			echo '<input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( (string) $product_id ) . '" /> ';
-			echo esc_html( $product->get_name() );
-			echo '</label></td>';
-			echo '<td>' . esc_html( (string) $product->get_sku() ) . '</td>';
-			echo '<td class="wc-optic-convert-division" data-division="' . esc_attr( $division ) . '">' . esc_html( $div_label ) . '</td>';
-			echo '<td class="wc-optic-convert-child-count" data-order="' . esc_attr( (string) $child_n ) . '">' . esc_html( (string) $child_n ) . '</td>';
-			echo '<td data-order="' . esc_attr( wc_format_decimal( $product->get_price( 'edit' ), wc_get_price_decimals() ) ) . '">' . wp_kses_post( $product->get_price_html() ) . '</td>';
-			echo '</tr>';
-		}
-		echo '</tbody></table>';
+		echo '</tr></thead><tbody></tbody></table>';
 		echo '</div>';
+	}
 
-		self::render_wizard_modal( 'specifics' );
+	/**
+	 * One Converted/Specifics row for DataTables serverSide.
+	 *
+	 * @param array<string, mixed> $row Row from query_converted_page().
+	 * @return array<int|string, mixed>
+	 */
+	public static function render_converted_datatable_row( array $row ) {
+		$product_id = (string) (int) ( $row['id'] ?? 0 );
+		$name       = (string) ( $row['name'] ?? '' );
+		$sku        = (string) ( $row['sku'] ?? '' );
+		$division   = (string) ( $row['division'] ?? '' );
+		$div_label  = (string) ( $row['division_label'] ?? $division );
+		$child_n    = (int) ( $row['child_count'] ?? 0 );
+		$price_html = (string) ( $row['price_html'] ?? '—' );
+
+		$product_cell = '<label class="wc-optic-convert-product-label">';
+		$product_cell .= '<input type="checkbox" class="wc-optic-convert-product" value="' . esc_attr( $product_id ) . '" /> ';
+		$product_cell .= esc_html( $name );
+		$product_cell .= '</label>';
+
+		return array(
+			'DT_RowClass' => 'wc-optic-convert-row',
+			'DT_RowAttr'  => array(
+				'data-product-id' => $product_id,
+			),
+			$product_cell,
+			esc_html( $sku ),
+			'<span class="wc-optic-convert-division" data-division="' . esc_attr( $division ) . '">' . esc_html( $div_label ) . '</span>',
+			'<span class="wc-optic-convert-child-count" data-order="' . esc_attr( (string) $child_n ) . '">' . esc_html( (string) $child_n ) . '</span>',
+			wp_kses_post( $price_html ),
+		);
 	}
 
 	/**

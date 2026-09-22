@@ -84,7 +84,7 @@
 		}
 
 		var $table = $( '#wc-optic-convert-table' );
-		if ( ! $table.length || ! $table.find( 'tbody tr.wc-optic-convert-row' ).length ) {
+		if ( ! $table.length ) {
 			return;
 		}
 
@@ -97,20 +97,50 @@
 		}
 
 		dtLang = wcOpticConvert.dt || {};
+		var serverSide = !!wcOpticConvert.serverSideList;
 
-		convertTable = $table.DataTable( {
-			pageLength: 25,
-			lengthMenu: [
-				[ 10, 25, 50, 100, -1 ],
-				[ 10, 25, 50, 100, wcOpticConvert.i18n.allProducts || 'All' ],
-			],
-			language: dtLang,
-			autoWidth: false,
-			order: [ [ 0, 'asc' ] ],
-			columnDefs: [
-				{ orderable: false, targets: [ 2 ] },
-			],
-		} );
+		if ( serverSide ) {
+			convertTable = $table.DataTable( {
+				serverSide: true,
+				processing: true,
+				pageLength: 25,
+				lengthMenu: [
+					[ 10, 25, 50, 100 ],
+					[ 10, 25, 50, 100 ],
+				],
+				language: dtLang,
+				autoWidth: false,
+				order: [ [ 0, 'asc' ] ],
+				ajax: {
+					url: getAjaxUrl(),
+					type: 'POST',
+					data: function ( d ) {
+						d.action = 'wc_optic_convert_list_products';
+						d.nonce = wcOpticConvert.nonce;
+					},
+				},
+				columnDefs: [
+					{ orderable: false, targets: [ 1, 2, 4 ] },
+				],
+			} );
+		} else {
+			if ( ! $table.find( 'tbody tr.wc-optic-convert-row' ).length ) {
+				return;
+			}
+			convertTable = $table.DataTable( {
+				pageLength: 25,
+				lengthMenu: [
+					[ 10, 25, 50, 100, -1 ],
+					[ 10, 25, 50, 100, wcOpticConvert.i18n.allProducts || 'All' ],
+				],
+				language: dtLang,
+				autoWidth: false,
+				order: [ [ 0, 'asc' ] ],
+				columnDefs: [
+					{ orderable: false, targets: [ 2 ] },
+				],
+			} );
+		}
 
 		convertTable.on( 'draw', function () {
 			$( '#wc-optic-convert-select-all' ).prop( 'checked', false );
@@ -919,7 +949,11 @@
 					$row.find( '.wc-optic-convert-division' ).text( divLabel ).attr( 'data-division', current.division || '' );
 				}
 				if ( convertTable ) {
-					convertTable.row( $row ).invalidate().draw( false );
+					if ( wcOpticConvert.serverSideList && convertTable.ajax && convertTable.ajax.reload ) {
+						convertTable.ajax.reload( null, false );
+					} else {
+						convertTable.row( $row ).invalidate().draw( false );
+					}
 				}
 				updateNextLabel();
 				if ( typeof onSuccess === 'function' ) {

@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.1] — 2026-09-22
+
+### Corrigé
+
+- **Converted / Specifics lents** : plus de SSR de tous les parents ni `get_price_html()` (qui chargeait tous les internes). Shell vide + DataTables `serverSide` (`wc_optic_convert_list_products`) ; prix admin = `wc_price` parent ; counts via `_optic_child_count` / SQL.
+
 ## [1.9.0] — 2026-09-18
 
 ### Ajouté
