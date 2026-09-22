@@ -638,8 +638,14 @@ class WC_Optic_Converter {
 		$per_product = 0;
 		$ranges      = isset( $args['ranges'] ) && is_array( $args['ranges'] ) ? $args['ranges'] : array();
 		$division    = isset( $args['division'] ) ? sanitize_key( $args['division'] ) : '';
+		$catalog     = isset( $args['catalog'] ) && is_array( $args['catalog'] ) ? $args['catalog'] : array();
+		$color_n     = 1;
+		if ( $division && WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$color_ids = WC_Optic_SKU::extract_generation_color_ids( $catalog );
+			$color_n   = max( 1, count( $color_ids ) );
+		}
 		if ( $division && $ranges ) {
-			$counted = WC_Optic_SKU::count_children_from_ranges( $division, $ranges );
+			$counted = WC_Optic_SKU::count_children_from_ranges( $division, $ranges, $color_n );
 			if ( is_wp_error( $counted ) ) {
 				return array(
 					'ok'       => false,
@@ -779,7 +785,7 @@ class WC_Optic_Converter {
 			}
 
 			$product->update_meta_data( '_optic_division', $prepared['division'] );
-			$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, $prepared['catalog'] );
+			$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, WC_Optic_SKU::normalize_identity_catalog( $prepared['catalog'] ) );
 			$product->update_meta_data( WC_Optic_SKU::RANGES_META_KEY, $prepared['ranges'] );
 			WC_Optic_SKU::persist_child_data( $product, $children );
 			WC_Optic_SKU::sync_product_sku( $product );
@@ -892,9 +898,18 @@ class WC_Optic_Converter {
 			return new WP_Error( 'wc_optic_missing_division', __( 'Optical division is required.', 'wc-optic' ) );
 		}
 
-		$catalog = WC_Optic_SKU::normalize_identity_catalog( isset( $args['catalog'] ) ? $args['catalog'] : array() );
+		$raw_catalog = isset( $args['catalog'] ) && is_array( $args['catalog'] ) ? $args['catalog'] : array();
+		$catalog     = WC_Optic_SKU::normalize_identity_catalog( $raw_catalog );
+		$color_ids   = WC_Optic_SKU::extract_generation_color_ids( $raw_catalog );
 		$has_lot_identity = true;
 		foreach ( WC_Optic_SKU::get_required_identity_types( $division ) as $type ) {
+			if ( 'color' === $type ) {
+				if ( empty( $color_ids ) ) {
+					$has_lot_identity = false;
+					break;
+				}
+				continue;
+			}
 			if ( (int) ( $catalog[ $type ] ?? 0 ) < 1 ) {
 				$has_lot_identity = false;
 				break;
@@ -902,6 +917,11 @@ class WC_Optic_Converter {
 		}
 		if ( ! $has_lot_identity ) {
 			$catalog = WC_Optic_SKU::get_identity_catalog( $product );
+		} elseif ( count( $color_ids ) > 1 ) {
+			// Preserve multi-color selection for generation (parent meta still stores first via normalize on save).
+			$catalog['color'] = $color_ids;
+		} elseif ( 1 === count( $color_ids ) ) {
+			$catalog['color'] = $color_ids[0];
 		}
 
 		// Templates are applied client-side (append per power). Posted ranges are authoritative.
@@ -958,6 +978,20 @@ class WC_Optic_Converter {
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( $prepared['catalog'] );
 		foreach ( WC_Optic_SKU::get_required_identity_types( $prepared['division'] ) as $type ) {
+			if ( 'color' === $type ) {
+				$color_ids = WC_Optic_SKU::extract_generation_color_ids( is_array( $prepared['catalog'] ) ? $prepared['catalog'] : array() );
+				if ( empty( $color_ids ) ) {
+					return new WP_Error(
+						'wc_optic_missing_identity',
+						sprintf(
+							/* translators: %s: catalog field label */
+							__( 'Missing optical identity: %s.', 'wc-optic' ),
+							WC_Optic_Catalog::get_type_label( $type )
+						)
+					);
+				}
+				continue;
+			}
 			if ( (int) ( $identity[ $type ] ?? 0 ) < 1 ) {
 				return new WP_Error(
 					'wc_optic_missing_identity',

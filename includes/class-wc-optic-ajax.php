@@ -273,7 +273,8 @@ class WC_Optic_Ajax {
 
 		$division = isset( $_POST['division'] ) ? sanitize_key( wp_unslash( $_POST['division'] ) ) : '';
 		$ranges   = isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ? wp_unslash( $_POST['ranges'] ) : array();
-		$count    = WC_Optic_SKU::count_children_from_ranges( $division, $ranges );
+		$colors   = isset( $_POST['color_count'] ) ? absint( $_POST['color_count'] ) : 1;
+		$count    = WC_Optic_SKU::count_children_from_ranges( $division, $ranges, $colors );
 		if ( is_wp_error( $count ) ) {
 			wp_send_json_error( array( 'message' => $count->get_error_message(), 'count' => 0 ), 400 );
 		}

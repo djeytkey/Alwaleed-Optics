@@ -694,8 +694,8 @@ class WC_Optic_Admin_Convert {
 
 		if ( 'specifics' !== $mode ) {
 			echo '<div class="wc-optic-wizard-pane" data-step="2" hidden>';
-			echo '<p class="description">' . esc_html__( 'Choose these values once for this product. They are copied to every generated internal.', 'wc-optic' ) . '</p>';
-			self::render_identity_fields( array(), 'wizard_catalog', false );
+			echo '<p class="description">' . esc_html__( 'Choose identity values once. For color lenses you can select several colors — each color is crossed with every power combination.', 'wc-optic' ) . '</p>';
+			self::render_identity_fields( array(), 'wizard_catalog', false, '', true );
 			echo '</div>';
 		}
 
@@ -767,23 +767,48 @@ class WC_Optic_Admin_Convert {
 	 * @param bool   $required Required.
 	 * @param string $division Optional division slug (controls color field visibility).
 	 */
-	public static function render_identity_fields( array $selected, $name = '_optic_identity', $required = true, $division = '' ) {
+	/**
+	 * Identity catalog selects (section, company, …).
+	 *
+	 * @param array  $selected     Selected ids by type (color may be int or int[]).
+	 * @param string $name         Field name prefix.
+	 * @param bool   $required     Mark fields required.
+	 * @param string $division     Division slug (controls color visibility).
+	 * @param bool   $multi_color  Allow selecting multiple colors (Convert wizard).
+	 */
+	public static function render_identity_fields( array $selected, $name = '_optic_identity', $required = true, $division = '', $multi_color = false ) {
 		echo '<div class="wc-optic-identity-fields">';
 		foreach ( WC_Optic_SKU::get_identity_catalog_types() as $type ) {
 			$show_color = ( 'color' !== $type ) || WC_Optic_Plugin::division_shows_color( $division );
-			$current = isset( $selected[ $type ] ) ? (int) $selected[ $type ] : 0;
-			$field   = $name . '[' . $type . ']';
-			$id      = 'wc_optic_identity_' . $type . '_' . sanitize_key( $name );
+			$is_multi   = $multi_color && 'color' === $type;
+			$current    = isset( $selected[ $type ] ) ? $selected[ $type ] : ( $is_multi ? array() : 0 );
+			if ( $is_multi ) {
+				$current_ids = array_map( 'absint', (array) $current );
+			} else {
+				$current_ids = array( absint( $current ) );
+			}
+			$field = $is_multi ? ( $name . '[' . $type . '][]' ) : ( $name . '[' . $type . ']' );
+			$id    = 'wc_optic_identity_' . $type . '_' . sanitize_key( $name );
 			echo '<p class="form-field form-field-wide wc-optic-identity-field wc-optic-identity-field--' . esc_attr( $type ) . '" data-optic-type="' . esc_attr( $type ) . '"' . ( $show_color ? '' : ' hidden' ) . '>';
 			echo '<label for="' . esc_attr( $id ) . '">' . esc_html( WC_Optic_Catalog::get_type_label( $type ) );
 			if ( $required && $show_color ) {
 				echo ' <abbr class="required" title="' . esc_attr__( 'required', 'woocommerce' ) . '">*</abbr>';
 			}
 			echo '</label>';
-			echo '<select name="' . esc_attr( $field ) . '" id="' . esc_attr( $id ) . '" class="wc-enhanced-select wc-optic-select2 wc-optic-identity-select" data-optic-type="' . esc_attr( $type ) . '" data-placeholder="' . esc_attr__( '— Select —', 'wc-optic' ) . '"' . ( $required && $show_color ? ' required="required" aria-required="true"' : '' ) . '>';
-			echo '<option value=""></option>';
+			if ( $is_multi ) {
+				echo '<span class="description" style="display:block;margin:0 0 6px;">' . esc_html__( 'Select one or more colors. Internals = colors × power combinations.', 'wc-optic' ) . '</span>';
+			}
+			$multi_attr = $is_multi ? ' multiple="multiple"' : '';
+			$req_attr   = ( $required && $show_color && ! $is_multi ) ? ' required="required" aria-required="true"' : '';
+			$ph         = $is_multi ? __( '— Select color(s) —', 'wc-optic' ) : __( '— Select —', 'wc-optic' );
+			echo '<select name="' . esc_attr( $field ) . '" id="' . esc_attr( $id ) . '" class="wc-enhanced-select wc-optic-select2 wc-optic-identity-select' . ( $is_multi ? ' wc-optic-identity-select--multi-color' : '' ) . '" data-optic-type="' . esc_attr( $type ) . '" data-placeholder="' . esc_attr( $ph ) . '"' . $multi_attr . $req_attr . '>';
+			if ( ! $is_multi ) {
+				echo '<option value=""></option>';
+			}
 			foreach ( WC_Optic_Catalog::get_terms( $type ) as $row ) {
-				echo '<option value="' . esc_attr( (string) $row->id ) . '" ' . selected( $current, (int) $row->id, false ) . '>' . esc_html( WC_Optic_Catalog::get_display_name( $row ) ) . '</option>';
+				$rid      = (int) $row->id;
+				$selected = in_array( $rid, $current_ids, true );
+				echo '<option value="' . esc_attr( (string) $rid ) . '" ' . selected( $selected, true, false ) . '>' . esc_html( WC_Optic_Catalog::get_display_name( $row ) ) . '</option>';
 			}
 			echo '</select></p>';
 		}

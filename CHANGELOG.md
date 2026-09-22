@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.5] — 2026-09-22
+
+### Ajouté
+
+- **Convert multi-couleurs** : dans le wizard Convert, le champ Couleur accepte plusieurs valeurs (ex. Gray, Sterling Gray, Honey, Brown). Une seule conversion crée le produit cartésien **couleurs × combinaisons de puissances** ; le compteur d’internes multiplie par le nombre de couleurs sélectionnées.
+
 ## [1.9.4] — 2026-09-22
 
 ### Corrigé

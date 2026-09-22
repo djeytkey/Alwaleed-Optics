@@ -386,11 +386,57 @@
 			if ( type === 'color' && ! divisionShowsColor( division ) ) {
 				return;
 			}
-			if ( type ) {
-				catalog[ type ] = $( this ).val() || '';
+			if ( ! type ) {
+				return;
+			}
+			var val = $( this ).val();
+			if ( type === 'color' && $( this ).prop( 'multiple' ) ) {
+				catalog[ type ] = $.isArray( val ) ? val.filter( Boolean ) : val ? [ val ] : [];
+			} else {
+				catalog[ type ] = val || '';
 			}
 		} );
 		return catalog;
+	}
+
+	function selectedColorCount() {
+		var division = $( '#wc_optic_wizard_division' ).val() || '';
+		if ( ! divisionShowsColor( division ) ) {
+			return 1;
+		}
+		var $color = $root.find( '#wc-optic-wizard-modal .wc-optic-identity-select[data-optic-type="color"]' );
+		if ( ! $color.length ) {
+			return 1;
+		}
+		var val = $color.val();
+		if ( $.isArray( val ) ) {
+			return Math.max( 0, val.filter( Boolean ).length );
+		}
+		return val ? 1 : 0;
+	}
+
+	function refreshCount() {
+		var $count = $root.find( '#wc-optic-wizard-modal .wc-optic-range-count' );
+		var division = $( '#wc_optic_wizard_division' ).val() || '';
+		if ( ! $count.length || ! division ) {
+			$count.text( '0' ).attr( 'data-count', '0' );
+			return;
+		}
+		var colorCount = selectedColorCount();
+		$.post(
+			getAjaxUrl(),
+			{
+				action: 'wc_optic_count_power_ranges',
+				nonce: wcOpticConvert.nonce,
+				division: division,
+				ranges: collectRanges(),
+				color_count: colorCount > 0 ? colorCount : 1,
+			},
+			function ( res ) {
+				var n = res && res.success && res.data ? res.data.count : 0;
+				$count.text( String( n ) ).attr( 'data-count', String( n ) );
+			}
+		);
 	}
 
 	function applyDivisionRanges( division ) {
@@ -491,28 +537,6 @@
 		return $( '#wc_optic_wizard_replace' ).is( ':checked' );
 	}
 
-	function refreshCount() {
-		var $count = $root.find( '#wc-optic-wizard-modal .wc-optic-range-count' );
-		var division = $( '#wc_optic_wizard_division' ).val() || '';
-		if ( ! $count.length || ! division ) {
-			$count.text( '0' ).attr( 'data-count', '0' );
-			return;
-		}
-		$.post(
-			getAjaxUrl(),
-			{
-				action: 'wc_optic_count_power_ranges',
-				nonce: wcOpticConvert.nonce,
-				division: division,
-				ranges: collectRanges(),
-			},
-			function ( res ) {
-				var n = res && res.success && res.data ? res.data.count : 0;
-				$count.text( String( n ) ).attr( 'data-count', String( n ) );
-			}
-		);
-	}
-
 	function initSelect2( $scope ) {
 		$scope.find( 'select.wc-optic-select2, select.wc-optic-wizard-select' ).each( function () {
 			var $el = $( this );
@@ -527,8 +551,8 @@
 			args = {
 				width: '100%',
 				minimumResultsForSearch: 0,
-				allowClear: true,
 				placeholder: $el.data( 'placeholder' ) || '',
+				allowClear: ! $el.prop( 'multiple' ),
 			};
 			if ( $el.closest( '#wc-optic-wizard-modal' ).length ) {
 				args.dropdownParent = $( document.body );
@@ -1108,6 +1132,9 @@
 
 		$root.on( 'input change', '#wc-optic-wizard-modal .wc-optic-range-from, #wc-optic-wizard-modal .wc-optic-range-to, #wc-optic-wizard-modal .wc-optic-range-step', function () {
 			applyNoPowerRangeUi();
+			refreshCount();
+		} );
+		$root.on( 'change', '#wc-optic-wizard-modal .wc-optic-identity-select[data-optic-type="color"]', function () {
 			refreshCount();
 		} );
 

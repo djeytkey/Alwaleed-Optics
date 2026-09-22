@@ -2733,16 +2733,38 @@ class WC_Optic_SKU {
 	/**
 	 * Normalize parent-level catalog identity.
 	 *
-	 * @param mixed $raw Raw identity map.
+	 * @param mixed $raw Raw identity map (color may be int or int[]).
 	 * @return array<string, int>
 	 */
 	public static function normalize_identity_catalog( $raw ) {
 		$raw = is_array( $raw ) ? $raw : array();
 		$out = array();
 		foreach ( self::get_identity_catalog_types() as $type ) {
+			if ( 'color' === $type && ( is_array( $raw['color'] ?? null ) || isset( $raw['colors'] ) ) ) {
+				$ids         = self::extract_generation_color_ids( $raw );
+				$out[ $type ] = $ids[0] ?? 0;
+				continue;
+			}
 			$out[ $type ] = self::normalize_catalog_id( $raw[ $type ] ?? 0 );
 		}
 		return $out;
+	}
+
+	/**
+	 * Color ids to generate for (Convert may post several).
+	 *
+	 * @param array $catalog Posted identity map.
+	 * @return int[]
+	 */
+	public static function extract_generation_color_ids( array $catalog ) {
+		$raw = $catalog['color'] ?? ( $catalog['colors'] ?? null );
+		if ( is_array( $raw ) ) {
+			$ids = array_map( 'absint', $raw );
+			$ids = array_values( array_unique( array_filter( $ids ) ) );
+			return $ids;
+		}
+		$id = absint( $raw );
+		return $id > 0 ? array( $id ) : array();
 	}
 
 	/**
@@ -3144,21 +3166,39 @@ class WC_Optic_SKU {
 		if ( $count < 1 ) {
 			return new WP_Error( 'wc_optic_empty_combinations', __( 'No internal products could be generated from this range.', 'wc-optic' ) );
 		}
-		if ( $count > self::get_max_synthetic_children() ) {
+
+		$shows_color = WC_Optic_Plugin::division_shows_color( $division );
+		$color_ids   = $shows_color ? self::extract_generation_color_ids( $catalog ) : array( 0 );
+		if ( $shows_color && empty( $color_ids ) ) {
+			return new WP_Error(
+				'wc_optic_missing_identity',
+				sprintf(
+					/* translators: %s: catalog field label */
+					__( 'Choose at least one value for %s.', 'wc-optic' ),
+					WC_Optic_Catalog::get_type_label( 'color' )
+				)
+			);
+		}
+
+		$total = $count * max( 1, count( $color_ids ) );
+		if ( $total > self::get_max_synthetic_children() ) {
 			return new WP_Error(
 				'wc_optic_too_many_children',
 				sprintf(
 					/* translators: 1: generated count, 2: max allowed */
-					__( 'This range would create %1$d internal products (maximum %2$d). Narrow a range or increase the step.', 'wc-optic' ),
-					$count,
+					__( 'This range would create %1$d internal products (maximum %2$d). Narrow a range, remove a color, or increase the step.', 'wc-optic' ),
+					$total,
 					self::get_max_synthetic_children()
 				)
 			);
 		}
 
-		$identity = self::normalize_identity_catalog( $catalog );
+		$identity_base = self::normalize_identity_catalog( $catalog );
 		foreach ( self::get_required_identity_types( $division ) as $type ) {
-			if ( (int) ( $identity[ $type ] ?? 0 ) < 1 ) {
+			if ( 'color' === $type ) {
+				continue;
+			}
+			if ( (int) ( $identity_base[ $type ] ?? 0 ) < 1 ) {
 				return new WP_Error(
 					'wc_optic_missing_identity',
 					sprintf(
@@ -3175,27 +3215,33 @@ class WC_Optic_SKU {
 			return new WP_Error( 'wc_optic_missing_price', __( 'A unit price is required to generate internal products.', 'wc-optic' ) );
 		}
 
-		$sale  = ( '' === trim( (string) $sale_price ) ) ? '' : (string) wc_format_decimal( $sale_price );
-		$stock = ( '' === trim( (string) $stock_qty ) ) ? '0' : (string) absint( $stock_qty );
-		$combos = self::expand_power_combinations( $filtered );
+		$sale     = ( '' === trim( (string) $sale_price ) ) ? '' : (string) wc_format_decimal( $sale_price );
+		$stock    = ( '' === trim( (string) $stock_qty ) ) ? '0' : (string) absint( $stock_qty );
+		$combos   = self::expand_power_combinations( $filtered );
 		$children = array();
+		$index    = 0;
 
-		foreach ( $combos as $index => $powers ) {
-			$config = self::normalize_child_config(
-				array(
-					'enabled'    => true,
-					'sort'       => $index,
-					'unit_price' => $price,
-					'sale_price' => $sale,
-					'stock_qty'  => $stock,
-					'catalog'    => $identity,
-					'powers'     => $powers,
-				),
-				$division,
-				$index
-			);
-			$config['label'] = self::child_display_label( $config, $division );
-			$children[]      = $config;
+		foreach ( $color_ids as $color_id ) {
+			$identity          = $identity_base;
+			$identity['color'] = absint( $color_id );
+			foreach ( $combos as $powers ) {
+				$config = self::normalize_child_config(
+					array(
+						'enabled'    => true,
+						'sort'       => $index,
+						'unit_price' => $price,
+						'sale_price' => $sale,
+						'stock_qty'  => $stock,
+						'catalog'    => $identity,
+						'powers'     => $powers,
+					),
+					$division,
+					$index
+				);
+				$config['label'] = self::child_display_label( $config, $division );
+				$children[]      = $config;
+				++$index;
+			}
 		}
 
 		$complete = self::validate_child_configs_complete( $children, $division, $children );
@@ -3215,12 +3261,14 @@ class WC_Optic_SKU {
 	 * Count internals a range set would create, without writing catalog terms.
 	 *
 	 * SPH +0.00 counts as one no-power internal (not crossed with CYL / AXIS / ADD).
+	 * When $color_count > 1, multiplies by the number of selected colors.
 	 *
-	 * @param string $division Division slug.
-	 * @param array  $ranges   Ranges keyed by power.
+	 * @param string $division    Division slug.
+	 * @param array  $ranges      Ranges keyed by power.
+	 * @param int    $color_count Selected colors (default 1).
 	 * @return int|WP_Error
 	 */
-	public static function count_children_from_ranges( $division, array $ranges ) {
+	public static function count_children_from_ranges( $division, array $ranges, $color_count = 1 ) {
 		$ranges  = self::normalize_power_ranges( $ranges, $division );
 		$allowed = WC_Optic_Plugin::get_powers_for_division( $division );
 		if ( empty( $allowed ) ) {
@@ -3247,30 +3295,46 @@ class WC_Optic_SKU {
 				return 0;
 			}
 			if ( $powered_n < 1 ) {
-				return $zero_n;
+				$base = $zero_n;
+			} else {
+				$other = 1;
+				foreach ( $ranges as $power => $segments ) {
+					if ( 'sph' === $power ) {
+						continue;
+					}
+					$n = WC_Optic_Catalog::count_power_range_segments( $power, $segments );
+					if ( is_wp_error( $n ) ) {
+						return $n;
+					}
+					if ( $n < 1 ) {
+						$base = $zero_n;
+						$other = 0;
+						break;
+					}
+					$other *= (int) $n;
+				}
+				$base = ( 0 === $other ) ? $zero_n : (int) ( $zero_n + ( $powered_n * $other ) );
 			}
+		} else {
+			$other = 1;
+			foreach ( $ranges as $power => $segments ) {
+				$n = WC_Optic_Catalog::count_power_range_segments( $power, $segments );
+				if ( is_wp_error( $n ) ) {
+					return $n;
+				}
+				if ( $n < 1 ) {
+					return 0;
+				}
+				$other *= (int) $n;
+			}
+			$base = (int) $other;
 		}
 
-		$other = 1;
-		foreach ( $ranges as $power => $segments ) {
-			if ( 'sph' === $power ) {
-				continue;
-			}
-			$n = WC_Optic_Catalog::count_power_range_segments( $power, $segments );
-			if ( is_wp_error( $n ) ) {
-				return $n;
-			}
-			if ( $n < 1 ) {
-				return $has_sph ? $zero_n : 0;
-			}
-			$other *= (int) $n;
+		$color_count = max( 1, absint( $color_count ) );
+		if ( ! WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$color_count = 1;
 		}
-
-		if ( ! $has_sph ) {
-			return (int) $other;
-		}
-
-		return (int) ( $zero_n + ( $powered_n * $other ) );
+		return (int) ( $base * $color_count );
 	}
 
 	/**
