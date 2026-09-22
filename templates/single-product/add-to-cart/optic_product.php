@@ -17,10 +17,14 @@ if ( ! $division ) {
 }
 
 $storefront_matrix    = WC_Optic_SKU::get_storefront_matrix_for_page( $product );
+$matrix_lazy          = ! empty( $storefront_matrix['lazy'] );
 $supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] );
+// Lazy stub: show No power / Power shell for color lenses; AJAX confirms stock.
+if ( $matrix_lazy && WC_Optic_SKU::division_supports_no_power_mode( $division ) ) {
+	$supports_no_power = true;
+}
 $show_color_swatches  = ! empty( $storefront_matrix['showColorSwatches'] );
 $storefront_colors    = $show_color_swatches && ! empty( $storefront_matrix['colors'] ) ? $storefront_matrix['colors'] : array();
-$matrix_lazy          = ! empty( $storefront_matrix['lazy'] );
 $can_choose_different = WC_Optic_SKU::get_child_count( $product ) > 1;
 
 if ( ! WC_Optic_Frontend::has_child_options( $product ) ) {

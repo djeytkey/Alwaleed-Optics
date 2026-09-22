@@ -528,6 +528,11 @@ class WC_Optic_SKU {
 			}
 			if ( WC_Optic_Catalog::sph_term_is_zero_power( $row ) ) {
 				$map[ (int) $row->id ] = true;
+				continue;
+			}
+			$parsed = WC_Optic_Catalog::parse_power_number_from_row( $row );
+			if ( null !== $parsed && WC_Optic_Catalog::power_number_is_zero( $parsed ) ) {
+				$map[ (int) $row->id ] = true;
 			}
 		}
 		return $map;
@@ -1072,18 +1077,31 @@ class WC_Optic_SKU {
 				continue;
 			}
 
-			$sph_id      = isset( $row->sph_id ) ? (int) $row->sph_id : 0;
+			$decoded = null;
+			$json    = isset( $row->config_json ) ? (string) $row->config_json : '';
+			if ( '' !== $json ) {
+				$tmp = json_decode( $json, true );
+				if ( is_array( $tmp ) ) {
+					$decoded = $tmp;
+				}
+			}
+
+			$sph_id = isset( $row->sph_id ) ? (int) $row->sph_id : 0;
+			if ( $sph_id < 1 && is_array( $decoded ) ) {
+				$sph_id = (int) ( $decoded['powers']['sph'] ?? 0 );
+			}
 			$is_no_power = $sph_id > 0 && isset( $zero_sph[ $sph_id ] );
 
-			if ( $is_no_power ) {
-				if ( $sph_id < 1 ) {
-					continue;
-				}
-			} else {
+			// Plano rows only require SPH; other powers are intentionally empty.
+			if ( ! $is_no_power ) {
 				$incomplete = false;
 				foreach ( $powers as $power ) {
 					$col = $power_cols[ $power ] ?? ( $power . '_id' );
-					if ( empty( $row->{$col} ) ) {
+					$tid = isset( $row->{$col} ) ? (int) $row->{$col} : 0;
+					if ( $tid < 1 && is_array( $decoded ) ) {
+						$tid = (int) ( $decoded['powers'][ $power ] ?? 0 );
+					}
+					if ( $tid < 1 ) {
 						$incomplete = true;
 						break;
 					}
@@ -1091,32 +1109,35 @@ class WC_Optic_SKU {
 				if ( $incomplete ) {
 					continue;
 				}
+			} elseif ( $sph_id < 1 ) {
+				continue;
 			}
 
 			$regular = isset( $row->unit_price ) ? (float) wc_format_decimal( $row->unit_price ) : 0.0;
+			if ( $regular <= 0 && is_array( $decoded ) && isset( $decoded['unit_price'] ) && '' !== trim( (string) $decoded['unit_price'] ) ) {
+				$regular = (float) wc_format_decimal( $decoded['unit_price'] );
+			}
 			if ( $regular <= 0 ) {
 				continue;
 			}
 
-			$sale     = null;
-			$color_id = 0;
-			$json     = isset( $row->config_json ) ? (string) $row->config_json : '';
-			if ( '' !== $json ) {
-				$decoded = json_decode( $json, true );
-				if ( is_array( $decoded ) ) {
-					if ( ! empty( $decoded['sale_price'] ) && '' !== trim( (string) $decoded['sale_price'] ) ) {
-						$sale_num = (float) wc_format_decimal( $decoded['sale_price'] );
-						if ( $sale_num >= 0 && $sale_num < $regular ) {
-							$sale = $sale_num;
-						}
-					}
-					if ( $show_color ) {
-						$color_id = (int) ( $decoded['catalog']['color'] ?? 0 );
-					}
+			$sale = null;
+			if ( is_array( $decoded ) && ! empty( $decoded['sale_price'] ) && '' !== trim( (string) $decoded['sale_price'] ) ) {
+				$sale_num = (float) wc_format_decimal( $decoded['sale_price'] );
+				if ( $sale_num >= 0 && $sale_num < $regular ) {
+					$sale = $sale_num;
 				}
 			}
 
+			$color_id = 0;
+			if ( $show_color && is_array( $decoded ) ) {
+				$color_id = (int) ( $decoded['catalog']['color'] ?? 0 );
+			}
+
 			$child_id = isset( $row->child_key ) ? (string) $row->child_key : '';
+			if ( '' === $child_id && is_array( $decoded ) ) {
+				$child_id = (string) ( $decoded['id'] ?? '' );
+			}
 			$sellable = null;
 			if ( isset( $row->stock_qty ) && null !== $row->stock_qty && '' !== (string) $row->stock_qty ) {
 				$stock = max( 0, (int) $row->stock_qty );
@@ -1128,6 +1149,8 @@ class WC_Optic_SKU {
 				}
 				$bo_used  = max( 0, (int) ( $row->backorder_consumed ?? 0 ) );
 				$sellable = max( 0, $stock + max( 0, $bo - $bo_used ) );
+			} elseif ( is_array( $decoded ) ) {
+				$sellable = self::get_child_sellable_qty( $decoded );
 			}
 			$reserved  = ( $child_id && isset( $reserved_map[ $child_id ] ) ) ? (int) $reserved_map[ $child_id ] : 0;
 			$remaining = null === $sellable ? null : max( 0, (int) $sellable - $reserved );
@@ -1163,8 +1186,11 @@ class WC_Optic_SKU {
 
 			$power_map = array();
 			foreach ( $powers as $power ) {
-				$col                 = $power_cols[ $power ] ?? ( $power . '_id' );
-				$tid                 = isset( $row->{$col} ) ? (int) $row->{$col} : 0;
+				$col = $power_cols[ $power ] ?? ( $power . '_id' );
+				$tid = isset( $row->{$col} ) ? (int) $row->{$col} : 0;
+				if ( $tid < 1 && is_array( $decoded ) ) {
+					$tid = (int) ( $decoded['powers'][ $power ] ?? 0 );
+				}
 				$power_map[ $power ] = $tid;
 				if ( $tid ) {
 					$term_ids[ $power ][ $tid ] = true;
@@ -1346,16 +1372,14 @@ class WC_Optic_SKU {
 		}
 
 		$show_swatches     = count( $colors ) >= 2;
-		$supports_no_power = false;
-		if ( $show_swatches ) {
+		$supports_no_power = ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] );
+		if ( ! $supports_no_power ) {
 			foreach ( $no_power_by_color as $np ) {
 				if ( ! empty( $np['inStock'] ) ) {
 					$supports_no_power = true;
 					break;
 				}
 			}
-		} else {
-			$supports_no_power = ! empty( $no_power_child ) && ! empty( $no_power_child['inStock'] );
 		}
 
 		return array(

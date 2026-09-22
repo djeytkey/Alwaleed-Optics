@@ -875,6 +875,7 @@
 	}
 
 	function ensurePowerModeUi() {
+		var $card = $( '.wc-optic-config-card' );
 		var $row = $( '.wc-optic-power-mode-row' );
 		if ( ! supportsNoPowerMode() ) {
 			if ( $row.length ) {
@@ -887,7 +888,31 @@
 			$row.prop( 'hidden', false );
 			return;
 		}
-		// Stub may advertise support before AJAX; template usually already rendered the row for color lenses.
+		if ( ! $card.length ) {
+			return;
+		}
+		$row = $(
+			'<div class="wc-optic-config-table__row wc-optic-power-mode-row">' +
+				'<div class="wc-optic-config-table__values wc-optic-power-mode-row__values">' +
+				'<fieldset class="wc-optic-fieldset">' +
+				'<legend class="screen-reader-text"></legend>' +
+				'<div class="wc-optic-power-mode" role="radiogroup">' +
+				'<input type="radio" name="wc_optic_power_mode" id="wc_optic_tab_no_power" value="no_power" class="wc-optic-power-mode__input" checked="checked" />' +
+				'<label for="wc_optic_tab_no_power" class="wc-optic-power-mode__tab" data-testid="tab_no_power"></label>' +
+				'<input type="radio" name="wc_optic_power_mode" id="wc_optic_tab_power" value="power" class="wc-optic-power-mode__input" />' +
+				'<label for="wc_optic_tab_power" class="wc-optic-power-mode__tab" data-testid="tab_power"></label>' +
+				'</div></fieldset></div></div>'
+		);
+		$row.find( 'legend' ).text( getI18n( 'powerType', 'Power type' ) );
+		$row.find( '.wc-optic-power-mode' ).attr( 'aria-label', getI18n( 'powerType', 'Power type' ) );
+		$row.find( 'label[for="wc_optic_tab_no_power"]' ).text( getI18n( 'noPower', 'No power' ) );
+		$row.find( 'label[for="wc_optic_tab_power"]' ).text( getI18n( 'power', 'Power' ) );
+		var $swatchRow = $card.find( '.wc-optic-color-row' );
+		if ( $swatchRow.length ) {
+			$swatchRow.after( $row );
+		} else {
+			$card.prepend( $row );
+		}
 	}
 
 	function initOpticForm() {
