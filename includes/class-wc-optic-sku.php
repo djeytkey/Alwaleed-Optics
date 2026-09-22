@@ -12,6 +12,32 @@ defined( 'ABSPATH' ) || exit;
  */
 class WC_Optic_SKU {
 
+	/**
+	 * Above this child count, storefront matrix is loaded via AJAX after paint.
+	 */
+	const STOREFRONT_MATRIX_INLINE_MAX = 150;
+
+	/**
+	 * Request-level cache: product_id => child configs.
+	 *
+	 * @var array<int, array>
+	 */
+	protected static $child_configs_cache = array();
+
+	/**
+	 * Request-level cache: product_id => enabled configs.
+	 *
+	 * @var array<int, array>
+	 */
+	protected static $enabled_configs_cache = array();
+
+	/**
+	 * Request-level cache: product_id => storefront matrix.
+	 *
+	 * @var array<int, array>
+	 */
+	protected static $matrix_cache = array();
+
 	const META_KEYS = array(
 		'section'      => '_optic_cat_section',
 		'company'      => '_optic_cat_company',
@@ -215,33 +241,55 @@ class WC_Optic_SKU {
 	 */
 	public static function get_child_configs( WC_Product $product ) {
 		$product_id = absint( $product->get_id() );
-		$division   = (string) $product->get_meta( '_optic_division', true );
+		if ( $product_id && isset( self::$child_configs_cache[ $product_id ] ) ) {
+			return self::$child_configs_cache[ $product_id ];
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$configs  = array();
 
 		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() ) {
 			if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
-				return WC_Optic_Children::get_configs( $product_id );
-			}
-
-			// Lazy migrate leftover meta blob for this product.
-			$stored = $product->get_meta( self::CHILD_META_KEY, true );
-			if ( is_array( $stored ) && ! empty( $stored ) ) {
-				WC_Optic_Children::migrate_product_from_meta( $product_id );
-				if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
-					return WC_Optic_Children::get_configs( $product_id );
+				$configs = WC_Optic_Children::get_configs( $product_id );
+			} else {
+				// Lazy migrate leftover meta blob for this product.
+				$stored = $product->get_meta( self::CHILD_META_KEY, true );
+				if ( is_array( $stored ) && ! empty( $stored ) ) {
+					WC_Optic_Children::migrate_product_from_meta( $product_id );
+					if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
+						$configs = WC_Optic_Children::get_configs( $product_id );
+					}
 				}
 			}
+		} elseif ( '' !== $division ) {
+			$stored = $product->get_meta( self::CHILD_META_KEY, true );
+			if ( is_array( $stored ) && ! empty( $stored ) ) {
+				$configs = self::normalize_child_configs( $stored, $division );
+			} else {
+				$configs = self::get_legacy_child_configs( $product, $division );
+			}
 		}
 
-		if ( '' === $division ) {
-			return array();
+		if ( $product_id ) {
+			self::$child_configs_cache[ $product_id ] = $configs;
 		}
+		return $configs;
+	}
 
-		$stored = $product->get_meta( self::CHILD_META_KEY, true );
-		if ( is_array( $stored ) && ! empty( $stored ) ) {
-			return self::normalize_child_configs( $stored, $division );
+	/**
+	 * Clear request-level child/matrix caches (after persist / restock).
+	 *
+	 * @param int $product_id Optional product id (0 = all).
+	 */
+	public static function clear_runtime_caches( $product_id = 0 ) {
+		$product_id = absint( $product_id );
+		if ( $product_id > 0 ) {
+			unset( self::$child_configs_cache[ $product_id ], self::$enabled_configs_cache[ $product_id ], self::$matrix_cache[ $product_id ] );
+			return;
 		}
-
-		return self::get_legacy_child_configs( $product, $division );
+		self::$child_configs_cache   = array();
+		self::$enabled_configs_cache = array();
+		self::$matrix_cache          = array();
 	}
 
 	/**
@@ -333,9 +381,22 @@ class WC_Optic_SKU {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function get_enabled_child_configs( WC_Product $product ) {
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && isset( self::$enabled_configs_cache[ $product_id ] ) ) {
+			return self::$enabled_configs_cache[ $product_id ];
+		}
+
 		$division = (string) $product->get_meta( '_optic_division', true );
-		$out      = array();
-		foreach ( self::get_child_configs( $product ) as $config ) {
+		$source   = array();
+
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$source = WC_Optic_Children::get_configs( $product_id, array( 'enabled_only' => true ) );
+		} else {
+			$source = self::get_child_configs( $product );
+		}
+
+		$out = array();
+		foreach ( $source as $config ) {
 			if ( self::child_is_enabled( $config ) && self::child_is_complete( $config, $division ) ) {
 				$out[] = $config;
 			}
@@ -353,7 +414,11 @@ class WC_Optic_SKU {
 			}
 		);
 
-		return array_values( $out );
+		$out = array_values( $out );
+		if ( $product_id ) {
+			self::$enabled_configs_cache[ $product_id ] = $out;
+		}
+		return $out;
 	}
 
 	/**
@@ -447,6 +512,28 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Catalog SPH ids that represent plano / +0.00 (request-cached).
+	 *
+	 * @return array<int, true>
+	 */
+	public static function get_zero_power_sph_ids() {
+		static $map = null;
+		if ( null !== $map ) {
+			return $map;
+		}
+		$map = array();
+		foreach ( WC_Optic_Catalog::get_terms( 'sph' ) as $row ) {
+			if ( ! is_object( $row ) || empty( $row->id ) ) {
+				continue;
+			}
+			if ( WC_Optic_Catalog::sph_term_is_zero_power( $row ) ) {
+				$map[ (int) $row->id ] = true;
+			}
+		}
+		return $map;
+	}
+
+	/**
 	 * Whether the child SPH catalog term is plano / +0.00 (lens without power).
 	 *
 	 * @param array $config Child config.
@@ -457,14 +544,7 @@ class WC_Optic_SKU {
 		if ( $sph_id < 1 ) {
 			return false;
 		}
-
-		$row = WC_Optic_Catalog::get_valid_term( $sph_id, 'sph' );
-		if ( WC_Optic_Catalog::sph_term_is_zero_power( $row ) ) {
-			return true;
-		}
-
-		$parsed = WC_Optic_Catalog::parse_power_number_from_row( $row );
-		return null !== $parsed && WC_Optic_Catalog::power_number_is_zero( $parsed );
+		return isset( self::get_zero_power_sph_ids()[ $sph_id ] );
 	}
 
 	/**
@@ -939,44 +1019,225 @@ class WC_Optic_SKU {
 	 * @return array<string, mixed>
 	 */
 	public static function get_storefront_matrix( WC_Product $product ) {
-		$division   = (string) $product->get_meta( '_optic_division', true );
-		$powers     = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
-		$show_color = $division && WC_Optic_Plugin::division_shows_color( $division );
-		$children   = array();
-		$term_ids   = array();
-		$color_ids  = array();
-		$no_power_child     = null;
-		$no_power_by_color  = array();
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && isset( self::$matrix_cache[ $product_id ] ) ) {
+			return self::$matrix_cache[ $product_id ];
+		}
+
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$matrix = self::build_storefront_matrix_from_sql( $product );
+		} else {
+			$matrix = self::build_storefront_matrix_from_configs( $product, self::get_enabled_child_configs( $product ) );
+		}
+
+		if ( $product_id ) {
+			self::$matrix_cache[ $product_id ] = $matrix;
+		}
+		return $matrix;
+	}
+
+	/**
+	 * Fast matrix from SQL children columns (avoids N catalog lookups for zero-SPH).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<string, mixed>
+	 */
+	protected static function build_storefront_matrix_from_sql( WC_Product $product ) {
+		$product_id   = absint( $product->get_id() );
+		$division     = (string) $product->get_meta( '_optic_division', true );
+		$powers       = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
+		$show_color   = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$zero_sph     = self::get_zero_power_sph_ids();
+		$reserved_map = class_exists( 'WC_Optic_Cart' ) ? WC_Optic_Cart::get_reserved_quantities_map( $product ) : array();
+		$power_cols   = array(
+			'sph'  => 'sph_id',
+			'cyl'  => 'cyl_id',
+			'axis' => 'axis_id',
+			'add'  => 'add_id',
+		);
+
+		$children          = array();
+		$term_ids          = array();
+		$color_ids         = array();
+		$no_power_child    = null;
+		$no_power_by_color = array();
 
 		foreach ( $powers as $power ) {
 			$term_ids[ $power ] = array();
 		}
 
-		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
+		$rows = WC_Optic_Children::query_rows( $product_id, array( 'enabled_only' => true ) );
+		foreach ( $rows as $row ) {
+			if ( ! is_object( $row ) ) {
+				continue;
+			}
+
+			$sph_id      = isset( $row->sph_id ) ? (int) $row->sph_id : 0;
+			$is_no_power = $sph_id > 0 && isset( $zero_sph[ $sph_id ] );
+
+			if ( $is_no_power ) {
+				if ( $sph_id < 1 ) {
+					continue;
+				}
+			} else {
+				$incomplete = false;
+				foreach ( $powers as $power ) {
+					$col = $power_cols[ $power ] ?? ( $power . '_id' );
+					if ( empty( $row->{$col} ) ) {
+						$incomplete = true;
+						break;
+					}
+				}
+				if ( $incomplete ) {
+					continue;
+				}
+			}
+
+			$regular = isset( $row->unit_price ) ? (float) wc_format_decimal( $row->unit_price ) : 0.0;
+			if ( $regular <= 0 ) {
+				continue;
+			}
+
+			$sale     = null;
+			$color_id = 0;
+			$json     = isset( $row->config_json ) ? (string) $row->config_json : '';
+			if ( '' !== $json ) {
+				$decoded = json_decode( $json, true );
+				if ( is_array( $decoded ) ) {
+					if ( ! empty( $decoded['sale_price'] ) && '' !== trim( (string) $decoded['sale_price'] ) ) {
+						$sale_num = (float) wc_format_decimal( $decoded['sale_price'] );
+						if ( $sale_num >= 0 && $sale_num < $regular ) {
+							$sale = $sale_num;
+						}
+					}
+					if ( $show_color ) {
+						$color_id = (int) ( $decoded['catalog']['color'] ?? 0 );
+					}
+				}
+			}
+
+			$child_id = isset( $row->child_key ) ? (string) $row->child_key : '';
+			$sellable = null;
+			if ( isset( $row->stock_qty ) && null !== $row->stock_qty && '' !== (string) $row->stock_qty ) {
+				$stock = max( 0, (int) $row->stock_qty );
+				$bo    = 0;
+				if ( self::is_backorder_enabled() ) {
+					$bo = ! empty( $row->backorder_custom )
+						? max( 0, (int) ( $row->backorder_qty ?? 0 ) )
+						: self::get_global_backorder_qty();
+				}
+				$bo_used  = max( 0, (int) ( $row->backorder_consumed ?? 0 ) );
+				$sellable = max( 0, $stock + max( 0, $bo - $bo_used ) );
+			}
+			$reserved  = ( $child_id && isset( $reserved_map[ $child_id ] ) ) ? (int) $reserved_map[ $child_id ] : 0;
+			$remaining = null === $sellable ? null : max( 0, (int) $sellable - $reserved );
+			$in_stock  = null === $remaining || $remaining > 0;
+			$price     = null !== $sale ? $sale : $regular;
+
+			if ( $color_id > 0 ) {
+				$color_ids[ $color_id ] = true;
+			}
+
+			$child_row = array(
+				'id'           => $child_id,
+				'price'        => $price,
+				'regularPrice' => $regular,
+				'salePrice'    => $sale,
+				'stock'        => $remaining,
+				'inStock'      => $in_stock,
+				'color'        => $color_id,
+			);
+
+			if ( $is_no_power ) {
+				if ( null === $no_power_child || ( $in_stock && empty( $no_power_child['inStock'] ) ) ) {
+					$no_power_child = $child_row;
+				}
+				if ( $color_id > 0 ) {
+					$prev = $no_power_by_color[ (string) $color_id ] ?? null;
+					if ( null === $prev || ( $in_stock && empty( $prev['inStock'] ) ) ) {
+						$no_power_by_color[ (string) $color_id ] = $child_row;
+					}
+				}
+				continue;
+			}
+
+			$power_map = array();
+			foreach ( $powers as $power ) {
+				$col                 = $power_cols[ $power ] ?? ( $power . '_id' );
+				$tid                 = isset( $row->{$col} ) ? (int) $row->{$col} : 0;
+				$power_map[ $power ] = $tid;
+				if ( $tid ) {
+					$term_ids[ $power ][ $tid ] = true;
+				}
+			}
+			$child_row['powers'] = $power_map;
+			$children[]          = $child_row;
+		}
+
+		return self::finalize_storefront_matrix(
+			$product_id,
+			$division,
+			$powers,
+			$children,
+			$term_ids,
+			$color_ids,
+			$no_power_child,
+			$no_power_by_color
+		);
+	}
+
+	/**
+	 * Legacy / meta matrix builder from hydrated configs.
+	 *
+	 * @param WC_Product $product Product.
+	 * @param array      $configs Enabled configs.
+	 * @return array<string, mixed>
+	 */
+	protected static function build_storefront_matrix_from_configs( WC_Product $product, array $configs ) {
+		$product_id   = absint( $product->get_id() );
+		$division     = (string) $product->get_meta( '_optic_division', true );
+		$powers       = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
+		$show_color   = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$reserved_map = class_exists( 'WC_Optic_Cart' ) ? WC_Optic_Cart::get_reserved_quantities_map( $product ) : array();
+
+		$children          = array();
+		$term_ids          = array();
+		$color_ids         = array();
+		$no_power_child    = null;
+		$no_power_by_color = array();
+
+		foreach ( $powers as $power ) {
+			$term_ids[ $power ] = array();
+		}
+
+		foreach ( $configs as $config ) {
 			if ( ! self::child_is_complete( $config, $division ) ) {
 				continue;
 			}
 
-			$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
+			$sellable  = self::get_child_sellable_qty( $config );
+			$child_id  = (string) ( $config['id'] ?? '' );
+			$reserved  = ( $child_id && isset( $reserved_map[ $child_id ] ) ) ? (int) $reserved_map[ $child_id ] : 0;
+			$remaining = null === $sellable ? null : max( 0, (int) $sellable - $reserved );
 			$in_stock  = null === $remaining || $remaining > 0;
 			$color_id  = $show_color ? (int) ( $config['catalog']['color'] ?? 0 ) : 0;
 			if ( $color_id > 0 ) {
 				$color_ids[ $color_id ] = true;
 			}
 
+			$regular   = self::get_child_regular_price( $config );
+			$sale      = self::get_child_sale_price( $config );
 			$child_row = array(
-				'id'           => (string) ( $config['id'] ?? '' ),
+				'id'           => $child_id,
 				'price'        => self::get_child_unit_price( $config ),
-				'regularPrice' => self::get_child_regular_price( $config ),
-				'salePrice'    => self::get_child_sale_price( $config ),
-				'priceHtml'    => self::format_child_price_html( $config ),
+				'regularPrice' => $regular,
+				'salePrice'    => $sale,
 				'stock'        => $remaining,
 				'inStock'      => $in_stock,
 				'color'        => $color_id,
 			);
 
 			if ( self::config_has_zero_sph( $config ) ) {
-				// Never include plano in the powered prescription cascade.
 				if ( null === $no_power_child || ( $in_stock && empty( $no_power_child['inStock'] ) ) ) {
 					$no_power_child = $child_row;
 				}
@@ -1001,6 +1262,32 @@ class WC_Optic_SKU {
 			$children[]          = $child_row;
 		}
 
+		return self::finalize_storefront_matrix(
+			$product_id,
+			$division,
+			$powers,
+			$children,
+			$term_ids,
+			$color_ids,
+			$no_power_child,
+			$no_power_by_color
+		);
+	}
+
+	/**
+	 * Attach term labels / color swatches and wrap matrix payload.
+	 *
+	 * @param int        $product_id        Product id.
+	 * @param string     $division          Division.
+	 * @param string[]   $powers            Power keys.
+	 * @param array      $children          Child rows.
+	 * @param array      $term_ids          Used term ids by power.
+	 * @param array      $color_ids         Used color ids.
+	 * @param array|null $no_power_child    Default no-power child.
+	 * @param array      $no_power_by_color No-power by color.
+	 * @return array<string, mixed>
+	 */
+	protected static function finalize_storefront_matrix( $product_id, $division, array $powers, array $children, array $term_ids, array $color_ids, $no_power_child, array $no_power_by_color ) {
 		$terms  = array();
 		$labels = array();
 		foreach ( $powers as $power ) {
@@ -1009,10 +1296,16 @@ class WC_Optic_SKU {
 			if ( empty( $term_ids[ $power ] ) ) {
 				continue;
 			}
+			$catalog_rows = array();
+			foreach ( WC_Optic_Catalog::get_terms( $power ) as $row ) {
+				if ( is_object( $row ) && ! empty( $row->id ) ) {
+					$catalog_rows[ (int) $row->id ] = $row;
+				}
+			}
 			foreach ( array_keys( $term_ids[ $power ] ) as $tid ) {
-				$row = WC_Optic_Catalog::get_valid_term( (int) $tid, $power );
-				if ( $row ) {
-					$terms[ $power ][ (string) (int) $tid ] = WC_Optic_Catalog::get_display_name( $row );
+				$tid = (int) $tid;
+				if ( isset( $catalog_rows[ $tid ] ) ) {
+					$terms[ $power ][ (string) $tid ] = WC_Optic_Catalog::get_display_name( $catalog_rows[ $tid ] );
 				}
 			}
 		}
@@ -1020,12 +1313,14 @@ class WC_Optic_SKU {
 		$colors = array();
 		if ( ! empty( $color_ids ) ) {
 			$color_rows = array();
-			foreach ( array_keys( $color_ids ) as $cid ) {
-				$row = WC_Optic_Catalog::get_valid_term( (int) $cid, 'color' );
-				if ( ! $row ) {
+			foreach ( WC_Optic_Catalog::get_terms( 'color' ) as $row ) {
+				if ( ! is_object( $row ) || empty( $row->id ) ) {
 					continue;
 				}
-				$color_rows[] = $row;
+				$cid = (int) $row->id;
+				if ( isset( $color_ids[ $cid ] ) ) {
+					$color_rows[] = $row;
+				}
 			}
 			usort(
 				$color_rows,
@@ -1050,7 +1345,7 @@ class WC_Optic_SKU {
 			}
 		}
 
-		$show_swatches = count( $colors ) >= 2;
+		$show_swatches     = count( $colors ) >= 2;
 		$supports_no_power = false;
 		if ( $show_swatches ) {
 			foreach ( $no_power_by_color as $np ) {
@@ -1064,6 +1359,8 @@ class WC_Optic_SKU {
 		}
 
 		return array(
+			'lazy'                => false,
+			'productId'           => absint( $product_id ),
 			'division'            => $division,
 			'supportsNoPowerMode' => $supports_no_power,
 			'noPowerChild'        => $no_power_child,
@@ -1078,12 +1375,67 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Lightweight matrix stub for large catalogs (full data via AJAX).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<string, mixed>
+	 */
+	public static function get_storefront_matrix_stub( WC_Product $product ) {
+		$division = (string) $product->get_meta( '_optic_division', true );
+		$powers   = $division ? WC_Optic_Plugin::get_powers_for_division( $division ) : array();
+		$labels   = array();
+		foreach ( $powers as $power ) {
+			$labels[ $power ] = WC_Optic_Catalog::get_power_field_label( $power );
+		}
+
+		return array(
+			'lazy'                => true,
+			'productId'           => absint( $product->get_id() ),
+			'division'            => $division,
+			'supportsNoPowerMode' => self::division_supports_no_power_mode( $division ),
+			'noPowerChild'        => null,
+			'noPowerByColor'      => new \stdClass(),
+			'showColorSwatches'   => false,
+			'colors'              => array(),
+			'powers'              => $powers,
+			'children'            => array(),
+			'terms'               => array(),
+			'labels'              => $labels,
+		);
+	}
+
+	/**
+	 * Matrix for page localize: inline when small, lazy stub when large.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<string, mixed>
+	 */
+	public static function get_storefront_matrix_for_page( WC_Product $product ) {
+		if ( self::get_child_count( $product ) > self::STOREFRONT_MATRIX_INLINE_MAX ) {
+			return self::get_storefront_matrix_stub( $product );
+		}
+		return self::get_storefront_matrix( $product );
+	}
+
+	/**
 	 * Whether the storefront should offer the No power / Power toggle.
 	 *
 	 * @param WC_Product $product Product.
 	 * @return bool
 	 */
 	public static function product_supports_no_power_mode( WC_Product $product ) {
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && isset( self::$matrix_cache[ $product_id ] ) ) {
+			return ! empty( self::$matrix_cache[ $product_id ]['supportsNoPowerMode'] );
+		}
+		$division = (string) $product->get_meta( '_optic_division', true );
+		if ( ! self::division_supports_no_power_mode( $division ) ) {
+			return false;
+		}
+		// Avoid building a multi‑MB matrix just to know if the toggle exists.
+		if ( self::get_child_count( $product ) > self::STOREFRONT_MATRIX_INLINE_MAX ) {
+			return true;
+		}
 		$matrix = self::get_storefront_matrix( $product );
 		return ! empty( $matrix['supportsNoPowerMode'] );
 	}
@@ -1193,6 +1545,12 @@ class WC_Optic_SKU {
 	 * @return float
 	 */
 	public static function get_default_display_price( WC_Product $product ) {
+		// Prefer parent prices synced on persist (avoids O(N) child scan on storefront).
+		$active = $product->get_price( 'edit' );
+		if ( '' !== $active && null !== $active && (float) $active > 0 ) {
+			return (float) wc_format_decimal( $active );
+		}
+
 		$config = self::get_default_display_child( $product );
 		if ( ! $config ) {
 			return 0.0;
@@ -1829,6 +2187,7 @@ class WC_Optic_SKU {
 		}
 
 		self::sync_parent_prices_from_children( $product, $child_configs );
+		self::clear_runtime_caches( $product_id );
 	}
 
 	/**

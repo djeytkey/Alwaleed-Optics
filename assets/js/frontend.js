@@ -814,12 +814,86 @@
 		updateAddToCartState();
 	}
 
-	$( function () {
-		var $form = $( 'form.wc-optic-cart-form' );
-		if ( ! $form.length ) {
+	function ensureColorSwatchesUi() {
+		var matrix = getMatrix();
+		if ( ! matrix.showColorSwatches || ! ( matrix.colors || [] ).length ) {
+			$( '.wc-optic-color-row' ).prop( 'hidden', true );
 			return;
 		}
 
+		var $card = $( '.wc-optic-config-card' );
+		if ( ! $card.length ) {
+			return;
+		}
+
+		var $row = $card.find( '.wc-optic-color-row' );
+		if ( ! $row.length ) {
+			$row = $(
+				'<div class="wc-optic-config-table__row wc-optic-color-row">' +
+					'<div class="wc-optic-config-table__label"><strong></strong></div>' +
+					'<div class="wc-optic-config-table__values">' +
+					'<div class="wc-optic-color-swatches" role="radiogroup"></div>' +
+					'<p class="wc-optic-color-selected-label" aria-live="polite"></p>' +
+					'</div></div>'
+			);
+			$row.find( 'strong' ).text( getI18n( 'color', 'Color' ) );
+			$card.prepend( $row );
+		}
+
+		$row.prop( 'hidden', false );
+		var $swatches = $row.find( '.wc-optic-color-swatches' );
+		var html = '';
+		( matrix.colors || [] ).forEach( function ( color, index ) {
+			var cid = String( color.id || '' );
+			var cname = String( color.name || '' );
+			var curl = String( color.imageUrl || '' );
+			if ( ! cid ) {
+				return;
+			}
+			var selected = index === 0;
+			html +=
+				'<button type="button" class="wc-optic-color-swatch' +
+				( selected ? ' is-selected' : '' ) +
+				'" role="radio" aria-checked="' +
+				( selected ? 'true' : 'false' ) +
+				'" data-color="' +
+				cid +
+				'" title="' +
+				cname.replace( /"/g, '&quot;' ) +
+				'" aria-label="' +
+				cname.replace( /"/g, '&quot;' ) +
+				'">' +
+				'<span class="wc-optic-color-swatch__disc"' +
+				( curl ? ' style="background-image:url(' + curl + ')"' : '' ) +
+				'></span>' +
+				'<span class="wc-optic-color-swatch__name">' +
+				cname +
+				'</span></button>';
+		} );
+		$swatches.html( html );
+		syncColorSelectedLabel();
+	}
+
+	function ensurePowerModeUi() {
+		var $row = $( '.wc-optic-power-mode-row' );
+		if ( ! supportsNoPowerMode() ) {
+			if ( $row.length ) {
+				$row.prop( 'hidden', true );
+			}
+			$( '#wc_optic_tab_power' ).prop( 'checked', true );
+			return;
+		}
+		if ( $row.length ) {
+			$row.prop( 'hidden', false );
+			return;
+		}
+		// Stub may advertise support before AJAX; template usually already rendered the row for color lenses.
+	}
+
+	function initOpticForm() {
+		var $form = $( 'form.wc-optic-cart-form' );
+		ensureColorSwatchesUi();
+		ensurePowerModeUi();
 		initPowerDropdowns( $form );
 		if ( hasColorSwatches() ) {
 			syncColorSelectedLabel();
@@ -835,6 +909,46 @@
 		syncLineQuantity();
 		updatePriceDisplay();
 		updateAddToCartState();
+		$form.removeClass( 'wc-optic-is-loading' );
+		$( '.wc-optic-matrix-loading' ).remove();
+	}
+
+	function loadMatrixIfNeeded( done ) {
+		var matrix = getMatrix();
+		if ( ! matrix || ! matrix.lazy ) {
+			done();
+			return;
+		}
+		var productId = matrix.productId || ( typeof wcOpticFront !== 'undefined' ? wcOpticFront.productId : 0 );
+		var ajaxUrl =
+			typeof wcOpticFront !== 'undefined' && wcOpticFront.ajaxUrl
+				? wcOpticFront.ajaxUrl
+				: typeof window.wc_add_to_cart_params !== 'undefined' && window.wc_add_to_cart_params.ajax_url
+					? window.wc_add_to_cart_params.ajax_url
+					: '/wp-admin/admin-ajax.php';
+		$.post( ajaxUrl, {
+			action: 'wc_optic_storefront_matrix',
+			nonce: wcOpticFront.nonce || '',
+			product_id: productId,
+		} )
+			.done( function ( res ) {
+				if ( res && res.success && res.data && res.data.matrix ) {
+					wcOpticFront.matrix = res.data.matrix;
+					done();
+					return;
+				}
+				$( '.wc-optic-matrix-loading' ).text( getI18n( 'loadFailed', 'Could not load product options.' ) );
+			} )
+			.fail( function () {
+				$( '.wc-optic-matrix-loading' ).text( getI18n( 'loadFailed', 'Could not load product options.' ) );
+			} );
+	}
+
+	$( function () {
+		var $form = $( 'form.wc-optic-cart-form' );
+		if ( ! $form.length ) {
+			return;
+		}
 
 		$( 'input[name="wc_optic_power_mode"]' ).on( 'change', togglePowerMode );
 		$( '#wc_optic_different_power' ).on( 'change', toggleSamePower );
@@ -852,6 +966,10 @@
 		} );
 
 		$form.on( 'submit', function ( e ) {
+			if ( getMatrix().lazy ) {
+				e.preventDefault();
+				return;
+			}
 			if ( isNoPowerMode() ) {
 				syncNoPowerChildFields();
 			} else if ( ! isDifferentPowerMode() ) {
@@ -875,5 +993,7 @@
 				e.preventDefault();
 			}
 		} );
+
+		loadMatrixIfNeeded( initOpticForm );
 	} );
 }( jQuery ) );

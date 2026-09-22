@@ -91,12 +91,25 @@ class WC_Optic_Pricing {
 	 * @return string
 	 */
 	public static function format_display_price_html( WC_Product $product ) {
-		$config = WC_Optic_SKU::get_default_display_child( $product );
-		if ( ! $config ) {
-			return '';
+		// Use synced parent prices — never scan all internals on storefront.
+		$regular = $product->get_regular_price( 'edit' );
+		$sale    = $product->get_sale_price( 'edit' );
+		$reg_num = ( '' !== $regular && null !== $regular ) ? (float) wc_format_decimal( $regular ) : 0.0;
+		$sale_num = ( '' !== $sale && null !== $sale ) ? (float) wc_format_decimal( $sale ) : null;
+
+		if ( $reg_num <= 0 ) {
+			$active = $product->get_price( 'edit' );
+			if ( '' === $active || null === $active || (float) $active <= 0 ) {
+				return '';
+			}
+			return wc_price( (float) wc_format_decimal( $active ) );
 		}
 
-		return WC_Optic_SKU::format_child_price_html( $config );
+		if ( null !== $sale_num && $sale_num >= 0 && $sale_num < $reg_num ) {
+			return wc_format_sale_price( wc_price( $reg_num ), wc_price( $sale_num ) );
+		}
+
+		return wc_price( $reg_num );
 	}
 
 	/**
@@ -125,7 +138,7 @@ class WC_Optic_Pricing {
 	}
 
 	/**
-	 * Active price from default internal child.
+	 * Active price — trust parent meta synced from internals (cart lock still wins).
 	 *
 	 * @param string|float $price   Price.
 	 * @param WC_Product   $product Product.
@@ -138,12 +151,11 @@ class WC_Optic_Pricing {
 		if ( isset( $product->wc_optic_cart_unit_price ) ) {
 			return $product->wc_optic_cart_unit_price;
 		}
-		$active = WC_Optic_SKU::get_default_display_price( $product );
-		return $active > 0 ? (string) wc_format_decimal( $active ) : $price;
+		return $price;
 	}
 
 	/**
-	 * Regular price from default internal child.
+	 * Regular price — trust parent meta (no O(N) child scan).
 	 *
 	 * @param string|float $price   Price.
 	 * @param WC_Product   $product Product.
@@ -153,19 +165,11 @@ class WC_Optic_Pricing {
 		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
 			return $price;
 		}
-		if ( isset( $product->wc_optic_cart_unit_price ) ) {
-			return $price;
-		}
-		$config = WC_Optic_SKU::get_default_display_child( $product );
-		if ( ! $config ) {
-			return $price;
-		}
-		$regular = WC_Optic_SKU::get_child_regular_price( $config );
-		return $regular > 0 ? (string) wc_format_decimal( $regular ) : $price;
+		return $price;
 	}
 
 	/**
-	 * Sale price from default internal child (empty string when not on sale).
+	 * Sale price — trust parent meta (no O(N) child scan).
 	 *
 	 * @param string|float $price   Price.
 	 * @param WC_Product   $product Product.
@@ -178,12 +182,7 @@ class WC_Optic_Pricing {
 		if ( isset( $product->wc_optic_cart_unit_price ) ) {
 			return '';
 		}
-		$config = WC_Optic_SKU::get_default_display_child( $product );
-		if ( ! $config ) {
-			return '';
-		}
-		$sale = WC_Optic_SKU::get_child_sale_price( $config );
-		return null !== $sale ? (string) wc_format_decimal( $sale ) : '';
+		return $price;
 	}
 
 	/**
@@ -200,8 +199,12 @@ class WC_Optic_Pricing {
 		if ( isset( $product->wc_optic_cart_unit_price ) ) {
 			return false;
 		}
-		$config = WC_Optic_SKU::get_default_display_child( $product );
-		return $config ? WC_Optic_SKU::child_is_on_sale( $config ) : false;
+		$regular = $product->get_regular_price( 'edit' );
+		$sale    = $product->get_sale_price( 'edit' );
+		if ( '' === $sale || null === $sale || '' === $regular || null === $regular ) {
+			return false;
+		}
+		return (float) $sale < (float) $regular;
 	}
 
 	/**

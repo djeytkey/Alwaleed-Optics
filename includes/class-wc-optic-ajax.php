@@ -36,6 +36,8 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_stock_list_children', array( __CLASS__, 'stock_list_children' ) );
 		add_action( 'wp_ajax_wc_optic_stock_list_alerts', array( __CLASS__, 'stock_list_alerts' ) );
 		add_action( 'wp_ajax_wc_optic_convert_list_products', array( __CLASS__, 'convert_list_products' ) );
+		add_action( 'wp_ajax_wc_optic_storefront_matrix', array( __CLASS__, 'storefront_matrix' ) );
+		add_action( 'wp_ajax_nopriv_wc_optic_storefront_matrix', array( __CLASS__, 'storefront_matrix' ) );
 	}
 
 	/**
@@ -640,6 +642,30 @@ class WC_Optic_Ajax {
 				'recordsTotal'    => (int) $result['total'],
 				'recordsFiltered' => (int) $result['total'],
 				'data'            => $data,
+			)
+		);
+	}
+
+	/**
+	 * Storefront: full cascade matrix for large catalogs (lazy load).
+	 */
+	public static function storefront_matrix() {
+		check_ajax_referer( 'wc_optic_storefront', 'nonce' );
+
+		$product_id = isset( $_REQUEST['product_id'] ) ? absint( wp_unslash( $_REQUEST['product_id'] ) ) : 0;
+		$product    = $product_id ? wc_get_product( $product_id ) : null;
+		if ( ! $product instanceof WC_Product || 'optic_product' !== $product->get_type() ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Product not found.', 'wc-optic' ),
+				),
+				404
+			);
+		}
+
+		wp_send_json_success(
+			array(
+				'matrix' => WC_Optic_SKU::get_storefront_matrix( $product ),
 			)
 		);
 	}

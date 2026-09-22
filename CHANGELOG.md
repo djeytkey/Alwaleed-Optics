@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.3] — 2026-09-22
+
+### Corrigé
+
+- **Fiche produit lente (milliers d’internes)** : plus de scans O(N) répétés au chargement. Prix = meta parent synchronisée ; stock HTML = `COUNT` SQL ; matrice storefront en AJAX différé si `> 150` internes ; réservations panier en une passe ; cache requête pour configs/matrice.
+- **Matrice AJAX accélérée** : build depuis colonnes SQL + cache zero-SPH (plus de milliers de `SELECT` catalog) ; labels termes en batch.
+
 ## [1.9.2] — 2026-09-22
 
 ### Corrigé

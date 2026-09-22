@@ -1557,22 +1557,32 @@ class WC_Optic_Cart {
 	 * @param string     $exclude_cart_item_key Optional cart item key to exclude.
 	 * @return int
 	 */
-	public static function get_reserved_child_quantity( WC_Product $product, $child_id, $exclude_cart_item_key = '' ) {
-		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
-			return 0;
+	/**
+	 * Build a map of child_id => reserved qty for one product (one cart scan).
+	 *
+	 * @param WC_Product $product               Product.
+	 * @param string     $exclude_cart_item_key Optional cart item key to exclude.
+	 * @return array<string, int>
+	 */
+	public static function get_reserved_quantities_map( WC_Product $product, $exclude_cart_item_key = '' ) {
+		static $cache = array();
+		$product_id   = absint( $product->get_id() );
+		$cache_key    = $product_id . '|' . (string) $exclude_cart_item_key;
+		if ( isset( $cache[ $cache_key ] ) ) {
+			return $cache[ $cache_key ];
 		}
 
-		$child_id = (string) $child_id;
-		if ( '' === $child_id ) {
-			return 0;
+		$map = array();
+		if ( ! function_exists( 'WC' ) || ! WC()->cart || $product_id < 1 ) {
+			$cache[ $cache_key ] = $map;
+			return $map;
 		}
 
-		$reserved = 0;
 		foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
 			if ( $exclude_cart_item_key && $cart_item_key === $exclude_cart_item_key ) {
 				continue;
 			}
-			if ( empty( $cart_item['product_id'] ) || (int) $cart_item['product_id'] !== (int) $product->get_id() ) {
+			if ( empty( $cart_item['product_id'] ) || (int) $cart_item['product_id'] !== $product_id ) {
 				continue;
 			}
 			if ( empty( $cart_item[ self::CART_KEY ] ) || ! is_array( $cart_item[ self::CART_KEY ] ) ) {
@@ -1581,14 +1591,36 @@ class WC_Optic_Cart {
 
 			$cart_item = self::sync_cart_item_payload_quantities( $cart_item );
 			foreach ( self::build_child_quantity_map( $cart_item[ self::CART_KEY ] ) as $reserved_child_id => $entry ) {
-				if ( $reserved_child_id !== $child_id ) {
+				$qty = isset( $entry['qty'] ) ? max( 0, (int) $entry['qty'] ) : 0;
+				if ( $qty < 1 ) {
 					continue;
 				}
-				$reserved += isset( $entry['qty'] ) ? max( 0, (int) $entry['qty'] ) : 0;
+				if ( ! isset( $map[ $reserved_child_id ] ) ) {
+					$map[ $reserved_child_id ] = 0;
+				}
+				$map[ $reserved_child_id ] += $qty;
 			}
 		}
 
-		return $reserved;
+		$cache[ $cache_key ] = $map;
+		return $map;
+	}
+
+	/**
+	 * Get quantity of a child already in the cart for this product.
+	 *
+	 * @param WC_Product $product               Product.
+	 * @param string     $child_id              Child id.
+	 * @param string     $exclude_cart_item_key Optional cart item key to exclude.
+	 * @return int
+	 */
+	public static function get_reserved_child_quantity( WC_Product $product, $child_id, $exclude_cart_item_key = '' ) {
+		$child_id = (string) $child_id;
+		if ( '' === $child_id ) {
+			return 0;
+		}
+		$map = self::get_reserved_quantities_map( $product, $exclude_cart_item_key );
+		return isset( $map[ $child_id ] ) ? (int) $map[ $child_id ] : 0;
 	}
 
 	/**

@@ -16,11 +16,12 @@ if ( ! $division ) {
 	return;
 }
 
-$storefront_matrix    = WC_Optic_SKU::get_storefront_matrix( $product );
+$storefront_matrix    = WC_Optic_SKU::get_storefront_matrix_for_page( $product );
 $supports_no_power    = ! empty( $storefront_matrix['supportsNoPowerMode'] );
 $show_color_swatches  = ! empty( $storefront_matrix['showColorSwatches'] );
 $storefront_colors    = $show_color_swatches && ! empty( $storefront_matrix['colors'] ) ? $storefront_matrix['colors'] : array();
-$can_choose_different = count( $storefront_matrix['children'] ?? array() ) > 1;
+$matrix_lazy          = ! empty( $storefront_matrix['lazy'] );
+$can_choose_different = WC_Optic_SKU::get_child_count( $product ) > 1;
 
 if ( ! WC_Optic_Frontend::has_child_options( $product ) ) {
 	echo '<p class="wc-optic-notice">' . esc_html__( 'This product is not ready for sale yet. Please configure its internal products in the product admin.', 'wc-optic' ) . '</p>';
@@ -36,8 +37,12 @@ if ( ! WC_Optic_Frontend::product_is_in_stock( $product ) ) {
 do_action( 'woocommerce_before_add_to_cart_form' );
 ?>
 
-<form class="cart wc-optic-cart-form" action="<?php echo esc_url( apply_filters( 'woocommerce_add_to_cart_form_action', $product->get_permalink() ) ); ?>" method="post" enctype="multipart/form-data">
+<form class="cart wc-optic-cart-form<?php echo $matrix_lazy ? ' wc-optic-is-loading' : ''; ?>" action="<?php echo esc_url( apply_filters( 'woocommerce_add_to_cart_form_action', $product->get_permalink() ) ); ?>" method="post" enctype="multipart/form-data">
 	<?php wp_nonce_field( 'wc_optic_add_to_cart', 'wc_optic_nonce' ); ?>
+
+	<?php if ( $matrix_lazy ) : ?>
+		<p class="wc-optic-matrix-loading" aria-live="polite"><?php esc_html_e( 'Loading options…', 'wc-optic' ); ?></p>
+	<?php endif; ?>
 
 	<?php
 	$default_price      = WC_Optic_SKU::get_default_display_price( $product );

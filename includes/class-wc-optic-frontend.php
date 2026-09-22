@@ -101,11 +101,15 @@ class WC_Optic_Frontend {
 			true
 		);
 		$default_price = WC_Optic_SKU::get_default_display_price( $product );
+		$matrix        = WC_Optic_SKU::get_storefront_matrix_for_page( $product );
 
 		wp_localize_script(
 			'wc-optic-frontend',
 			'wcOpticFront',
 			array(
+				'ajaxUrl'          => admin_url( 'admin-ajax.php' ),
+				'nonce'            => wp_create_nonce( 'wc_optic_storefront' ),
+				'productId'        => absint( $product->get_id() ),
 				'defaultPrice'     => $default_price,
 				'defaultPriceHtml' => WC_Optic_Pricing::format_display_price_html( $product ),
 				'summaryPriceSelector' => '.entry-summary > .price, .product-summary > .price, .summary > .price, .product-page-price',
@@ -114,7 +118,7 @@ class WC_Optic_Frontend {
 				'thousandSep'    => wc_get_price_thousand_separator(),
 				'decimals'       => wc_get_price_decimals(),
 				'priceFormat'    => get_woocommerce_price_format(),
-				'matrix'         => WC_Optic_SKU::get_storefront_matrix( $product ),
+				'matrix'         => $matrix,
 				'i18n'           => array(
 					'rightEye'       => __( 'Right eye (OD)', 'wc-optic' ),
 					'leftEye'        => __( 'Left eye (OS)', 'wc-optic' ),
@@ -131,6 +135,9 @@ class WC_Optic_Frontend {
 					'power'            => __( 'Power', 'wc-optic' ),
 					'powerType'        => __( 'Power type', 'wc-optic' ),
 					'noPowerUnavailable' => __( 'This product is not available without power.', 'wc-optic' ),
+					'loadingOptions'     => __( 'Loading options…', 'wc-optic' ),
+					'loadFailed'         => __( 'Could not load product options.', 'wc-optic' ),
+					'color'              => __( 'Color', 'wc-optic' ),
 				),
 			)
 		);
@@ -153,8 +160,7 @@ class WC_Optic_Frontend {
 	 * @return bool
 	 */
 	public static function has_child_options( WC_Product $product ) {
-		$matrix = WC_Optic_SKU::get_storefront_matrix( $product );
-		return ! empty( $matrix['children'] ) || ! empty( $matrix['noPowerChild'] );
+		return WC_Optic_SKU::get_child_count( $product ) > 0;
 	}
 
 	/**
@@ -164,6 +170,18 @@ class WC_Optic_Frontend {
 	 * @return bool
 	 */
 	public static function has_remaining_child_options( WC_Product $product ) {
+		$product_id = absint( $product->get_id() );
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			if ( ! WC_Optic_Children::product_has_sellable_rows( $product_id ) ) {
+				return false;
+			}
+			// Fast path: if nothing reserved in cart for this product, SQL sellable is enough.
+			$reserved = WC_Optic_Cart::get_reserved_quantities_map( $product );
+			if ( empty( $reserved ) ) {
+				return true;
+			}
+		}
+
 		foreach ( self::get_storefront_child_configs( $product ) as $config ) {
 			$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
 			if ( null === $remaining || $remaining > 0 ) {
@@ -191,14 +209,20 @@ class WC_Optic_Frontend {
 	 * @return string
 	 */
 	public static function get_stock_html( WC_Product $product ) {
-		$total      = count( self::get_storefront_child_configs( $product ) );
+		$product_id = absint( $product->get_id() );
+		$total      = 0;
 		$available  = 0;
-		$class_name = $available > 0 ? 'in-stock' : 'out-of-stock';
 
-		foreach ( self::get_storefront_child_configs( $product ) as $config ) {
-			$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
-			if ( null === $remaining || $remaining > 0 ) {
-				++$available;
+		if ( $product_id && class_exists( 'WC_Optic_Children' ) && WC_Optic_Children::table_ready() && WC_Optic_Children::product_has_rows( $product_id ) ) {
+			$total     = WC_Optic_Children::count_enabled( $product_id );
+			$available = WC_Optic_Children::count_sellable( $product_id );
+		} else {
+			$total = count( self::get_storefront_child_configs( $product ) );
+			foreach ( self::get_storefront_child_configs( $product ) as $config ) {
+				$remaining = WC_Optic_Cart::get_remaining_child_stock( $product, $config );
+				if ( null === $remaining || $remaining > 0 ) {
+					++$available;
+				}
 			}
 		}
 

@@ -97,6 +97,73 @@ class WC_Optic_Children {
 	}
 
 	/**
+	 * Whether product has at least one enabled sellable child (SQL, no full hydrate).
+	 *
+	 * @param int $product_id Product id.
+	 * @return bool
+	 */
+	public static function product_has_sellable_rows( $product_id ) {
+		global $wpdb;
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::table_ready() ) {
+			return false;
+		}
+		$table = self::table();
+		// Sellable: unmanaged stock OR remaining stock/backorder > 0.
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$table}
+				WHERE product_id = %d AND enabled = 1
+				AND (
+					stock_qty IS NULL
+					OR (stock_qty + IF(backorder_custom = 1, backorder_qty, 0) - backorder_consumed) > 0
+				)
+				LIMIT 1",
+				$product_id
+			)
+		);
+		return ! empty( $found );
+	}
+
+	/**
+	 * Count enabled children for a product.
+	 *
+	 * @param int $product_id Product id.
+	 * @return int
+	 */
+	public static function count_enabled( $product_id ) {
+		return self::count_by_product( $product_id, array( 'enabled_only' => true ) );
+	}
+
+	/**
+	 * Count enabled sellable children (ignores cart reservations).
+	 *
+	 * @param int $product_id Product id.
+	 * @return int
+	 */
+	public static function count_sellable( $product_id ) {
+		global $wpdb;
+		$product_id = absint( $product_id );
+		if ( $product_id < 1 || ! self::table_ready() ) {
+			return 0;
+		}
+		$table = self::table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table}
+				WHERE product_id = %d AND enabled = 1
+				AND (
+					stock_qty IS NULL
+					OR (stock_qty + IF(backorder_custom = 1, backorder_qty, 0) - backorder_consumed) > 0
+				)",
+				$product_id
+			)
+		);
+	}
+
+	/**
 	 * Whether product has any SQL children.
 	 *
 	 * @param int $product_id Product id.
@@ -377,6 +444,7 @@ class WC_Optic_Children {
 		}
 
 		WC_Optic_SKU::bust_alert_count_cache();
+		WC_Optic_SKU::clear_runtime_caches( $product_id );
 		return $count;
 	}
 
@@ -422,6 +490,7 @@ class WC_Optic_Children {
 
 		if ( $ok ) {
 			WC_Optic_SKU::bust_alert_count_cache();
+			WC_Optic_SKU::clear_runtime_caches( $product_id );
 		}
 		return (bool) $ok;
 	}
@@ -451,6 +520,7 @@ class WC_Optic_Children {
 		);
 		if ( $ok ) {
 			WC_Optic_SKU::bust_alert_count_cache();
+			WC_Optic_SKU::clear_runtime_caches( $product_id );
 		}
 		return (bool) $ok;
 	}
@@ -471,6 +541,7 @@ class WC_Optic_Children {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$deleted = $wpdb->delete( $table, array( 'product_id' => $product_id ), array( '%d' ) );
 		WC_Optic_SKU::bust_alert_count_cache();
+		WC_Optic_SKU::clear_runtime_caches( $product_id );
 		return (int) $deleted;
 	}
 

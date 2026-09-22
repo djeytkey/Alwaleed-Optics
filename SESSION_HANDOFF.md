@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-18 (dernière mise à jour)  
+**Date :** 2026-09-22 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -17,7 +17,8 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 1. **Perf Converted / Specifics (v1.9.1)** : DataTables `serverSide` comme Stock Alerts ; plus de chargement de tous les internes via `get_price_html()` sur la liste.
 2. **Stock Alerts WPML (v1.9.2)** : badge/total = originaux seulement ; restock sync stock vers traductions (pas de full copy).
-3. **Version** — bump **1.9.2**.
+3. **Perf fiche produit (v1.9.3)** : lazy matrix AJAX si >150 internes ; prix parent ; stock SQL ; cache runtime ; reserved map batch.
+4. **Version** — bump **1.9.3**.
 
 ### Session 2026-09-18 (précédente)
 
@@ -524,6 +525,19 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-wpml.php`, `class-wc-optic-children.php`, `class-wc-optic-stock.php` ; version **1.9.2**.
 
+### 2.32 Perf fiche produit storefront (session 2026-09-22)
+
+- **Cause :** 10–15× `get_child_configs` / matrice / `get_price_html` + remaining stock × N + JSON multi‑Mo dans la page + milliers de `get_term()` pour zero-SPH.
+- **Fix :**
+  - Cache requête `get_child_configs` / enabled / matrix ; `clear_runtime_caches()`.
+  - Pricing filters + `format_display_price_html` = prix parent (`edit`), plus de scan enfants.
+  - Stock HTML / in-stock = `count_enabled` / `count_sellable` / `product_has_sellable_rows`.
+  - Matrice : pas de `priceHtml` ; reserved qty via `get_reserved_quantities_map()` (1 scan panier).
+  - Si `child_count > 150` : stub + AJAX `wc_optic_storefront_matrix` après paint.
+  - Build matrice SQL (`build_storefront_matrix_from_sql`) + `get_zero_power_sph_ids()` (1 lecture catalog SPH) ; labels termes en batch.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-pricing.php`, `class-wc-optic-frontend.php`, `class-wc-optic-cart.php`, `class-wc-optic-children.php`, `class-wc-optic-ajax.php`, `optic_product.php`, `frontend.js`, `frontend.css` ; version **1.9.3**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -981,6 +995,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Restock sur un alerte : stock MAJ sur original **et** traduction(s)
 - [ ] Après restock hors seuil : badge diminue d’**1** (pas de doublon traduction)
 
+### Fiche produit perf (v1.9.3)
+
+- [ ] Produit ~5401 internes : HTML page en quelques secondes (pas 45s)
+- [ ] Message « Loading options… » puis cascade SPH utilisable
+- [ ] Prix résumé thème OK sans freeze
+- [ ] Add-to-cart après chargement matrice OK
+- [ ] Petit catalogue (≤150) : matrice inline, pas d’AJAX obligatoire
+
 ### Fiche produit — UI
 
 - [ ] Pas de ligne « Optical division »
@@ -1109,7 +1131,7 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 
 1. **`find_no_power_child()`** retourne le **premier** enfant +0.00 trouvé — si plusieurs variantes no-power (packs différents), seul le premier est utilisé en mode No power.
 2. **Flatsome** : styles basés sur la structure WooCommerce standard ; un override template Flatsome très custom peut nécessiter des ajustements CSS.
-3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.2**.
+3. **CHANGELOG.md** / version plugin : synchroniser à chaque bump — courant **1.9.3**.
 4. **SQL children (1.8.0)** : après migration, `_optic_child_configs` est vide ; ne pas réécrire le blob. Purge manuelle des anciennes meta déjà faite à la migration produit par produit.
 5. **Migration batches** : 20 produits/admin_init ; sur catalogues très grands, plusieurs hits admin avant `wc_optic_children_migrated=1`.
 6. **`is_low_stock` dénormalisé** : recalculé à l’écriture + via `recompute_low_stock_flags()` quand le seuil global / enabled change.
