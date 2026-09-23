@@ -101,7 +101,19 @@ class WC_Optic_Cart {
 		}
 
 		if ( 'no_power' === $power_mode ) {
-			$no_power_config = WC_Optic_SKU::find_no_power_child( $product, $color_id );
+			$no_power_config = null;
+			$posted_child    = isset( $_POST['wc_optic_left_child'] ) ? sanitize_key( wp_unslash( $_POST['wc_optic_left_child'] ) ) : '';
+			if ( '' !== $posted_child ) {
+				$candidate = WC_Optic_SKU::find_child_config( $product, $posted_child, true );
+				if ( $candidate && WC_Optic_SKU::config_has_zero_sph( $candidate ) ) {
+					if ( $color_id < 1 || (int) ( $candidate['catalog']['color'] ?? 0 ) === $color_id ) {
+						$no_power_config = $candidate;
+					}
+				}
+			}
+			if ( ! $no_power_config ) {
+				$no_power_config = WC_Optic_SKU::find_no_power_child( $product, $color_id );
+			}
 			if ( ! $no_power_config ) {
 				self::$parse_cache[ $product_id ] = new WP_Error( 'wc_optic', __( 'This product is not available without power.', 'wc-optic' ) );
 				return self::$parse_cache[ $product_id ];
@@ -447,6 +459,13 @@ class WC_Optic_Cart {
 			return $session_data;
 		}
 
+		if ( ! empty( $session_data[ self::CART_KEY ] ) && is_array( $session_data[ self::CART_KEY ] ) ) {
+			$session_data[ self::CART_KEY ] = self::enrich_payload_colors(
+				$session_data[ self::CART_KEY ],
+				absint( $session_data['product_id'] ?? $session_data['data']->get_id() )
+			);
+		}
+
 		return self::sync_cart_item_payload_quantities( $session_data );
 	}
 
@@ -519,10 +538,12 @@ class WC_Optic_Cart {
 			return;
 		}
 
-		$payload  = self::normalize_payload_same_eyes( $payload );
-		$order    = $item instanceof WC_Order_Item_Product ? $item->get_order() : null;
-		$currency = $order instanceof WC_Order ? $order->get_currency() : '';
-		$same     = self::payload_uses_single_eye_display( $payload );
+		$product_id = $item instanceof WC_Order_Item_Product ? absint( $item->get_product_id() ) : 0;
+		$payload    = self::normalize_payload_same_eyes( $payload );
+		$payload    = self::enrich_payload_colors( $payload, $product_id );
+		$order      = $item instanceof WC_Order_Item_Product ? $item->get_order() : null;
+		$currency   = $order instanceof WC_Order ? $order->get_currency() : '';
+		$same       = self::payload_uses_single_eye_display( $payload );
 
 		echo '<div class="wc-optic-order-summary' . ( $same ? ' wc-optic-order-summary--same-power' : '' ) . '">';
 		echo '<div class="wc-optic-order-summary__eyes">';
@@ -808,17 +829,107 @@ class WC_Optic_Cart {
 			return $item_data;
 		}
 
-		$html = self::render_line_summary_html( $cart_item[ self::CART_KEY ] );
+		$payload     = self::enrich_payload_colors( $cart_item[ self::CART_KEY ], absint( $cart_item['product_id'] ?? 0 ) );
+		$color_label = self::get_payload_color_label( $payload );
+		if ( '' !== $color_label ) {
+			$item_data[] = array(
+				'key'     => __( 'Color', 'wc-optic' ),
+				'value'   => $color_label,
+				'display' => esc_html( $color_label ),
+			);
+		}
+
+		$html = self::render_line_summary_html( $payload );
 		if ( '' === $html ) {
 			return $item_data;
 		}
 
 		$item_data[] = array(
 			'key'     => 'optic-line',
+			'value'   => wp_strip_all_tags( $html ),
 			'display' => $html,
 		);
 
 		return $item_data;
+	}
+
+	/**
+	 * Ensure eye payloads have color_id / color_label (resolves from child when missing).
+	 *
+	 * @param array $payload    Optic payload.
+	 * @param int   $product_id Parent product id.
+	 * @return array
+	 */
+	public static function enrich_payload_colors( array $payload, $product_id = 0 ) {
+		$product_id = absint( $product_id );
+		if ( ! $product_id && ! empty( $payload['product_id'] ) ) {
+			$product_id = absint( $payload['product_id'] );
+		}
+
+		foreach ( array( 'left', 'right' ) as $eye_key ) {
+			if ( empty( $payload[ $eye_key ] ) || ! is_array( $payload[ $eye_key ] ) ) {
+				continue;
+			}
+			$payload[ $eye_key ] = self::enrich_eye_color( $payload[ $eye_key ], $product_id );
+		}
+
+		return $payload;
+	}
+
+	/**
+	 * Fill color fields on one eye payload.
+	 *
+	 * @param array $eye        Eye payload.
+	 * @param int   $product_id Parent product id.
+	 * @return array
+	 */
+	protected static function enrich_eye_color( array $eye, $product_id = 0 ) {
+		$label = isset( $eye['color_label'] ) ? trim( (string) $eye['color_label'] ) : '';
+		$id    = isset( $eye['color_id'] ) ? absint( $eye['color_id'] ) : 0;
+		if ( '' !== $label && $id > 0 ) {
+			return $eye;
+		}
+
+		if ( ( $id < 1 || '' === $label ) && $product_id > 0 && ! empty( $eye['child_id'] ) ) {
+			$product = wc_get_product( $product_id );
+			if ( $product instanceof WC_Product ) {
+				$config = WC_Optic_SKU::find_child_config( $product, (string) $eye['child_id'], false );
+				if ( is_array( $config ) ) {
+					$color = WC_Optic_SKU::get_config_color_payload( $config );
+					if ( $id < 1 ) {
+						$id = (int) $color['color_id'];
+					}
+					if ( '' === $label ) {
+						$label = (string) $color['color_label'];
+					}
+				}
+			}
+		}
+
+		if ( '' === $label && $id > 0 ) {
+			$row = WC_Optic_Catalog::get_term( $id );
+			if ( $row ) {
+				$label = WC_Optic_Catalog::get_display_name( $row );
+				if ( '' === $label && ! empty( $row->name ) ) {
+					$label = (string) $row->name;
+				}
+			}
+		}
+
+		$eye['color_id']    = $id;
+		$eye['color_label'] = $label;
+		return $eye;
+	}
+
+	/**
+	 * Color label shared by the line (left eye, enriched).
+	 *
+	 * @param array $payload Optic payload.
+	 * @return string
+	 */
+	protected static function get_payload_color_label( array $payload ) {
+		$left = isset( $payload['left'] ) && is_array( $payload['left'] ) ? $payload['left'] : array();
+		return isset( $left['color_label'] ) ? trim( (string) $left['color_label'] ) : '';
 	}
 
 	/**
@@ -829,6 +940,7 @@ class WC_Optic_Cart {
 	 */
 	public static function render_line_summary_html( array $payload ) {
 		$payload = self::normalize_payload_same_eyes( $payload );
+		$payload = self::enrich_payload_colors( $payload, absint( $payload['product_id'] ?? 0 ) );
 		$same    = self::payload_uses_single_eye_display( $payload );
 
 		ob_start();
@@ -1067,7 +1179,12 @@ class WC_Optic_Cart {
 			return;
 		}
 		$o = self::normalize_payload_same_eyes( $values[ self::CART_KEY ] );
+		$o = self::enrich_payload_colors( $o, absint( $values['product_id'] ?? ( $o['product_id'] ?? 0 ) ) );
 		$item->add_meta_data( '_wc_optic_payload', wp_json_encode( $o ), true );
+		$color_label = self::get_payload_color_label( $o );
+		if ( '' !== $color_label ) {
+			$item->add_meta_data( __( 'Color', 'wc-optic' ), $color_label, true );
+		}
 		$item->add_meta_data( __( 'Internal SKUs', 'wc-optic' ), self::format_internal_skus_plain( $o ), true );
 		$item->add_meta_data( __( 'Eye pricing', 'wc-optic' ), self::format_eye_pricing_plain( $o, $order->get_currency() ), true );
 		$item->add_meta_data( __( 'Eye quantities', 'wc-optic' ), self::format_eye_quantities_plain( $o ), true );

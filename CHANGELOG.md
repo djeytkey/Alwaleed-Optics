@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.7] — 2026-09-23
+
+### Corrigé
+
+- **Panier / checkout / commande — Color toujours absente** : résolution de la couleur au rendu depuis l’interne (`child_id`) même pour les lignes déjà en session ; ligne meta **Color** dédiée (panier + order item) ; no-power préfère le `child_id` posté ; stub lazy inclut les couleurs pour le champ caché.
+
 ## [1.9.6] — 2026-09-22
 
 ### Corrigé

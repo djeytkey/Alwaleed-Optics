@@ -1550,6 +1550,29 @@ class WC_Optic_SKU {
 			$labels[ $power ] = WC_Optic_Catalog::get_power_field_label( $power );
 		}
 
+		$colors = array();
+		if ( $division && WC_Optic_Plugin::division_shows_color( $division ) ) {
+			foreach ( self::get_product_catalog_ids( $product, 'color' ) as $cid ) {
+				$cid = absint( $cid );
+				if ( $cid < 1 ) {
+					continue;
+				}
+				$row = WC_Optic_Catalog::get_valid_term( $cid, 'color' );
+				if ( ! $row ) {
+					continue;
+				}
+				$image_id  = isset( $row->image_id ) ? absint( $row->image_id ) : 0;
+				$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+				$colors[]  = array(
+					'id'       => (string) $cid,
+					'name'     => WC_Optic_Catalog::get_display_name( $row ),
+					'imageId'  => $image_id,
+					'imageUrl' => $image_url ? (string) $image_url : '',
+				);
+			}
+		}
+		$show_swatches = count( $colors ) >= 2;
+
 		return array(
 			'lazy'                => true,
 			'productId'           => absint( $product->get_id() ),
@@ -1557,8 +1580,8 @@ class WC_Optic_SKU {
 			'supportsNoPowerMode' => self::product_has_in_stock_no_power_child( $product ),
 			'noPowerChild'        => null,
 			'noPowerByColor'      => new \stdClass(),
-			'showColorSwatches'   => false,
-			'colors'              => array(),
+			'showColorSwatches'   => $show_swatches,
+			'colors'              => $colors,
 			'powers'              => $powers,
 			'children'            => array(),
 			'terms'               => array(),
@@ -1864,8 +1887,14 @@ class WC_Optic_SKU {
 		$label    = '';
 		if ( $color_id > 0 ) {
 			$row = WC_Optic_Catalog::get_valid_term( $color_id, 'color' );
+			if ( ! $row ) {
+				$row = WC_Optic_Catalog::get_term( $color_id );
+			}
 			if ( $row ) {
 				$label = WC_Optic_Catalog::get_display_name( $row );
+				if ( '' === trim( $label ) && ! empty( $row->name ) ) {
+					$label = (string) $row->name;
+				}
 			}
 		}
 		return array(

@@ -42,12 +42,16 @@
 	}
 
 	function getSelectedColorId() {
-		if ( ! hasColorSwatches() ) {
-			return '';
-		}
 		var $sel = $( '.wc-optic-color-swatch.is-selected' );
 		if ( $sel.length ) {
 			return String( $sel.data( 'color' ) || '' );
+		}
+		var $input = $( '#wc_optic_color' );
+		if ( $input.length && $input.val() ) {
+			return String( $input.val() );
+		}
+		if ( ! hasColorSwatches() ) {
+			return '';
 		}
 		var first = ( getMatrix().colors || [] )[ 0 ];
 		return first ? String( first.id ) : '';
@@ -1033,6 +1037,7 @@
 				e.preventDefault();
 				return;
 			}
+			syncColorHiddenInput();
 			if ( isNoPowerMode() ) {
 				syncNoPowerChildFields();
 			} else if ( ! isDifferentPowerMode() ) {
