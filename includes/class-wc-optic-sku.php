@@ -121,6 +121,30 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Coerce product meta into an associative array (serialized / JSON).
+	 *
+	 * @param mixed $raw Meta value.
+	 * @return array<string, mixed>
+	 */
+	public static function coerce_meta_array( $raw ) {
+		if ( is_array( $raw ) ) {
+			return $raw;
+		}
+		if ( is_object( $raw ) ) {
+			return (array) $raw;
+		}
+		if ( ! is_string( $raw ) || '' === trim( $raw ) ) {
+			return array();
+		}
+		$decoded = json_decode( $raw, true );
+		if ( is_array( $decoded ) ) {
+			return $decoded;
+		}
+		$unserialized = maybe_unserialize( $raw );
+		return is_array( $unserialized ) ? $unserialized : array();
+	}
+
+	/**
 	 * Whether storefront backorder is enabled globally.
 	 *
 	 * @return bool
@@ -2841,27 +2865,85 @@ class WC_Optic_SKU {
 	}
 
 	/**
-	 * Get stored parent identity, falling back to the first child.
+	 * Best-effort identity map from internal products (fills gaps in parent meta).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<string, int>
+	 */
+	protected static function derive_identity_catalog_from_children( WC_Product $product ) {
+		$types = self::get_identity_catalog_types();
+		$best  = array_fill_keys( $types, 0 );
+		$score = -1;
+
+		foreach ( self::get_child_configs( $product ) as $config ) {
+			if ( ! is_array( $config ) ) {
+				continue;
+			}
+			$catalog = isset( $config['catalog'] ) && is_array( $config['catalog'] ) ? $config['catalog'] : array();
+			$row     = self::normalize_identity_catalog( $catalog );
+			$row_score = 0;
+			foreach ( $types as $type ) {
+				if ( (int) ( $row[ $type ] ?? 0 ) > 0 ) {
+					++$row_score;
+				}
+			}
+			if ( $row_score > $score ) {
+				$score = $row_score;
+				$best  = $row;
+			}
+			if ( $row_score >= count( $types ) ) {
+				break;
+			}
+		}
+
+		if ( $score < count( $types ) ) {
+			foreach ( self::get_child_configs( $product ) as $config ) {
+				if ( ! is_array( $config ) ) {
+					continue;
+				}
+				$catalog = isset( $config['catalog'] ) && is_array( $config['catalog'] ) ? $config['catalog'] : array();
+				$row     = self::normalize_identity_catalog( $catalog );
+				foreach ( $types as $type ) {
+					if ( (int) ( $best[ $type ] ?? 0 ) < 1 && (int) ( $row[ $type ] ?? 0 ) > 0 ) {
+						$best[ $type ] = (int) $row[ $type ];
+					}
+				}
+			}
+		}
+
+		return self::normalize_identity_catalog( $best );
+	}
+
+	/**
+	 * Get stored parent identity, merging parent meta with internal products.
 	 *
 	 * @param WC_Product $product Product.
 	 * @return array<string, int>
 	 */
 	public static function get_identity_catalog( WC_Product $product ) {
-		$stored = self::normalize_identity_catalog( $product->get_meta( self::IDENTITY_META_KEY, true ) );
-		foreach ( $stored as $id ) {
-			if ( $id ) {
-				return $stored;
+		$stored = self::normalize_identity_catalog(
+			self::coerce_meta_array( $product->get_meta( self::IDENTITY_META_KEY, true ) )
+		);
+		$from_children = self::derive_identity_catalog_from_children( $product );
+
+		$out = array();
+		foreach ( self::get_identity_catalog_types() as $type ) {
+			$id = (int) ( $stored[ $type ] ?? 0 );
+			if ( $id < 1 ) {
+				$id = (int) ( $from_children[ $type ] ?? 0 );
+			}
+			$out[ $type ] = $id;
+		}
+
+		$division = (string) $product->get_meta( '_optic_division', true );
+		if ( $division && WC_Optic_Plugin::division_shows_color( $division ) && (int) ( $out['color'] ?? 0 ) < 1 ) {
+			$used = self::get_product_used_color_ids( $product );
+			if ( ! empty( $used ) ) {
+				$out['color'] = (int) $used[0];
 			}
 		}
 
-		$children = self::get_child_configs( $product );
-		if ( empty( $children ) ) {
-			return $stored;
-		}
-
-		$first = $children[0];
-		$catalog = isset( $first['catalog'] ) && is_array( $first['catalog'] ) ? $first['catalog'] : array();
-		return self::normalize_identity_catalog( $catalog );
+		return $out;
 	}
 
 	/**

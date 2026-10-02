@@ -2,7 +2,7 @@
 
 **Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.9 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,8 +15,9 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-10-02 (courante)
 
-1. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
-2. **Version** — bump **1.9.8**.
+1. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
+2. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
+3. **Version** — bump **1.9.9**.
 
 ### Session 2026-09-23 (précédente)
 
@@ -476,6 +477,17 @@ WC_Optic_Converter::convert_product() / preview()
 **Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
+
+### 2.27 Identité optique — préremplissage fiche produit (session 2026-10-02, v1.9.9)
+
+**Problème :** après Convert (surtout Color Lenses multi-couleurs), l’onglet **Optic configuration** affichait les selects identité vides alors que les internes avaient le bon catalogue.
+
+**Correctifs :**
+- `WC_Optic_SKU::get_identity_catalog()` : fusion champ par champ meta parent (`_optic_identity_catalog`, JSON/serialize via `coerce_meta_array()`) + meilleur interne SQL (`derive_identity_catalog_from_children()`) ; couleur depuis `get_product_used_color_ids()` si besoin.
+- Admin produit : `wcOpticAdmin.initialIdentity` + `applyIdentitySelectValues()` avant Select2.
+- `save_product()` : champs identité absents/vides dans le POST ne remplacent plus une valeur déjà connue.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-admin-product.php`, `assets/js/admin-product.js`.
 
 ### 2.26 Perf listes Convert — child_count meta (session 2026-09-15)
 
@@ -1050,6 +1062,12 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Checkout + page commande / thank-you : meta Color visible
 - [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
 - [ ] Commande admin : résumé œil inclut Color
+
+### Identité optique fiche produit (v1.9.9)
+
+- [ ] Produit Color Lenses converti (multi-couleurs) : édition WC → onglet Optic configuration → Section, Company, Brand, Timing, Color (1ère), Pack, Transparency préremplis
+- [ ] Update produit sans toucher identité : valeurs conservées (pas d’effacement)
+- [ ] Wizard Convert : identité toujours préremplie comme avant
 
 ### Color images default + override (v1.9.8)
 

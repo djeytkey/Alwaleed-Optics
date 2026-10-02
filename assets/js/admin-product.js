@@ -137,6 +137,26 @@
 		} );
 	}
 
+	function applyIdentitySelectValues( identity ) {
+		if ( ! identity || typeof identity !== 'object' ) {
+			return;
+		}
+		getPanel().find( '.wc-optic-identity-select' ).each( function () {
+			var $el = $( this );
+			var type = $el.data( 'optic-type' );
+			if ( ! type || $el.prop( 'multiple' ) ) {
+				return;
+			}
+			var value = identity[ type ] ? String( identity[ type ] ) : '';
+			if ( ! value ) {
+				return;
+			}
+			if ( $el.find( 'option' ).filter( function () { return $( this ).val() === value; } ).length ) {
+				$el.val( value );
+			}
+		} );
+	}
+
 	function getEditor() {
 		return getPanel().find( '#wc-optic-child-editor' );
 	}
@@ -786,6 +806,9 @@
 		getPanel().find( 'select.wc-optic-select2' ).each( function () {
 			destroySelect2( $( this ) );
 		} );
+		if ( wcOpticAdmin && wcOpticAdmin.initialIdentity ) {
+			applyIdentitySelectValues( wcOpticAdmin.initialIdentity );
+		}
 		applyDivisionIdentityFields();
 		initAllOpticSelect2();
 		if ( ! getEditor().prop( 'hidden' ) ) {

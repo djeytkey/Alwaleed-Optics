@@ -252,6 +252,12 @@ class WC_Optic_Admin_Product {
 		}
 
 		$identity = WC_Optic_SKU::normalize_identity_catalog( isset( $_POST['_optic_identity'] ) ? wp_unslash( $_POST['_optic_identity'] ) : array() );
+		$existing = WC_Optic_SKU::get_identity_catalog( $product );
+		foreach ( WC_Optic_SKU::get_identity_catalog_types() as $type ) {
+			if ( (int) ( $identity[ $type ] ?? 0 ) < 1 && (int) ( $existing[ $type ] ?? 0 ) > 0 ) {
+				$identity[ $type ] = (int) $existing[ $type ];
+			}
+		}
 
 		// Avoid a second $product->save() inside sync during the WooCommerce save cycle.
 		$result = self::sync_identity_during_product_save( $product, $division, $identity );
@@ -335,16 +341,26 @@ class WC_Optic_Admin_Product {
 			$division_colors[ $slug ] = ! empty( $def['show_color'] );
 		}
 
+		$initial_identity = array();
+		$post_id          = isset( $GLOBALS['post']->ID ) ? (int) $GLOBALS['post']->ID : 0;
+		if ( $post_id > 0 ) {
+			$optic_product = wc_get_product( $post_id );
+			if ( $optic_product && 'optic_product' === $optic_product->get_type() ) {
+				$initial_identity = WC_Optic_SKU::get_identity_catalog( $optic_product );
+			}
+		}
+
 		wp_localize_script(
 			'wc-optic-admin-product',
 			'wcOpticAdmin',
 			array(
 				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 				'nonce'              => wp_create_nonce( 'wc_optic_admin' ),
-				'productId'          => ( isset( $GLOBALS['post']->ID ) ? (int) $GLOBALS['post']->ID : 0 ),
+				'productId'          => $post_id,
 				'isNewProduct'       => self::is_new_product_screen(),
 				'divisionPowers'     => $division_powers,
 				'divisionShowColor'  => $division_colors,
+				'initialIdentity'    => $initial_identity,
 				'powerTypes'         => WC_Optic_Catalog::get_power_types(),
 				'backorderEnabled'   => WC_Optic_SKU::is_backorder_enabled(),
 				'globalBackorderQty' => WC_Optic_SKU::get_global_backorder_qty(),

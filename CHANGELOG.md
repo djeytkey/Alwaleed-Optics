@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.9] — 2026-10-02
+
+### Corrigé
+
+- **Fiche produit — identité optique vide** : `get_identity_catalog()` fusionne meta parent + internes (dont couleur depuis les internes actifs) ; Select2 réapplique les valeurs à l’ouverture du panneau ; sauvegarde produit ne remplace plus les champs identité vides du POST par des zéros.
+
 ## [1.9.8] — 2026-10-02
 
 ### Ajouté
