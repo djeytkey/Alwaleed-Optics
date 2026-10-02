@@ -1068,9 +1068,6 @@
 				current.id = productId;
 				current.original_id = res.data.original_id || res.data.id || productId;
 				renderProductCard( current );
-				$( '#wc_optic_wizard_price' ).val( current.price || '' );
-				$( '#wc_optic_wizard_sale_price' ).val( current.sale_price || '' );
-				$( '#wc_optic_wizard_stock' ).val( '0' );
 				if ( isSpecificsMode() ) {
 					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardSpecifics || 'Add specifics' );
 				} else if ( isRebuildMode() ) {
@@ -1082,19 +1079,20 @@
 				}
 				resetWizardTemplatePickers();
 				current.color_image_urls = current.color_image_urls || {};
-				// Convert (new): never reuse leftover division/identity/ranges from a previous attempt.
-				// Rebuild / Specifics: restore saved values.
-				if ( isRebuildMode() || isSpecificsMode() ) {
+
+				// Convert + Rebuild (Converted): always start blank — no remembered meta.
+				// Specifics: keep division/identity (product already converted); ranges start empty helper.
+				$( '#wc_optic_wizard_price' ).val( '' );
+				$( '#wc_optic_wizard_sale_price' ).val( '' );
+				$( '#wc_optic_wizard_stock' ).val( '0' );
+
+				if ( isSpecificsMode() ) {
 					$( '#wc_optic_wizard_division' ).val( current.division || '' ).trigger( 'change' );
 					fillIdentity( current.identity || {}, current.selected_colors || [], current.color_images || {} );
 					applyDivisionRanges( current.division || '' );
 					applyDivisionIdentityFields( current.division || '' );
 					syncColorImagesTable( current.color_images || {}, current.color_image_urls || {} );
-					if ( isSpecificsMode() ) {
-						fillRanges( prepareSpecificsRanges( current.ranges || {} ) );
-					} else {
-						fillRanges( current.ranges || {} );
-					}
+					fillRanges( prepareSpecificsRanges( current.ranges || {} ) );
 				} else {
 					$( '#wc_optic_wizard_division' ).val( '' ).trigger( 'change' );
 					fillIdentity( {}, [], {} );
