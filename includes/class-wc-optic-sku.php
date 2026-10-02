@@ -641,6 +641,21 @@ class WC_Optic_SKU {
 	}
 
 	/**
+	 * Display name for a child's catalog color (empty when unset).
+	 *
+	 * @param array $config Child config.
+	 * @return string
+	 */
+	public static function format_child_color_label( array $config ) {
+		$id = (int) ( $config['catalog']['color'] ?? 0 );
+		if ( $id < 1 ) {
+			return '';
+		}
+		$row = WC_Optic_Catalog::get_term( $id );
+		return $row ? WC_Optic_Catalog::get_display_name( $row ) : '';
+	}
+
+	/**
 	 * Find another child that already uses the same power combination.
 	 *
 	 * @param array  $child_configs All children.
@@ -795,11 +810,16 @@ class WC_Optic_SKU {
 	 * @return array<string, mixed>
 	 */
 	public static function build_child_list_row( array $config, $division, $index = 0 ) {
-		$stock = self::get_child_stock_qty( $config );
+		$stock      = self::get_child_stock_qty( $config );
+		$show_color = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$color      = $show_color ? self::format_child_color_label( $config ) : '';
+		$powers     = self::format_child_powers_label( $config, $division );
 		return array(
 			'id'        => (string) ( $config['id'] ?? '' ),
 			'label'     => (string) ( $config['label'] ?? '' ),
-			'powers'    => self::format_child_powers_label( $config, $division ),
+			'color'     => $color,
+			'showColor' => $show_color,
+			'powers'    => $powers,
 			'price'     => (string) ( $config['unit_price'] ?? '' ),
 			'sale'      => (string) ( $config['sale_price'] ?? '' ),
 			'priceHtml' => self::format_child_price_html( $config ),
@@ -812,7 +832,8 @@ class WC_Optic_SKU {
 					' ',
 					array(
 						(string) ( $config['label'] ?? '' ),
-						self::format_child_powers_label( $config, $division ),
+						$color,
+						$powers,
 						(string) ( $config['sku'] ?? '' ),
 					)
 				)
@@ -850,6 +871,7 @@ class WC_Optic_SKU {
 		}
 
 		$children = self::get_child_configs( $product );
+		$posted_color = isset( $raw_child['catalog']['color'] ) ? absint( $raw_child['catalog']['color'] ) : 0;
 		$raw_child['catalog'] = $identity;
 
 		$existing_index = null;
@@ -861,6 +883,17 @@ class WC_Optic_SKU {
 					$raw_child['backorder_consumed'] = $existing['backorder_consumed'];
 				}
 				break;
+			}
+		}
+
+		// Multi-color parents: each internal keeps its own color (not editable from parent identity).
+		if ( $division && WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$keep_color = $posted_color;
+			if ( $keep_color < 1 && null !== $existing_index ) {
+				$keep_color = (int) ( $children[ $existing_index ]['catalog']['color'] ?? 0 );
+			}
+			if ( $keep_color > 0 ) {
+				$raw_child['catalog']['color'] = $keep_color;
 			}
 		}
 

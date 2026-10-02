@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.11] — 2026-10-02
+
+### Ajouté
+
+- **Liste internes — colonne Color** : pour les divisions Color Lenses, chaque ligne affiche sa couleur (lecture seule) ; édition d’un interne ne change plus la couleur.
+
 ## [1.9.10] — 2026-10-02
 
 ### Corrigé

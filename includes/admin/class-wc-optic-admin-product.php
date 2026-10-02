@@ -78,6 +78,8 @@ class WC_Optic_Admin_Product {
 		$identity      = WC_Optic_SKU::get_identity_catalog( $product );
 		$child_configs = WC_Optic_SKU::get_child_configs( $product );
 		$child_count   = count( $child_configs );
+		$show_color    = $division && WC_Optic_Plugin::division_shows_color( $division );
+		$empty_cols    = $show_color ? 7 : 6;
 
 		echo '<p class="form-field wc-optic-panel-heading"><strong>' . esc_html__( 'Optical identity', 'wc-optic' ) . '</strong></p>';
 		echo '<p class="form-field wc-optic-panel-note description">' . esc_html__( 'Choose these values once. They are copied to every internal product and used in the SKU.', 'wc-optic' ) . '</p>';
@@ -104,9 +106,12 @@ class WC_Optic_Admin_Product {
 		echo '</div>';
 
 		echo '<div class="wc-optic-child-list-wrap">';
-		echo '<table class="widefat striped wc-optic-child-list" id="wc-optic-child-list-table">';
+		echo '<table class="widefat striped wc-optic-child-list" id="wc-optic-child-list-table" data-show-color="' . ( $show_color ? '1' : '0' ) . '">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'Label', 'wc-optic' ) . '</th>';
+		if ( $show_color ) {
+			echo '<th class="wc-optic-child-list__color">' . esc_html__( 'Color', 'wc-optic' ) . '</th>';
+		}
 		echo '<th>' . esc_html__( 'Powers', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Price', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Stock', 'wc-optic' ) . '</th>';
@@ -115,7 +120,7 @@ class WC_Optic_Admin_Product {
 		echo '</tr></thead>';
 		echo '<tbody id="wc-optic-child-list-body">';
 		if ( empty( $child_configs ) ) {
-			echo '<tr class="wc-optic-child-list-empty"><td colspan="6">' . esc_html__( 'No internal products yet.', 'wc-optic' ) . '</td></tr>';
+			echo '<tr class="wc-optic-child-list-empty"><td colspan="' . esc_attr( (string) $empty_cols ) . '">' . esc_html__( 'No internal products yet.', 'wc-optic' ) . '</td></tr>';
 		} else {
 			foreach ( array_values( $child_configs ) as $index => $config ) {
 				self::render_child_list_row( WC_Optic_SKU::build_child_list_row( $config, $division, $index ) );
@@ -162,12 +167,17 @@ class WC_Optic_Admin_Product {
 	 * @param array $row List row payload.
 	 */
 	public static function render_child_list_row( array $row ) {
-		$id      = (string) ( $row['id'] ?? '' );
-		$enabled = ! empty( $row['enabled'] );
-		$search  = (string) ( $row['search'] ?? '' );
+		$id         = (string) ( $row['id'] ?? '' );
+		$enabled    = ! empty( $row['enabled'] );
+		$search     = (string) ( $row['search'] ?? '' );
+		$show_color = ! empty( $row['showColor'] );
 
 		echo '<tr class="wc-optic-child-list-row" data-child-id="' . esc_attr( $id ) . '" data-search="' . esc_attr( $search ) . '">';
 		echo '<td class="wc-optic-child-list__label">' . esc_html( (string) ( $row['label'] ?? '' ) ) . '</td>';
+		if ( $show_color ) {
+			$color = (string) ( $row['color'] ?? '' );
+			echo '<td class="wc-optic-child-list__color">' . ( '' !== $color ? esc_html( $color ) : '—' ) . '</td>';
+		}
 		echo '<td class="wc-optic-child-list__powers"><code dir="ltr">' . esc_html( (string) ( $row['powers'] ?? '' ) ) . '</code></td>';
 		echo '<td class="wc-optic-child-list__price">' . esc_html( (string) ( $row['price'] ?? '' ) ) . '</td>';
 		echo '<td class="wc-optic-child-list__stock">' . esc_html( (string) ( $row['stock'] ?? '' ) ) . '</td>';
@@ -623,6 +633,15 @@ class WC_Optic_Admin_Product {
 		self::render_child_backorder_fields( $config, $index_token );
 		self::render_child_alert_fields( $config, $index_token );
 		echo '</div>';
+
+		if ( $division && WC_Optic_Plugin::division_shows_color( $division ) ) {
+			$color_label = WC_Optic_SKU::format_child_color_label( $config );
+			echo '<p class="form-field form-field-wide wc-optic-child-color-readonly">';
+			echo '<label>' . esc_html__( 'Color', 'wc-optic' ) . '</label>';
+			echo '<span class="wc-optic-child-color-readonly__value">' . ( '' !== $color_label ? esc_html( $color_label ) : '—' ) . '</span>';
+			echo '<span class="description">' . esc_html__( 'Fixed per internal product (set at Convert). Not editable here.', 'wc-optic' ) . '</span>';
+			echo '</p>';
+		}
 
 		echo '<div class="wc-optic-child-fields-grid">';
 		foreach ( WC_Optic_SKU::META_KEYS as $type => $meta_key ) {

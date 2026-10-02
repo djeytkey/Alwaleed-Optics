@@ -295,6 +295,21 @@
 	white-space: nowrap;
 }
 
+#optic_product_data_panel .wc-optic-child-list__color {
+	white-space: nowrap;
+}
+
+#optic_product_data_panel .wc-optic-child-color-readonly__value {
+	display: inline-block;
+	margin-right: 8px;
+	font-weight: 600;
+}
+
+#optic_product_data_panel .wc-optic-child-color-readonly .description {
+	display: inline;
+	margin: 0;
+}
+
 #optic_product_data_panel .wc-optic-child-list__actions {
 	white-space: nowrap;
 	width: 1%;

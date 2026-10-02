@@ -199,11 +199,17 @@
 
 	function syncIdentityToEditor() {
 		var identity = collectParentIdentity();
+		var keepChildColor = divisionShowsColor( getSelectedDivision() );
 		getEditorBlock().find( '.wc-optic-child-identity-value' ).each( function () {
 			var type = $( this ).data( 'optic-type' );
-			if ( type && typeof identity[ type ] !== 'undefined' ) {
-				$( this ).val( identity[ type ] || '' );
+			if ( ! type || typeof identity[ type ] === 'undefined' ) {
+				return;
 			}
+			// Per-internal color must stay fixed on multi-color parents.
+			if ( 'color' === type && keepChildColor ) {
+				return;
+			}
+			$( this ).val( identity[ type ] || '' );
 		} );
 	}
 
@@ -275,7 +281,11 @@
 		} );
 
 		var parentIdentity = collectParentIdentity();
+		var keepChildColor = divisionShowsColor( getSelectedDivision() );
 		$.each( parentIdentity, function ( type, value ) {
+			if ( 'color' === type && keepChildColor ) {
+				return;
+			}
 			if ( value ) {
 				config.catalog[ type ] = value;
 			}
@@ -432,11 +442,31 @@
 		return $( '<div>' ).text( text == null ? '' : String( text ) ).html();
 	}
 
+	function childListShowsColor() {
+		var fromTable = getPanel().find( '#wc-optic-child-list-table' ).attr( 'data-show-color' );
+		if ( typeof fromTable !== 'undefined' && fromTable !== null && fromTable !== '' ) {
+			return fromTable === '1' || fromTable === 'true';
+		}
+		return divisionShowsColor( getSelectedDivision() );
+	}
+
+	function childListColspan() {
+		return childListShowsColor() ? 7 : 6;
+	}
+
 	function buildRowHtml( row ) {
 		var enabled = !! row.enabled;
 		var status = enabled
 			? '<span class="wc-optic-child-status wc-optic-child-status--on">' + escapeHtml( i18n( 'enabled', 'Enabled' ) ) + '</span>'
 			: '<span class="wc-optic-child-status wc-optic-child-status--off">' + escapeHtml( i18n( 'disabled', 'Disabled' ) ) + '</span>';
+		var showColor = typeof row.showColor !== 'undefined' ? !! row.showColor : childListShowsColor();
+		var colorCell = '';
+		if ( showColor ) {
+			colorCell =
+				'<td class="wc-optic-child-list__color">' +
+				escapeHtml( row.color || '—' ) +
+				'</td>';
+		}
 
 		return (
 			'<tr class="wc-optic-child-list-row" data-child-id="' +
@@ -447,6 +477,7 @@
 			'<td class="wc-optic-child-list__label">' +
 			escapeHtml( row.label || '' ) +
 			'</td>' +
+			colorCell +
 			'<td class="wc-optic-child-list__powers"><code dir="ltr">' +
 			escapeHtml( row.powers || '' ) +
 			'</code></td>' +
@@ -480,7 +511,9 @@
 		$body.empty();
 		if ( ! rows || ! rows.length ) {
 			$body.append(
-				'<tr class="wc-optic-child-list-empty"><td colspan="6">' +
+				'<tr class="wc-optic-child-list-empty"><td colspan="' +
+					childListColspan() +
+					'">' +
 					escapeHtml( i18n( 'emptyList', 'No internal products yet.' ) ) +
 					'</td></tr>'
 			);
@@ -515,7 +548,9 @@
 			getPanel()
 				.find( '#wc-optic-child-list-body' )
 				.append(
-					'<tr class="wc-optic-child-list-empty"><td colspan="6">' +
+					'<tr class="wc-optic-child-list-empty"><td colspan="' +
+						childListColspan() +
+						'">' +
 						escapeHtml( i18n( 'emptyList', 'No internal products yet.' ) ) +
 						'</td></tr>'
 				);
@@ -525,7 +560,9 @@
 			getPanel()
 				.find( '#wc-optic-child-list-body' )
 				.append(
-					'<tr class="wc-optic-child-list-empty"><td colspan="6">' +
+					'<tr class="wc-optic-child-list-empty"><td colspan="' +
+						childListColspan() +
+						'">' +
 						escapeHtml( i18n( 'noSearchResults', 'No internal products match your search.' ) ) +
 						'</td></tr>'
 				);

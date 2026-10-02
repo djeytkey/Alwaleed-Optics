@@ -2,7 +2,7 @@
 
 **Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.10 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.11 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,10 +15,11 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-10-02 (courante)
 
-1. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
-2. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
-3. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
-4. **Version** — bump **1.9.10**.
+1. **Liste internes — Color lecture seule (v1.9.11)** : colonne Color dans `wc-optic-child-list` ; couleur figée à l’édition (JS + `upsert_child_on_product`).
+2. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
+3. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
+4. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
+5. **Version** — bump **1.9.11**.
 
 ### Session 2026-09-23 (précédente)
 
@@ -478,6 +479,17 @@ WC_Optic_Converter::convert_product() / preview()
 **Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
+
+### 2.29 Liste internes — Color lecture seule (session 2026-10-02, v1.9.11)
+
+**Problème :** multi-couleur Convert → chaque interne a une couleur, mais `wc-optic-child-list` n’affichait que Label / Powers ; l’édition pouvait écraser la couleur avec celle du parent.
+
+**Correctifs :**
+- Colonne **Color** (si division `show_color`) via `format_child_color_label()` / `build_child_list_row()`.
+- Éditeur interne : couleur en lecture seule + description.
+- `upsert_child_on_product()` + JS : ne pas remplacer `catalog.color` depuis l’identité parent.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-admin-product.php`, `admin-product.js`, `admin.css`.
 
 ### 2.28 DataTables Search — pas d’autocomplete (session 2026-10-02, v1.9.10)
 
@@ -1071,6 +1083,12 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Checkout + page commande / thank-you : meta Color visible
 - [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
 - [ ] Commande admin : résumé œil inclut Color
+
+### Liste internes Color (v1.9.11)
+
+- [ ] Color Lenses multi-couleurs : colonne Color remplie (Gray, Honey, …) par ligne
+- [ ] Éditer un interne : Color visible en lecture seule ; Save ne change pas la couleur
+- [ ] Division sans couleur : pas de colonne Color
 
 ### DataTables Search autocomplete (v1.9.10)
 
