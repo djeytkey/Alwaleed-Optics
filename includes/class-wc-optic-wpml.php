@@ -678,6 +678,8 @@ class WC_Optic_WPML {
 		$actions[] = 'wc_optic_delete_term';
 		$actions[] = 'wc_optic_wizard_product';
 		$actions[] = 'wc_optic_generate_product_children';
+		$actions[] = 'wc_optic_enqueue_convert_batch';
+		$actions[] = 'wc_optic_convert_batch_status';
 		$actions[] = 'wc_optic_count_power_ranges';
 		$actions[] = 'wc_optic_save_power_template';
 		$actions[] = 'wc_optic_delete_power_template';

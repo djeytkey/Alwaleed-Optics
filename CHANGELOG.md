@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.10.0] — 2026-10-02
+
+### Ajouté
+
+- **Convert wizard — file d’attente (Option A)** : configuration produit par produit ; à la fin, création des internes en arrière-plan (Action Scheduler + poll admin) avec barre de progression. Plafond par défaut des internes porté à **25000**.
+
 ## [1.9.11] — 2026-10-02
 
 ### Ajouté

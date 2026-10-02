@@ -24,6 +24,8 @@ class WC_Optic_Ajax {
 		add_action( 'wp_ajax_wc_optic_delete_power_template', array( __CLASS__, 'delete_power_template' ) );
 		add_action( 'wp_ajax_wc_optic_preview_convert', array( __CLASS__, 'preview_convert' ) );
 		add_action( 'wp_ajax_wc_optic_run_convert_batch', array( __CLASS__, 'run_convert_batch' ) );
+		add_action( 'wp_ajax_wc_optic_enqueue_convert_batch', array( __CLASS__, 'enqueue_convert_batch' ) );
+		add_action( 'wp_ajax_wc_optic_convert_batch_status', array( __CLASS__, 'convert_batch_status' ) );
 		add_action( 'wp_ajax_wc_optic_generate_product_children', array( __CLASS__, 'generate_product_children' ) );
 		add_action( 'wp_ajax_wc_optic_count_power_ranges', array( __CLASS__, 'count_power_ranges' ) );
 		add_action( 'wp_ajax_wc_optic_wizard_product', array( __CLASS__, 'wizard_product' ) );
@@ -325,6 +327,99 @@ class WC_Optic_Ajax {
 		}
 
 		wp_send_json_success( array( 'results' => $results ) );
+	}
+
+	/**
+	 * Enqueue a Convert / Rebuild / Specifics batch (wizard Option A).
+	 */
+	public static function enqueue_convert_batch() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
+		}
+
+		$raw = isset( $_POST['items'] ) ? wp_unslash( $_POST['items'] ) : array();
+		if ( is_string( $raw ) ) {
+			$decoded = json_decode( $raw, true );
+			$raw     = is_array( $decoded ) ? $decoded : array();
+		}
+		if ( ! is_array( $raw ) ) {
+			$raw = array();
+		}
+
+		$items = array();
+		foreach ( $raw as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$product_id = isset( $row['product_id'] ) ? absint( $row['product_id'] ) : 0;
+			$args       = isset( $row['args'] ) && is_array( $row['args'] ) ? $row['args'] : array();
+			if ( $product_id < 1 ) {
+				continue;
+			}
+			// Allow flat args posted at top level of each item.
+			if ( empty( $args ) ) {
+				$args = $row;
+				unset( $args['product_id'], $args['name'] );
+			}
+			$items[] = array(
+				'product_id' => $product_id,
+				'name'       => isset( $row['name'] ) ? sanitize_text_field( (string) $row['name'] ) : '',
+				'args'       => $args,
+			);
+		}
+
+		$result = WC_Optic_Convert_Queue::create_batch( $items, get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+		}
+
+		// Kick the first item immediately so the admin UI moves without waiting for cron.
+		$status = WC_Optic_Convert_Queue::tick( $result['batch_id'], true );
+		if ( is_wp_error( $status ) ) {
+			wp_send_json_success(
+				array_merge(
+					$result,
+					array(
+						'status' => WC_Optic_Convert_Queue::get_status( $result['batch_id'] ),
+					)
+				)
+			);
+		}
+
+		wp_send_json_success(
+			array_merge(
+				$result,
+				array(
+					'status' => $status,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Poll (and optionally tick) a convert batch.
+	 */
+	public static function convert_batch_status() {
+		check_ajax_referer( 'wc_optic_admin', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wc-optic' ) ), 403 );
+		}
+
+		$batch_id = isset( $_POST['batch_id'] ) ? sanitize_key( wp_unslash( $_POST['batch_id'] ) ) : '';
+		$do_tick  = ! empty( $_POST['tick'] );
+
+		if ( $do_tick ) {
+			$status = WC_Optic_Convert_Queue::tick( $batch_id, true );
+		} else {
+			$status = WC_Optic_Convert_Queue::get_status( $batch_id );
+		}
+
+		if ( is_wp_error( $status ) ) {
+			wp_send_json_error( array( 'message' => $status->get_error_message() ), 404 );
+		}
+
+		wp_send_json_success( $status );
 	}
 
 	/**

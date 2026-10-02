@@ -57,6 +57,7 @@ class WC_Optic_Autoload {
 			'WC_Optic_Admin_Import'        => WC_OPTIC_PLUGIN_DIR . 'includes/admin/class-wc-optic-admin-import.php',
 			'WC_Optic_Power_Template'      => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-power-template.php',
 			'WC_Optic_Converter'           => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-converter.php',
+			'WC_Optic_Convert_Queue'       => WC_OPTIC_PLUGIN_DIR . 'includes/class-wc-optic-convert-queue.php',
 			'WC_Optic_Admin_Stock'         => WC_OPTIC_PLUGIN_DIR . 'includes/admin/class-wc-optic-admin-stock.php',
 			'WC_Optic_Admin_Convert'       => WC_OPTIC_PLUGIN_DIR . 'includes/admin/class-wc-optic-admin-convert.php',
 		);

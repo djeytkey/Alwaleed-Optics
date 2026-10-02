@@ -100,8 +100,20 @@ class WC_Optic_Admin_Convert {
 				'nextProduct'       => __( 'Next product', 'wc-optic' ),
 				'nextStep'          => __( 'Next', 'wc-optic' ),
 				'finish'            => __( 'Finish', 'wc-optic' ),
+				'finishQueue'       => __( 'Finish & convert', 'wc-optic' ),
+				'queuedSaved'       => __( 'Saved for conversion queue.', 'wc-optic' ),
+				'queueRunning'      => __( 'Creating internal products…', 'wc-optic' ),
+				'queueProgress'     => __( '%1$d of %2$d products processed', 'wc-optic' ),
+				'queueComplete'     => __( 'Batch complete: %1$d ok, %2$d skipped, %3$d errors.', 'wc-optic' ),
+				'queueFailed'       => __( 'Could not start the conversion queue.', 'wc-optic' ),
+				'queueStatusPending'=> __( 'Pending', 'wc-optic' ),
+				'queueStatusRunning'=> __( 'Running', 'wc-optic' ),
+				'queueStatusOk'     => __( 'Done', 'wc-optic' ),
+				'queueStatusSkip'   => __( 'Skipped', 'wc-optic' ),
+				'queueStatusError'  => __( 'Error', 'wc-optic' ),
+				'closeWhenDone'     => __( 'Close', 'wc-optic' ),
 				'progress'          => __( 'Product %1$d of %2$d', 'wc-optic' ),
-				'done'              => __( 'All selected products have been processed.', 'wc-optic' ),
+				'done'              => __( 'All selected products have been queued for conversion.', 'wc-optic' ),
 				'selectAllFiltered' => __( 'Select all matching rows', 'wc-optic' ),
 				'allProducts'       => __( 'All', 'wc-optic' ),
 				'wizardConvert'     => __( 'Convert product', 'wc-optic' ),
@@ -432,7 +444,7 @@ class WC_Optic_Admin_Convert {
 				'page'  => 1,
 			)
 		);
-		echo '<p class="description">' . esc_html__( 'Select one or more simple products, then start the wizard. Each product is converted one by one (Next). The modal cannot be closed by clicking outside.', 'wc-optic' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Select one or more simple products, then start the wizard. Configure each product (Next). Internals are created in the background after you finish the last product.', 'wc-optic' ) . '</p>';
 		if ( class_exists( 'WC_Optic_WPML' ) && WC_Optic_WPML::is_active() ) {
 			echo '<p class="description">' . esc_html__( 'WPML: only default-language originals are listed. Internals are copied to Arabic (and other) translations after conversion.', 'wc-optic' ) . '</p>';
 		}
@@ -676,6 +688,15 @@ class WC_Optic_Admin_Convert {
 		echo '<div class="wc-optic-wizard-loading" id="wc-optic-wizard-loading" hidden>';
 		echo '<span class="spinner is-active" aria-hidden="true"></span>';
 		echo '<p class="wc-optic-wizard-loading__text">' . esc_html__( 'Loading product…', 'wc-optic' ) . '</p>';
+		echo '</div>';
+
+		echo '<div class="wc-optic-wizard-queue" id="wc-optic-wizard-queue" hidden>';
+		echo '<p class="wc-optic-wizard-queue__title" id="wc-optic-wizard-queue-title">' . esc_html__( 'Creating internal products…', 'wc-optic' ) . '</p>';
+		echo '<p class="wc-optic-wizard-queue__meta" id="wc-optic-wizard-queue-meta"></p>';
+		echo '<div class="progress wc-optic-wizard-queue-bar" role="progressbar">';
+		echo '<div class="progress-bar" id="wc-optic-wizard-queue-bar" style="width: 0%"></div>';
+		echo '</div>';
+		echo '<ul class="wc-optic-wizard-queue-list" id="wc-optic-wizard-queue-list"></ul>';
 		echo '</div>';
 
 		echo '<div class="wc-optic-wizard-body" id="wc-optic-wizard-body">';

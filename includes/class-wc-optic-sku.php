@@ -62,7 +62,7 @@ class WC_Optic_SKU {
 	const GLOBAL_BACKORDER_QTY_OPTION      = 'wc_optic_backorder_qty';
 	const GLOBAL_MAX_SYNTHETIC_CHILDREN_OPTION = 'wc_optic_max_synthetic_children';
 	/** Default / fallback when the Settings option is unset. */
-	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 6000;
+	const MAX_LEGACY_SYNTHETIC_CHILDREN    = 25000;
 
 	/**
 	 * Product-level derived catalog index meta keys.

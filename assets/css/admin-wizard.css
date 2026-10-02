@@ -305,3 +305,65 @@ body > .select2-container--open .select2-search--dropdown .select2-search__field
 .wc-optic-convert-datatable-wrap .dataTables_info {
 	font-weight: 600;
 }
+
+.wc-optic-wizard-queue {
+	padding: 8px 4px 16px;
+}
+
+.wc-optic-wizard-queue__title {
+	margin: 0 0 6px;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.wc-optic-wizard-queue__meta {
+	margin: 0 0 12px;
+	color: #646970;
+}
+
+.wc-optic-wizard-queue-bar {
+	height: 10px;
+	margin-bottom: 14px;
+}
+
+.wc-optic-wizard-queue-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	max-height: 280px;
+	overflow: auto;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.wc-optic-wizard-queue-item {
+	padding: 8px 12px;
+	border-bottom: 1px solid #f0f0f1;
+	font-size: 13px;
+}
+
+.wc-optic-wizard-queue-item:last-child {
+	border-bottom: 0;
+}
+
+.wc-optic-wizard-queue-item.is-ok {
+	color: #007017;
+}
+
+.wc-optic-wizard-queue-item.is-error {
+	color: #b32d2e;
+}
+
+.wc-optic-wizard-queue-item.is-running {
+	color: #135e96;
+	font-weight: 600;
+}
+
+.wc-optic-wizard-queue-item__msg {
+	display: block;
+	margin-top: 2px;
+	color: #646970;
+	font-weight: 400;
+}
+

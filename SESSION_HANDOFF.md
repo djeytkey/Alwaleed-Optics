@@ -2,7 +2,7 @@
 
 **Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.11 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.10.0 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,11 +15,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-10-02 (courante)
 
-1. **Liste internes — Color lecture seule (v1.9.11)** : colonne Color dans `wc-optic-child-list` ; couleur figée à l’édition (JS + `upsert_child_on_product`).
-2. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
-3. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
-4. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
-5. **Version** — bump **1.9.11**.
+1. **Convert queue Option A (v1.10.0)** : wizard configure puis enqueue ; création AS + poll ; plafond défaut 25000.
+2. **Liste internes — Color lecture seule (v1.9.11)** : colonne Color dans `wc-optic-child-list` ; couleur figée à l’édition (JS + `upsert_child_on_product`).
+3. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
+4. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
+5. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
+6. **Version** — bump **1.10.0**.
 
 ### Session 2026-09-23 (précédente)
 
@@ -479,6 +480,18 @@ WC_Optic_Converter::convert_product() / preview()
 **Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
+
+### 2.30 Convert wizard — queue Option A (session 2026-10-02, v1.10.0)
+
+**Flux :** configurer chaque produit (Next) → à la fin **Finish & convert** → batch `WC_Optic_Convert_Queue` → création 1 produit / job (Action Scheduler) + tick AJAX si l’admin reste sur la page.
+
+**AJAX :** `wc_optic_enqueue_convert_batch`, `wc_optic_convert_batch_status` (`tick=1`).
+
+**Plafond :** défaut `MAX_LEGACY_SYNTHETIC_CHILDREN` = **25000** (relever aussi Settings si une ancienne option 6000 est déjà stockée).
+
+**Limite connue :** un seul produit à ~20k internes peut encore être long dans un job ; découpage d’écriture intra-produit à prévoir si timeouts AS.
+
+**Fichiers :** `class-wc-optic-convert-queue.php`, `class-wc-optic-ajax.php`, `admin-convert.js`, `admin-wizard.css`, `class-wc-optic-admin-convert.php`.
 
 ### 2.29 Liste internes — Color lecture seule (session 2026-10-02, v1.9.11)
 
@@ -1083,6 +1096,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Checkout + page commande / thank-you : meta Color visible
 - [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
 - [ ] Commande admin : résumé œil inclut Color
+
+### Convert queue Option A (v1.10.0)
+
+- [ ] Sélectionner 3+ produits → wizard → Next sur chacun (pas de création immédiate)
+- [ ] Dernier produit → Finish & convert → panneau progression
+- [ ] Compteur ok / skip / error ; Close à la fin
+- [ ] Fermer pendant la queue : jobs AS continuent
+- [ ] Settings max ≥ 20000 si besoin pour gros color × ranges
 
 ### Liste internes Color (v1.9.11)
 
