@@ -279,8 +279,8 @@ class WC_Optic_SKU {
 				$configs = WC_Optic_Children::get_configs( $product_id );
 			} else {
 				// Lazy migrate leftover meta blob for this product.
-				$stored = $product->get_meta( self::CHILD_META_KEY, true );
-				if ( is_array( $stored ) && ! empty( $stored ) ) {
+		$stored = $product->get_meta( self::CHILD_META_KEY, true );
+		if ( is_array( $stored ) && ! empty( $stored ) ) {
 					WC_Optic_Children::migrate_product_from_meta( $product_id );
 					if ( WC_Optic_Children::product_has_rows( $product_id ) ) {
 						$configs = WC_Optic_Children::get_configs( $product_id );
@@ -599,10 +599,10 @@ class WC_Optic_SKU {
 		if ( self::config_has_zero_sph( $config ) ) {
 			$key = 'nopower|' . (string) (int) ( $config['powers']['sph'] ?? 0 );
 		} else {
-			$parts = array();
-			foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
-				$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
-			}
+		$parts = array();
+		foreach ( WC_Optic_Plugin::get_powers_for_division( $division ) as $power ) {
+			$parts[] = (string) (int) ( $config['powers'][ $power ] ?? 0 );
+		}
 			$key = implode( '|', $parts );
 		}
 		// Multi-color parents: same SPH (etc.) may exist once per color.
@@ -3522,21 +3522,21 @@ class WC_Optic_SKU {
 			$identity          = $identity_base;
 			$identity['color'] = absint( $color_id );
 			foreach ( $combos as $powers ) {
-				$config = self::normalize_child_config(
-					array(
-						'enabled'    => true,
-						'sort'       => $index,
-						'unit_price' => $price,
+			$config = self::normalize_child_config(
+				array(
+					'enabled'    => true,
+					'sort'       => $index,
+					'unit_price' => $price,
 						'sale_price' => $sale,
-						'stock_qty'  => $stock,
-						'catalog'    => $identity,
-						'powers'     => $powers,
-					),
-					$division,
-					$index
-				);
-				$config['label'] = self::child_display_label( $config, $division );
-				$children[]      = $config;
+					'stock_qty'  => $stock,
+					'catalog'    => $identity,
+					'powers'     => $powers,
+				),
+				$division,
+				$index
+			);
+			$config['label'] = self::child_display_label( $config, $division );
+			$children[]      = $config;
 				++$index;
 			}
 		}
@@ -3594,22 +3594,22 @@ class WC_Optic_SKU {
 			if ( $powered_n < 1 ) {
 				$base = $zero_n;
 			} else {
-				$other = 1;
+		$other = 1;
 				foreach ( $ranges as $power => $segments ) {
-					if ( 'sph' === $power ) {
-						continue;
-					}
+			if ( 'sph' === $power ) {
+				continue;
+			}
 					$n = WC_Optic_Catalog::count_power_range_segments( $power, $segments );
-					if ( is_wp_error( $n ) ) {
-						return $n;
-					}
-					if ( $n < 1 ) {
+			if ( is_wp_error( $n ) ) {
+				return $n;
+			}
+			if ( $n < 1 ) {
 						$base = $zero_n;
 						$other = 0;
 						break;
-					}
-					$other *= (int) $n;
-				}
+			}
+			$other *= (int) $n;
+		}
 				$base = ( 0 === $other ) ? $zero_n : (int) ( $zero_n + ( $powered_n * $other ) );
 			}
 		} else {

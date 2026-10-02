@@ -584,7 +584,8 @@ class WC_Optic_Converter {
 			}
 
 			return array(
-				'id'            => $product->get_id(),
+				'id'            => $requested_id ? $requested_id : $product->get_id(),
+				'original_id'   => $product->get_id(),
 				'name'          => $display_name ? $display_name : $product->get_name(),
 				'sku'           => (string) $product->get_sku(),
 				'price'         => self::get_source_price( $product ),

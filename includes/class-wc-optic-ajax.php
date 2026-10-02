@@ -341,7 +341,11 @@ class WC_Optic_Ajax {
 		$raw = isset( $_POST['items'] ) ? wp_unslash( $_POST['items'] ) : array();
 		if ( is_string( $raw ) ) {
 			$decoded = json_decode( $raw, true );
-			$raw     = is_array( $decoded ) ? $decoded : array();
+			if ( ! is_array( $decoded ) ) {
+				// Some hosts double-escape JSON in POST.
+				$decoded = json_decode( stripslashes( $raw ), true );
+			}
+			$raw = is_array( $decoded ) ? $decoded : array();
 		}
 		if ( ! is_array( $raw ) ) {
 			$raw = array();

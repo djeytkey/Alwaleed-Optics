@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.10.2] — 2026-10-02
+
+### Corrigé
+
+- **Convert queue** : payload batch en JSON (évite troncature `max_input_vars` → produits manquants) ; id produit = sélection wizard (pas l’original WPML seul) ; reset des champs entre produits ; poll sans `tick` si Action Scheduler (plus de 400 timeout).
+
 ## [1.10.1] — 2026-10-02
 
 ### Corrigé

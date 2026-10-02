@@ -10,6 +10,9 @@
 	var batchId = null;
 	var batchPollTimer = null;
 	var queueMode = false;
+	var batchUseAs = true;
+	var loadSeq = 0;
+	var loadXhr = null;
 	var modal = null;
 	var $root = null;
 	var convertTable = null;
@@ -707,11 +710,10 @@
 	}
 
 	function fillRanges( ranges ) {
-		if ( ! ranges ) {
-			return;
-		}
-		$.each( ranges, function ( power, range ) {
-			setPowerSegments( power, normalizeSegmentsInput( range ) );
+		ranges = ranges || {};
+		$root.find( '#wc-optic-wizard-modal .wc-optic-power-range' ).each( function () {
+			var power = $( this ).data( 'power' );
+			setPowerSegments( power, ranges[ power ] || [] );
 		} );
 	}
 
@@ -934,6 +936,8 @@
 	}
 
 	function fillIdentity( identity, selectedColors, colorImages ) {
+		identity = identity || {};
+		selectedColors = selectedColors || [];
 		$root.find( '#wc-optic-wizard-modal .wc-optic-identity-select' ).each( function () {
 			var $el = $( this );
 			var type = $el.data( 'optic-type' );
@@ -941,16 +945,29 @@
 				var colors = [];
 				if ( $.isArray( selectedColors ) && selectedColors.length ) {
 					colors = selectedColors.map( String );
-				} else if ( identity && identity.color ) {
+				} else if ( identity.color ) {
 					colors = $.isArray( identity.color ) ? identity.color.map( String ) : [ String( identity.color ) ];
 				}
 				$el.val( colors ).trigger( 'change' );
 				return;
 			}
-			var value = identity && identity[ type ] ? String( identity[ type ] ) : '';
-			$el.val( value || '' ).trigger( 'change' );
+			var value = identity[ type ] ? String( identity[ type ] ) : '';
+			$el.val( value ).trigger( 'change' );
 		} );
 		syncColorImagesTable( colorImages || {}, ( current && current.color_image_urls ) || {} );
+	}
+
+	function clearWizardProductFields() {
+		$( '#wc-optic-wizard-product-card' ).empty();
+		$( '#wc_optic_wizard_division' ).val( '' );
+		$( '#wc_optic_wizard_price' ).val( '' );
+		$( '#wc_optic_wizard_sale_price' ).val( '' );
+		$( '#wc_optic_wizard_stock' ).val( '0' );
+		fillIdentity( {}, [], {} );
+		fillRanges( {} );
+		resetWizardTemplatePickers();
+		$root.find( '#wc-optic-wizard-modal .wc-optic-color-images-tbody' ).empty();
+		$root.find( '#wc-optic-wizard-modal .wc-optic-color-images-table-wrap' ).prop( 'hidden', true );
 	}
 
 	function parseAjaxErrorMessage( xhr, fallback ) {
@@ -1003,9 +1020,18 @@
 			showAlert( wcOpticConvert.i18n.loadFailed );
 			return;
 		}
+		var seq = ++loadSeq;
+		if ( loadXhr && typeof loadXhr.abort === 'function' ) {
+			try {
+				loadXhr.abort();
+			} catch ( e ) {
+				// ignore
+			}
+		}
 		setWizardLoading( true );
+		clearWizardProductFields();
 		setStep( 1 );
-		$.post(
+		loadXhr = $.post(
 			getAjaxUrl(),
 			{
 				action: 'wc_optic_wizard_product',
@@ -1013,12 +1039,18 @@
 				product_id: productId,
 			},
 			function ( res ) {
+				if ( seq !== loadSeq ) {
+					return;
+				}
 				if ( ! res || ! res.success || ! res.data ) {
 					setWizardLoading( false );
 					showAlert( ( res && res.data && res.data.message ) || wcOpticConvert.i18n.loadFailed );
 					return;
 				}
 				current = res.data;
+				// Keep the selected queue id (WPML may remap internals to the original).
+				current.id = productId;
+				current.original_id = res.data.original_id || res.data.id || productId;
 				renderProductCard( current );
 				$( '#wc_optic_wizard_division' ).val( current.division || '' );
 				$( '#wc_optic_wizard_price' ).val( current.price || '' );
@@ -1041,8 +1073,8 @@
 				syncColorImagesTable( current.color_images || {}, current.color_image_urls || {} );
 				if ( isSpecificsMode() ) {
 					fillRanges( prepareSpecificsRanges( current.ranges || {} ) );
-				} else if ( current.ranges ) {
-					fillRanges( current.ranges );
+				} else {
+					fillRanges( current.ranges || {} );
 				}
 				applyNoPowerRangeUi();
 				updateProgress();
@@ -1055,7 +1087,10 @@
 					done();
 				}
 			}
-		).fail( function ( xhr ) {
+		).fail( function ( xhr, status ) {
+			if ( seq !== loadSeq || status === 'abort' ) {
+				return;
+			}
 			setWizardLoading( false );
 			showAlert( parseAjaxErrorMessage( xhr, wcOpticConvert.i18n.loadFailed ) );
 		} );
@@ -1111,11 +1146,13 @@
 	}
 
 	function buildCurrentPayload() {
+		var queuedId = parseInt( queue[ index ], 10 ) || 0;
+		var productId = queuedId > 0 ? queuedId : ( current && current.id ? parseInt( current.id, 10 ) : 0 );
 		var payload = {
-			product_id: current.id,
-			name: current.name || '',
+			product_id: productId,
+			name: ( current && current.name ) || '',
 			args: {
-				division: wizardDivisionValue() || current.division || '',
+				division: wizardDivisionValue() || ( current && current.division ) || '',
 				catalog: collectIdentity(),
 				color_images: collectColorImages(),
 				ranges: collectRanges(),
@@ -1158,10 +1195,14 @@
 			return;
 		}
 
-		// Client-side validation only — avoid a blocking count AJAX (can 400 on edge ranges).
-		pendingConfigs[ String( current.id ) ] = buildCurrentPayload();
+		var item = buildCurrentPayload();
+		if ( ! item.product_id ) {
+			showAlert( wcOpticConvert.i18n.convertFailed );
+			return;
+		}
+		pendingConfigs[ String( item.product_id ) ] = item;
 		converted = true;
-		current.division = pendingConfigs[ String( current.id ) ].args.division;
+		current.division = item.args.division;
 		showAlert( wcOpticConvert.i18n.queuedSaved || 'Saved for conversion queue.', true );
 		updateNextLabel();
 		if ( typeof onSuccess === 'function' ) {
@@ -1277,12 +1318,17 @@
 				action: 'wc_optic_convert_batch_status',
 				nonce: wcOpticConvert.nonce,
 				batch_id: batchId,
-				tick: 1,
+				// With Action Scheduler: status only (no convert in HTTP → no 400).
+				// Without AS: tick=1 processes one product per poll.
+				tick: batchUseAs ? 0 : 1,
 			},
 			function ( res ) {
 				if ( ! res || ! res.success || ! res.data ) {
 					batchPollTimer = window.setTimeout( pollBatchStatus, 2500 );
 					return;
+				}
+				if ( typeof res.data.use_as !== 'undefined' ) {
+					batchUseAs = !! res.data.use_as;
 				}
 				renderQueueStatus( res.data );
 				if ( res.data.complete ) {
@@ -1290,7 +1336,7 @@
 					refreshConvertTableAfterBatch( res.data );
 					return;
 				}
-				batchPollTimer = window.setTimeout( pollBatchStatus, 1500 );
+				batchPollTimer = window.setTimeout( pollBatchStatus, batchUseAs ? 2000 : 1500 );
 			}
 		).fail( function () {
 			batchPollTimer = window.setTimeout( pollBatchStatus, 3000 );
@@ -1331,7 +1377,7 @@
 			{
 				action: 'wc_optic_enqueue_convert_batch',
 				nonce: wcOpticConvert.nonce,
-				items: items,
+				items: JSON.stringify( items ),
 			},
 			function ( res ) {
 				if ( ! res || ! res.success || ! res.data ) {
@@ -1343,6 +1389,11 @@
 					return;
 				}
 				batchId = res.data.batch_id;
+				if ( typeof res.data.status !== 'undefined' && res.data.status && typeof res.data.status.use_as !== 'undefined' ) {
+					batchUseAs = !! res.data.status.use_as;
+				} else if ( typeof res.data.use_as !== 'undefined' ) {
+					batchUseAs = !! res.data.use_as;
+				}
 				if ( res.data.status ) {
 					renderQueueStatus( res.data.status );
 				}
@@ -1424,7 +1475,17 @@
 		index = 0;
 		pendingConfigs = {};
 		batchId = null;
+		batchUseAs = true;
 		queueMode = false;
+		loadSeq += 1;
+		if ( loadXhr && typeof loadXhr.abort === 'function' ) {
+			try {
+				loadXhr.abort();
+			} catch ( e ) {
+				// ignore
+			}
+			loadXhr = null;
+		}
 		stopBatchPoll();
 		$( '#wc-optic-wizard-queue' ).attr( 'hidden', 'hidden' ).data( 'complete', false );
 		$( '#wc-optic-wizard-body' ).removeAttr( 'hidden' );
