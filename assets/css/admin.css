@@ -129,6 +129,23 @@
 	color: #b32d2e;
 }
 
+.wc-optic-color-images-table-wrap {
+	margin-top: 0.75rem;
+	max-width: 520px;
+}
+
+.wc-optic-color-images-table th,
+.wc-optic-color-images-table td {
+	vertical-align: middle;
+}
+
+.wc-optic-color-image-default-badge {
+	display: inline-block;
+	margin-left: 0.35rem;
+	color: #646970;
+	font-style: italic;
+}
+
 .wc-optic-settings-table .wc-optic-delete-row {
 	vertical-align: middle;
 	line-height: 1;

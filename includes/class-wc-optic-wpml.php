@@ -543,6 +543,7 @@ class WC_Optic_WPML {
 			WC_Optic_SKU::CHILD_COUNT_META_KEY,
 			WC_Optic_SKU::IDENTITY_META_KEY,
 			WC_Optic_SKU::RANGES_META_KEY,
+			WC_Optic_SKU::COLOR_IMAGES_META_KEY,
 		);
 		$keys = array_merge( $keys, array_values( WC_Optic_SKU::INDEX_META_KEYS ) );
 
@@ -699,6 +700,7 @@ class WC_Optic_WPML {
 			'_optic_division'            => __( 'Optical division', 'wc-optic' ),
 			'_optic_identity_catalog'    => __( 'Optic identity catalog', 'wc-optic' ),
 			'_optic_power_ranges'        => __( 'Optic power ranges', 'wc-optic' ),
+			'_optic_color_images'        => __( 'Optic color swatch image overrides', 'wc-optic' ),
 			'_optic_default_qty_per_eye' => __( 'Quantity per eye default', 'wc-optic' ),
 		);
 

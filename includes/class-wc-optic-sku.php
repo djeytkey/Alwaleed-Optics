@@ -56,6 +56,8 @@ class WC_Optic_SKU {
 	const CHILD_COUNT_META_KEY = '_optic_child_count';
 	const IDENTITY_META_KEY = '_optic_identity_catalog';
 	const RANGES_META_KEY   = '_optic_power_ranges';
+	/** Product-level swatch overrides: color_id => attachment_id (0 = use Settings default). */
+	const COLOR_IMAGES_META_KEY = '_optic_color_images';
 	const GLOBAL_BACKORDER_ENABLED_OPTION  = 'wc_optic_backorder_enabled';
 	const GLOBAL_BACKORDER_QTY_OPTION      = 'wc_optic_backorder_qty';
 	const GLOBAL_MAX_SYNTHETIC_CHILDREN_OPTION = 'wc_optic_max_synthetic_children';
@@ -1493,14 +1495,18 @@ class WC_Optic_SKU {
 					return $sa <=> $sb;
 				}
 			);
+			$product_obj = $product_id ? wc_get_product( $product_id ) : null;
+			if ( ! $product_obj instanceof WC_Product ) {
+				$product_obj = null;
+			}
 			foreach ( $color_rows as $row ) {
-				$image_id  = isset( $row->image_id ) ? absint( $row->image_id ) : 0;
-				$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
-				$colors[]  = array(
-					'id'       => (string) (int) $row->id,
+				$cid      = (int) $row->id;
+				$resolved = self::resolve_color_swatch_image( $product_obj, $cid );
+				$colors[] = array(
+					'id'       => (string) $cid,
 					'name'     => WC_Optic_Catalog::get_display_name( $row ),
-					'imageId'  => $image_id,
-					'imageUrl' => $image_url ? (string) $image_url : '',
+					'imageId'  => (int) $resolved['image_id'],
+					'imageUrl' => (string) $resolved['image_url'],
 				);
 			}
 		}
@@ -1561,13 +1567,12 @@ class WC_Optic_SKU {
 				if ( ! $row ) {
 					continue;
 				}
-				$image_id  = isset( $row->image_id ) ? absint( $row->image_id ) : 0;
-				$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
-				$colors[]  = array(
+				$resolved = self::resolve_color_swatch_image( $product, $cid );
+				$colors[] = array(
 					'id'       => (string) $cid,
 					'name'     => WC_Optic_Catalog::get_display_name( $row ),
-					'imageId'  => $image_id,
-					'imageUrl' => $image_url ? (string) $image_url : '',
+					'imageId'  => (int) $resolved['image_id'],
+					'imageUrl' => (string) $resolved['image_url'],
 				);
 			}
 		}
@@ -2857,6 +2862,115 @@ class WC_Optic_SKU {
 		$first = $children[0];
 		$catalog = isset( $first['catalog'] ) && is_array( $first['catalog'] ) ? $first['catalog'] : array();
 		return self::normalize_identity_catalog( $catalog );
+	}
+
+	/**
+	 * Color ids used on enabled internals (for wizard multi-select restore).
+	 *
+	 * @param WC_Product $product Product.
+	 * @return int[]
+	 */
+	public static function get_product_used_color_ids( WC_Product $product ) {
+		$ids = array();
+		foreach ( self::get_enabled_child_configs( $product ) as $config ) {
+			$cid = (int) ( $config['catalog']['color'] ?? 0 );
+			if ( $cid > 0 ) {
+				$ids[ $cid ] = $cid;
+			}
+		}
+		return array_values( $ids );
+	}
+
+	/**
+	 * Normalize product color → image overrides (only positive attachment ids).
+	 *
+	 * @param mixed $raw Posted/meta map.
+	 * @return array<int, int> color_id => attachment_id
+	 */
+	public static function normalize_color_images( $raw ) {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $raw as $color_id => $image_id ) {
+			$color_id = absint( $color_id );
+			$image_id = absint( $image_id );
+			if ( $color_id < 1 || $image_id < 1 ) {
+				continue;
+			}
+			$out[ $color_id ] = $image_id;
+		}
+		ksort( $out, SORT_NUMERIC );
+		return $out;
+	}
+
+	/**
+	 * Stored product-level color swatch overrides.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return array<int, int>
+	 */
+	public static function get_color_images( WC_Product $product ) {
+		return self::normalize_color_images( $product->get_meta( self::COLOR_IMAGES_META_KEY, true ) );
+	}
+
+	/**
+	 * Effective swatch image for one color on a product (override or Settings default).
+	 *
+	 * @param WC_Product|null $product  Product (null = catalog default only).
+	 * @param int             $color_id Catalog color id.
+	 * @return array{image_id:int,image_url:string,is_override:bool}
+	 */
+	public static function resolve_color_swatch_image( $product, $color_id ) {
+		$color_id = absint( $color_id );
+		$image_id = 0;
+		$override = false;
+
+		if ( $color_id > 0 && $product instanceof WC_Product ) {
+			$map = self::get_color_images( $product );
+			if ( ! empty( $map[ $color_id ] ) ) {
+				$image_id = (int) $map[ $color_id ];
+				$override = $image_id > 0;
+			}
+		}
+
+		if ( $image_id < 1 && $color_id > 0 ) {
+			$row = WC_Optic_Catalog::get_valid_term( $color_id, 'color' );
+			if ( $row && ! empty( $row->image_id ) ) {
+				$image_id = absint( $row->image_id );
+			}
+		}
+
+		$url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+		return array(
+			'image_id'    => $image_id,
+			'image_url'   => $url ? (string) $url : '',
+			'is_override' => $override,
+		);
+	}
+
+	/**
+	 * Catalog colors payload for Convert wizard (defaults + names).
+	 *
+	 * @return array<string, array{id:string,name:string,imageId:int,imageUrl:string}>
+	 */
+	public static function get_catalog_colors_for_admin() {
+		$out = array();
+		foreach ( WC_Optic_Catalog::get_terms( 'color' ) as $row ) {
+			if ( ! is_object( $row ) || empty( $row->id ) ) {
+				continue;
+			}
+			$cid       = (int) $row->id;
+			$image_id  = isset( $row->image_id ) ? absint( $row->image_id ) : 0;
+			$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'thumbnail' ) : '';
+			$out[ (string) $cid ] = array(
+				'id'       => (string) $cid,
+				'name'     => WC_Optic_Catalog::get_display_name( $row ),
+				'imageId'  => $image_id,
+				'imageUrl' => $image_url ? (string) $image_url : '',
+			);
+		}
+		return $out;
 	}
 
 	/**

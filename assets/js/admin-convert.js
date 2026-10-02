@@ -52,6 +52,10 @@
 		setSelectRequired( $select, showColor );
 		if ( ! showColor ) {
 			$select.val( '' );
+			$root.find( '#wc-optic-wizard-modal .wc-optic-color-images-table-wrap' ).prop( 'hidden', true );
+			$root.find( '#wc-optic-wizard-modal .wc-optic-color-images-tbody' ).empty();
+		} else {
+			syncColorImagesTable();
 		}
 	}
 
@@ -415,6 +419,167 @@
 		return val ? 1 : 0;
 	}
 
+	function getCatalogColor( colorId ) {
+		var map = ( wcOpticConvert && wcOpticConvert.catalogColors ) || {};
+		return map[ String( colorId ) ] || null;
+	}
+
+	function collectColorImages() {
+		var out = {};
+		$root.find( '#wc-optic-wizard-modal .wc-optic-color-image-id' ).each( function () {
+			var cid = String( $( this ).data( 'color-id' ) || '' );
+			var iid = parseInt( $( this ).val(), 10 ) || 0;
+			if ( cid && iid > 0 ) {
+				out[ cid ] = iid;
+			}
+		} );
+		return out;
+	}
+
+	function setColorImageRow( $row, imageId, imageUrl, isDefault ) {
+		var $wrap = $row.find( '.wc-optic-catalog-image' );
+		var $preview = $wrap.find( '.wc-optic-catalog-image-preview' );
+		var $select = $wrap.find( '.wc-optic-catalog-image-select' );
+		var $remove = $wrap.find( '.wc-optic-catalog-image-remove' );
+		var $badge = $wrap.find( '.wc-optic-color-image-default-badge' );
+		$wrap.find( '.wc-optic-color-image-id' ).val( isDefault ? 0 : imageId || 0 );
+		if ( imageId && imageUrl ) {
+			$wrap.attr( 'data-has-image', '1' );
+			$preview.html( '<img src="' + imageUrl + '" alt="" />' ).prop( 'hidden', false );
+			if ( isDefault ) {
+				$select.text( ( wcOpticConvert.i18n && wcOpticConvert.i18n.selectImage ) || 'Select image' );
+				$remove.prop( 'hidden', true );
+				$badge.prop( 'hidden', false );
+			} else {
+				$select.text( ( wcOpticConvert.i18n && wcOpticConvert.i18n.changeImage ) || 'Change image' );
+				$remove.prop( 'hidden', false );
+				$badge.prop( 'hidden', true );
+			}
+		} else {
+			$wrap.attr( 'data-has-image', '0' );
+			$preview.empty().prop( 'hidden', true );
+			$select.text( ( wcOpticConvert.i18n && wcOpticConvert.i18n.selectImage ) || 'Select image' );
+			$remove.prop( 'hidden', true );
+			$badge.prop( 'hidden', true );
+		}
+	}
+
+	function buildColorImageRow( colorId, overrideId, overrideUrl ) {
+		var meta = getCatalogColor( colorId ) || { id: String( colorId ), name: String( colorId ), imageId: 0, imageUrl: '' };
+		var name = meta.name || String( colorId );
+		var hasOverride = !!( overrideId && overrideUrl );
+		var showId = hasOverride ? overrideId : meta.imageId || 0;
+		var showUrl = hasOverride ? overrideUrl : meta.imageUrl || '';
+		var isDefault = !hasOverride && !!( showId && showUrl );
+		var html =
+			'<tr class="wc-optic-color-image-row" data-color-id="' +
+			String( colorId ) +
+			'">' +
+			'<td class="wc-optic-color-image-name">' +
+			$( '<div/>' ).text( name ).html() +
+			'</td>' +
+			'<td class="wc-optic-catalog-image-cell">' +
+			'<div class="wc-optic-catalog-image" data-has-image="' +
+			( showUrl ? '1' : '0' ) +
+			'">' +
+			'<input type="hidden" class="wc-optic-color-image-id" data-color-id="' +
+			String( colorId ) +
+			'" value="' +
+			( hasOverride ? String( overrideId ) : '0' ) +
+			'" />' +
+			'<span class="wc-optic-catalog-image-preview"' +
+			( showUrl ? '' : ' hidden' ) +
+			'>' +
+			( showUrl ? '<img src="' + showUrl + '" alt="" />' : '' ) +
+			'</span>' +
+			'<button type="button" class="button wc-optic-catalog-image-select wc-optic-color-image-select">' +
+			( hasOverride
+				? ( wcOpticConvert.i18n && wcOpticConvert.i18n.changeImage ) || 'Change image'
+				: ( wcOpticConvert.i18n && wcOpticConvert.i18n.selectImage ) || 'Select image' ) +
+			'</button> ' +
+			'<button type="button" class="button-link wc-optic-catalog-image-remove wc-optic-color-image-remove"' +
+			( hasOverride ? '' : ' hidden' ) +
+			'>' +
+			( ( wcOpticConvert.i18n && wcOpticConvert.i18n.removeImage ) || 'Remove' ) +
+			'</button>' +
+			'<span class="description wc-optic-color-image-default-badge"' +
+			( isDefault ? '' : ' hidden' ) +
+			'>' +
+			( ( wcOpticConvert.i18n && wcOpticConvert.i18n.defaultImage ) || 'Default' ) +
+			'</span>' +
+			'</div></td></tr>';
+		return $( html );
+	}
+
+	function syncColorImagesTable( preferredOverrides, preferredUrls ) {
+		var $wrap = $root.find( '#wc-optic-wizard-modal .wc-optic-color-images-table-wrap' );
+		var $tbody = $wrap.find( '.wc-optic-color-images-tbody' );
+		var division = $( '#wc_optic_wizard_division' ).val() || '';
+		if ( ! $wrap.length || ! divisionShowsColor( division ) ) {
+			$wrap.prop( 'hidden', true );
+			$tbody.empty();
+			return;
+		}
+
+		var $color = $root.find( '#wc-optic-wizard-modal .wc-optic-identity-select[data-optic-type="color"]' );
+		var selected = $color.val();
+		var ids = $.isArray( selected ) ? selected.filter( Boolean ) : selected ? [ selected ] : [];
+		if ( ! ids.length ) {
+			$wrap.prop( 'hidden', true );
+			$tbody.empty();
+			return;
+		}
+
+		var existing = preferredOverrides && typeof preferredOverrides === 'object' ? preferredOverrides : collectColorImages();
+		var urls = preferredUrls && typeof preferredUrls === 'object' ? preferredUrls : {};
+		if ( ! preferredUrls ) {
+			$root.find( '#wc-optic-wizard-modal .wc-optic-color-image-row' ).each( function () {
+				var cid = String( $( this ).data( 'color-id' ) || '' );
+				var iid = parseInt( $( this ).find( '.wc-optic-color-image-id' ).val(), 10 ) || 0;
+				var src = $( this ).find( '.wc-optic-catalog-image-preview img' ).attr( 'src' ) || '';
+				if ( cid && iid > 0 && src ) {
+					urls[ cid ] = src;
+				}
+			} );
+			if ( current && current.color_image_urls ) {
+				$.each( current.color_image_urls, function ( k, v ) {
+					if ( ! urls[ k ] && v ) {
+						urls[ k ] = v;
+					}
+				} );
+			}
+		}
+
+		$tbody.empty();
+		ids.forEach( function ( cid ) {
+			var overrideId = parseInt( existing[ String( cid ) ] || existing[ cid ] || 0, 10 ) || 0;
+			var overrideUrl = overrideId > 0 ? urls[ String( cid ) ] || urls[ cid ] || '' : '';
+			$tbody.append( buildColorImageRow( cid, overrideId, overrideUrl ) );
+		} );
+		$wrap.prop( 'hidden', false );
+	}
+
+	function openColorImageFrame( $row ) {
+		if ( typeof wp === 'undefined' || ! wp.media ) {
+			return;
+		}
+		var frame = wp.media( {
+			title: ( wcOpticConvert.i18n && wcOpticConvert.i18n.imageTitle ) || 'Choose color swatch image',
+			button: { text: ( wcOpticConvert.i18n && wcOpticConvert.i18n.selectImage ) || 'Select image' },
+			multiple: false,
+		} );
+		frame.on( 'select', function () {
+			var attachment = frame.state().get( 'selection' ).first().toJSON();
+			var url = ( attachment.sizes && attachment.sizes.thumbnail && attachment.sizes.thumbnail.url ) || attachment.url || '';
+			setColorImageRow( $row, attachment.id || 0, url, false );
+			if ( current ) {
+				current.color_image_urls = current.color_image_urls || {};
+				current.color_image_urls[ String( $row.data( 'color-id' ) ) ] = url;
+			}
+		} );
+		frame.open();
+	}
+
 	function refreshCount() {
 		var $count = $root.find( '#wc-optic-wizard-modal .wc-optic-range-count' );
 		var division = $( '#wc_optic_wizard_division' ).val() || '';
@@ -731,12 +896,24 @@
 		$( '#wc-optic-wizard-product-card' ).html( html );
 	}
 
-	function fillIdentity( identity ) {
+	function fillIdentity( identity, selectedColors, colorImages ) {
 		$root.find( '#wc-optic-wizard-modal .wc-optic-identity-select' ).each( function () {
-			var type = $( this ).data( 'optic-type' );
+			var $el = $( this );
+			var type = $el.data( 'optic-type' );
+			if ( type === 'color' && $el.prop( 'multiple' ) ) {
+				var colors = [];
+				if ( $.isArray( selectedColors ) && selectedColors.length ) {
+					colors = selectedColors.map( String );
+				} else if ( identity && identity.color ) {
+					colors = $.isArray( identity.color ) ? identity.color.map( String ) : [ String( identity.color ) ];
+				}
+				$el.val( colors ).trigger( 'change' );
+				return;
+			}
 			var value = identity && identity[ type ] ? String( identity[ type ] ) : '';
-			$( this ).val( value || '' );
+			$el.val( value || '' ).trigger( 'change' );
 		} );
+		syncColorImagesTable( colorImages || {}, ( current && current.color_image_urls ) || {} );
 	}
 
 	function parseAjaxErrorMessage( xhr, fallback ) {
@@ -820,9 +997,11 @@
 					$( '#wc-optic-wizard-title' ).text( wcOpticConvert.i18n.wizardConvert || 'Convert product' );
 				}
 				resetWizardTemplatePickers();
-				fillIdentity( current.identity || {} );
+				current.color_image_urls = current.color_image_urls || {};
+				fillIdentity( current.identity || {}, current.selected_colors || [], current.color_images || {} );
 				applyDivisionRanges( current.division || '' );
 				applyDivisionIdentityFields( current.division || '' );
+				syncColorImagesTable( current.color_images || {}, current.color_image_urls || {} );
 				if ( isSpecificsMode() ) {
 					fillRanges( prepareSpecificsRanges( current.ranges || {} ) );
 				} else if ( current.ranges ) {
@@ -919,6 +1098,7 @@
 			product_id: current.id,
 			division: wizardDivisionValue() || current.division || '',
 			catalog: collectIdentity(),
+			color_images: collectColorImages(),
 			ranges: collectRanges(),
 			unit_price: $( '#wc_optic_wizard_price' ).val() || '',
 			sale_price: $( '#wc_optic_wizard_sale_price' ).val() || '',
@@ -1135,7 +1315,24 @@
 			refreshCount();
 		} );
 		$root.on( 'change', '#wc-optic-wizard-modal .wc-optic-identity-select[data-optic-type="color"]', function () {
+			syncColorImagesTable();
 			refreshCount();
+		} );
+
+		$root.on( 'click', '#wc-optic-wizard-modal .wc-optic-color-image-select', function ( e ) {
+			e.preventDefault();
+			openColorImageFrame( $( this ).closest( '.wc-optic-color-image-row' ) );
+		} );
+
+		$root.on( 'click', '#wc-optic-wizard-modal .wc-optic-color-image-remove', function ( e ) {
+			e.preventDefault();
+			var $row = $( this ).closest( '.wc-optic-color-image-row' );
+			var cid = String( $row.data( 'color-id' ) || '' );
+			var meta = getCatalogColor( cid );
+			setColorImageRow( $row, meta && meta.imageId ? meta.imageId : 0, meta && meta.imageUrl ? meta.imageUrl : '', true );
+			if ( current && current.color_image_urls ) {
+				delete current.color_image_urls[ cid ];
+			}
 		} );
 
 		$root.on( 'click', '.wc-optic-add-range-segment', function ( e ) {

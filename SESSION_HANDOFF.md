@@ -1,8 +1,8 @@
 # Session Handoff — Optic-Lenses (Alwaleed Optics Products)
 
-**Date :** 2026-09-23 (dernière mise à jour)  
+**Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.7 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.8 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -13,7 +13,12 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ## 1. Résumé exécutif
 
-### Session 2026-09-23 (courante)
+### Session 2026-10-02 (courante)
+
+1. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
+2. **Version** — bump **1.9.8**.
+
+### Session 2026-09-23 (précédente)
 
 1. **Panier / checkout Color (v1.9.7)** : enrichissement couleur au rendu depuis `child_id` ; meta **Color** dédiée panier + commande ; stub lazy avec couleurs ; no-power via child posté.
 2. **Version** — bump **1.9.7**.
@@ -577,6 +582,16 @@ WC_Optic_Converter::convert_product() / preview()
 
 **Fichiers :** `class-wc-optic-cart.php`, `class-wc-optic-sku.php`, `frontend.js` ; version **1.9.7**.
 
+### 2.36 Color images — default Settings + wizard override (session 2026-10-02)
+
+- **Settings → Colors** : colonne **Default image** (catalogue `image_id`) = swatch fallback.
+- **Convert wizard** : after multi-select Colors, table **Color | Image** ; optional media per color ; empty = use Settings default.
+- **Storage** : product meta `_optic_color_images` (`color_id => attachment_id`).
+- **Storefront** : `resolve_color_swatch_image()` → override then catalog default.
+- **WPML** : meta copied with other optic fields.
+
+**Fichiers :** `class-wc-optic-sku.php`, `class-wc-optic-converter.php`, `class-wc-optic-ajax.php`, `class-wc-optic-admin-convert.php`, `class-wc-optic-admin-settings.php`, `admin-convert.js`, `admin.css`, `class-wc-optic-wpml.php`, `wpml-config.xml` ; version **1.9.8**.
+
 ### 2.13 +0.00 forcé + WPML (session 2026-08-23)
 
 **+0.00 dans le range**
@@ -1035,6 +1050,14 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Checkout + page commande / thank-you : meta Color visible
 - [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
 - [ ] Commande admin : résumé œil inclut Color
+
+### Color images default + override (v1.9.8)
+
+- [ ] Settings → Colors : set Default image for Brown ; save persists
+- [ ] Convert wizard : select Brown + Gray → table Color|Image appears under multi-select
+- [ ] Leave Gray empty, set custom image for Brown → Convert
+- [ ] Storefront : Brown shows custom image ; Gray shows Settings default
+- [ ] Rebuild product restores previous color image overrides in the table
 
 ### Converted / Specifics perf (v1.9.1)
 

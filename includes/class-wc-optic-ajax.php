@@ -168,14 +168,15 @@ class WC_Optic_Ajax {
 		$ranges  = isset( $_POST['ranges'] ) && is_array( $_POST['ranges'] ) ? wp_unslash( $_POST['ranges'] ) : array();
 
 		return array(
-			'division'    => isset( $_POST['division'] ) ? sanitize_key( wp_unslash( $_POST['division'] ) ) : '',
-			'catalog'     => $catalog,
-			'ranges'      => $ranges,
-			'template_id' => isset( $_POST['template_id'] ) ? sanitize_key( wp_unslash( $_POST['template_id'] ) ) : '',
-			'unit_price'  => isset( $_POST['unit_price'] ) ? wc_format_decimal( wp_unslash( $_POST['unit_price'] ) ) : '',
-			'sale_price'  => isset( $_POST['sale_price'] ) ? wc_format_decimal( wp_unslash( $_POST['sale_price'] ) ) : '',
-			'stock_qty'   => isset( $_POST['stock_qty'] ) ? absint( wp_unslash( $_POST['stock_qty'] ) ) : 0,
-			'mode'        => self::posted_convert_mode(),
+			'division'     => isset( $_POST['division'] ) ? sanitize_key( wp_unslash( $_POST['division'] ) ) : '',
+			'catalog'      => $catalog,
+			'ranges'       => $ranges,
+			'color_images' => isset( $_POST['color_images'] ) && is_array( $_POST['color_images'] ) ? wp_unslash( $_POST['color_images'] ) : array(),
+			'template_id'  => isset( $_POST['template_id'] ) ? sanitize_key( wp_unslash( $_POST['template_id'] ) ) : '',
+			'unit_price'   => isset( $_POST['unit_price'] ) ? wc_format_decimal( wp_unslash( $_POST['unit_price'] ) ) : '',
+			'sale_price'   => isset( $_POST['sale_price'] ) ? wc_format_decimal( wp_unslash( $_POST['sale_price'] ) ) : '',
+			'stock_qty'    => isset( $_POST['stock_qty'] ) ? absint( wp_unslash( $_POST['stock_qty'] ) ) : 0,
+			'mode'         => self::posted_convert_mode(),
 		);
 	}
 

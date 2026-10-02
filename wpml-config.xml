@@ -7,6 +7,7 @@
 		<custom-field action="copy">_optic_child_count</custom-field>
 		<custom-field action="copy">_optic_identity_catalog</custom-field>
 		<custom-field action="copy">_optic_power_ranges</custom-field>
+		<custom-field action="copy">_optic_color_images</custom-field>
 		<custom-field action="copy">_optic_cat_section</custom-field>
 		<custom-field action="copy">_optic_cat_company</custom-field>
 		<custom-field action="copy">_optic_cat_brand</custom-field>

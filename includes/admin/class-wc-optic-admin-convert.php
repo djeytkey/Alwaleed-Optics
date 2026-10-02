@@ -60,6 +60,7 @@ class WC_Optic_Admin_Convert {
 				'add'  => WC_Optic_Catalog::get_default_power_step( 'add' ),
 			),
 			'maxChildren'       => WC_Optic_SKU::get_max_synthetic_children(),
+			'catalogColors'     => WC_Optic_SKU::get_catalog_colors_for_admin(),
 			'templates'         => WC_Optic_Power_Template::get_all(),
 			'templatesByPower'  => WC_Optic_Power_Template::get_grouped_by_power(),
 			'convertTab'        => in_array( $tab, array( 'convert', 'converted', 'specifics' ), true ),
@@ -118,6 +119,11 @@ class WC_Optic_Admin_Convert {
 				'resetAllNeedCheck' => __( 'Confirm that you understand this action.', 'wc-optic' ),
 				'resetAllFailed'    => __( 'Could not reset internal products.', 'wc-optic' ),
 				'resetAllSuccess'   => __( 'Removed %2$d internal products and reverted %1$d products to simple.', 'wc-optic' ),
+				'selectImage'       => __( 'Select image', 'wc-optic' ),
+				'changeImage'       => __( 'Change image', 'wc-optic' ),
+				'removeImage'       => __( 'Remove', 'wc-optic' ),
+				'defaultImage'      => __( 'Default', 'wc-optic' ),
+				'imageTitle'        => __( 'Choose color swatch image', 'wc-optic' ),
 			),
 		);
 	}
@@ -138,6 +144,7 @@ class WC_Optic_Admin_Convert {
 		wp_enqueue_style( 'woocommerce_admin_styles' );
 		wp_enqueue_script( 'selectWoo' );
 		wp_enqueue_script( 'wc-enhanced-select' );
+		wp_enqueue_media();
 
 		$style_deps  = array();
 		$script_deps = array( 'jquery', 'selectWoo', 'wc-enhanced-select', 'wc-optic-bootstrap' );
@@ -789,7 +796,8 @@ class WC_Optic_Admin_Convert {
 			}
 			$field = $is_multi ? ( $name . '[' . $type . '][]' ) : ( $name . '[' . $type . ']' );
 			$id    = 'wc_optic_identity_' . $type . '_' . sanitize_key( $name );
-			echo '<p class="form-field form-field-wide wc-optic-identity-field wc-optic-identity-field--' . esc_attr( $type ) . '" data-optic-type="' . esc_attr( $type ) . '"' . ( $show_color ? '' : ' hidden' ) . '>';
+			$tag   = $is_multi ? 'div' : 'p';
+			echo '<' . $tag . ' class="form-field form-field-wide wc-optic-identity-field wc-optic-identity-field--' . esc_attr( $type ) . '" data-optic-type="' . esc_attr( $type ) . '"' . ( $show_color ? '' : ' hidden' ) . '>';
 			echo '<label for="' . esc_attr( $id ) . '">' . esc_html( WC_Optic_Catalog::get_type_label( $type ) );
 			if ( $required && $show_color ) {
 				echo ' <abbr class="required" title="' . esc_attr__( 'required', 'woocommerce' ) . '">*</abbr>';
@@ -810,7 +818,17 @@ class WC_Optic_Admin_Convert {
 				$selected = in_array( $rid, $current_ids, true );
 				echo '<option value="' . esc_attr( (string) $rid ) . '" ' . selected( $selected, true, false ) . '>' . esc_html( WC_Optic_Catalog::get_display_name( $row ) ) . '</option>';
 			}
-			echo '</select></p>';
+			echo '</select>';
+			if ( $is_multi ) {
+				echo '<div class="wc-optic-color-images-table-wrap" hidden>';
+				echo '<p class="description" style="margin:10px 0 6px;">' . esc_html__( 'Optional image per color. Leave empty to use the default swatch from Settings → Colors.', 'wc-optic' ) . '</p>';
+				echo '<table class="widefat striped wc-optic-color-images-table"><thead><tr>';
+				echo '<th>' . esc_html__( 'Color', 'wc-optic' ) . '</th>';
+				echo '<th>' . esc_html__( 'Image', 'wc-optic' ) . '</th>';
+				echo '</tr></thead><tbody class="wc-optic-color-images-tbody"></tbody></table>';
+				echo '</div>';
+			}
+			echo '</' . $tag . '>';
 		}
 		echo '</div>';
 	}

@@ -136,13 +136,13 @@ class WC_Optic_Admin_Settings {
 		$rows = WC_Optic_Catalog::get_terms( $active );
 		echo '<p class="description">' . esc_html__( 'Enter a display name and the SKU fragment used when building product SKUs. Both fields are required for each row you save.', 'wc-optic' ) . '</p>';
 		if ( 'color' === $active ) {
-			echo '<p class="description">' . esc_html__( 'Optional swatch image: shown as a round preview on multi-color product pages.', 'wc-optic' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Default swatch image for each color. Used on product pages unless a Convert wizard override is set for that product.', 'wc-optic' ) . '</p>';
 		}
 		echo '<table class="widefat striped wc-optic-settings-table"><thead><tr>';
 		echo '<th>' . esc_html__( 'Name', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'SKU fragment', 'wc-optic' ) . '</th>';
 		if ( 'color' === $active ) {
-			echo '<th>' . esc_html__( 'Swatch image', 'wc-optic' ) . '</th>';
+			echo '<th>' . esc_html__( 'Default image', 'wc-optic' ) . '</th>';
 		}
 		echo '<th>' . esc_html__( 'Sort', 'wc-optic' ) . '</th>';
 		echo '<th>' . esc_html__( 'Actions', 'wc-optic' ) . '</th>';

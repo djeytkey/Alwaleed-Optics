@@ -574,6 +574,15 @@ class WC_Optic_Converter {
 				$sale_seed = (string) WC_Optic_SKU::get_child_sale_price( $display );
 			}
 
+			$color_images = WC_Optic_SKU::get_color_images( $product );
+			$color_urls   = array();
+			foreach ( $color_images as $cid => $iid ) {
+				$url = wp_get_attachment_image_url( (int) $iid, 'thumbnail' );
+				if ( $url ) {
+					$color_urls[ (string) (int) $cid ] = (string) $url;
+				}
+			}
+
 			return array(
 				'id'            => $product->get_id(),
 				'name'          => $display_name ? $display_name : $product->get_name(),
@@ -587,6 +596,9 @@ class WC_Optic_Converter {
 				'division'      => $division,
 				'division_label'=> ( $division && isset( $divs[ $division ] ) ) ? (string) $divs[ $division ]['label'] : $division,
 				'identity'      => WC_Optic_SKU::get_identity_catalog( $product ),
+				'selected_colors' => WC_Optic_SKU::get_product_used_color_ids( $product ),
+				'color_images'  => $color_images,
+				'color_image_urls' => $color_urls,
 				'ranges'        => WC_Optic_SKU::normalize_power_ranges(
 					$product->get_meta( WC_Optic_SKU::RANGES_META_KEY, true ),
 					$division
@@ -787,6 +799,7 @@ class WC_Optic_Converter {
 			$product->update_meta_data( '_optic_division', $prepared['division'] );
 			$product->update_meta_data( WC_Optic_SKU::IDENTITY_META_KEY, WC_Optic_SKU::normalize_identity_catalog( $prepared['catalog'] ) );
 			$product->update_meta_data( WC_Optic_SKU::RANGES_META_KEY, $prepared['ranges'] );
+			$product->update_meta_data( WC_Optic_SKU::COLOR_IMAGES_META_KEY, WC_Optic_SKU::normalize_color_images( $prepared['color_images'] ?? array() ) );
 			WC_Optic_SKU::persist_child_data( $product, $children );
 			WC_Optic_SKU::sync_product_sku( $product );
 			$product->save();
@@ -865,6 +878,9 @@ class WC_Optic_Converter {
 		}
 
 		WC_Optic_SKU::persist_child_data( $product, $merged['children'] );
+		if ( isset( $prepared['color_images'] ) ) {
+			$product->update_meta_data( WC_Optic_SKU::COLOR_IMAGES_META_KEY, WC_Optic_SKU::normalize_color_images( $prepared['color_images'] ) );
+		}
 		WC_Optic_SKU::sync_product_sku( $product );
 		$product->save();
 
@@ -938,24 +954,28 @@ class WC_Optic_Converter {
 			? (string) absint( $args['stock_qty'] )
 			: '0';
 
+		$color_images = WC_Optic_SKU::normalize_color_images( isset( $args['color_images'] ) ? $args['color_images'] : array() );
+
 		if ( $preview ) {
 			return array(
-				'division'   => $division,
-				'catalog'    => $catalog,
-				'ranges'     => $ranges,
-				'unit_price' => $unit_price,
-				'sale_price' => $sale_price,
-				'stock_qty'  => $stock_qty,
+				'division'     => $division,
+				'catalog'      => $catalog,
+				'ranges'       => $ranges,
+				'unit_price'   => $unit_price,
+				'sale_price'   => $sale_price,
+				'stock_qty'    => $stock_qty,
+				'color_images' => $color_images,
 			);
 		}
 
 		return array(
-			'division'   => $division,
-			'catalog'    => $catalog,
-			'ranges'     => WC_Optic_SKU::normalize_power_ranges( $ranges, $division ),
-			'unit_price' => $unit_price,
-			'sale_price' => $sale_price,
-			'stock_qty'  => $stock_qty,
+			'division'     => $division,
+			'catalog'      => $catalog,
+			'ranges'       => WC_Optic_SKU::normalize_power_ranges( $ranges, $division ),
+			'unit_price'   => $unit_price,
+			'sale_price'   => $sale_price,
+			'stock_qty'    => $stock_qty,
+			'color_images' => $color_images,
 		);
 	}
 

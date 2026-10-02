@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.8] — 2026-10-02
+
+### Ajouté
+
+- **Color swatch images — défaut + override produit** : Settings → Colors = image par défaut ; wizard Convert multi-couleurs → tableau Color | Image sous le multi-select pour override par couleur ; storefront utilise l’override sinon le défaut Settings (`_optic_color_images`).
+
 ## [1.9.7] — 2026-09-23
 
 ### Corrigé
