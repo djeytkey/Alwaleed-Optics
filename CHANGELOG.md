@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.9.10] — 2026-10-02
+
+### Corrigé
+
+- **DataTables Search** : `autocomplete` / autocorrect / spellcheck désactivés sur le champ filtre (Convert, Converted, Specifics, Stock Alerts).
+
 ## [1.9.9] — 2026-10-02
 
 ### Corrigé

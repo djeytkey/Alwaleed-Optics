@@ -2,7 +2,7 @@
 
 **Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.9.9 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.9.10 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,9 +15,10 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-10-02 (courante)
 
-1. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
-2. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
-3. **Version** — bump **1.9.9**.
+1. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
+2. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).
+3. **Color images défaut + override (v1.9.8)** : Settings → Colors = default swatch ; Convert wizard = table Color|Image per selected color ; storefront = override produit sinon défaut catalogue (`_optic_color_images`).
+4. **Version** — bump **1.9.10**.
 
 ### Session 2026-09-23 (précédente)
 
@@ -477,6 +478,14 @@ WC_Optic_Converter::convert_product() / preview()
 **Plafond :** `WC_Optic_SKU::get_max_synthetic_children()` (option Settings `wc_optic_max_synthetic_children`, défaut **6000**).
 
 **Fichiers :** `class-wc-optic-catalog.php`, `class-wc-optic-sku.php`, `class-wc-optic-power-template.php`, `class-wc-optic-converter.php`, `admin/class-wc-optic-admin-convert.php`, `admin-product.php`, `ajax.php`, `admin-menu.php`, `admin-convert.js`, `admin-product.js`, `admin.css`.
+
+### 2.28 DataTables Search — pas d’autocomplete (session 2026-10-02, v1.9.10)
+
+**Problème :** le navigateur proposait la saisie automatique dans le champ Search des listes admin.
+
+**Correctif :** `initComplete` pose `autocomplete=off`, `autocorrect=off`, `autocapitalize=off`, `spellcheck=false` sur `.dataTables_filter input`.
+
+**Fichiers :** `assets/js/admin-convert.js`, `assets/js/admin-stock.js`.
 
 ### 2.27 Identité optique — préremplissage fiche produit (session 2026-10-02, v1.9.9)
 
@@ -1062,6 +1071,11 @@ Domaine : `wc-optic` — traduction WPML via String Translation si actif.
 - [ ] Checkout + page commande / thank-you : meta Color visible
 - [ ] Ajouter Gray puis Brown = **deux** lignes panier (SKU / child_id distincts)
 - [ ] Commande admin : résumé œil inclut Color
+
+### DataTables Search autocomplete (v1.9.10)
+
+- [ ] Convert / Converted / Specifics : champ Search n’affiche plus de suggestions navigateur
+- [ ] Stock Alerts : idem
 
 ### Identité optique fiche produit (v1.9.9)
 

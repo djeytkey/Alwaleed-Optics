@@ -607,6 +607,16 @@
 				{ orderable: false },
 				{ orderable: false },
 			],
+			initComplete: function () {
+				$( this.api().table().container() )
+					.find( '.dataTables_filter input' )
+					.attr( {
+						autocomplete: 'off',
+						autocorrect: 'off',
+						autocapitalize: 'off',
+						spellcheck: 'false',
+					} );
+			},
 		} );
 	}
 

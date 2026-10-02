@@ -82,6 +82,20 @@
 		return $( '.wc-optic-convert-row' );
 	}
 
+	function disableDataTableSearchAutocomplete( api ) {
+		if ( ! api || ! api.table ) {
+			return;
+		}
+		$( api.table().container() )
+			.find( '.dataTables_filter input' )
+			.attr( {
+				autocomplete: 'off',
+				autocorrect: 'off',
+				autocapitalize: 'off',
+				spellcheck: 'false',
+			} );
+	}
+
 	function initConvertDataTable() {
 		if ( ! wcOpticConvert.convertTab ) {
 			return;
@@ -102,48 +116,54 @@
 
 		dtLang = wcOpticConvert.dt || {};
 		var serverSide = !!wcOpticConvert.serverSideList;
+		var commonOpts = {
+			language: dtLang,
+			autoWidth: false,
+			order: [ [ 0, 'asc' ] ],
+			initComplete: function () {
+				disableDataTableSearchAutocomplete( this.api() );
+			},
+		};
 
 		if ( serverSide ) {
-			convertTable = $table.DataTable( {
-				serverSide: true,
-				processing: true,
-				pageLength: 25,
-				lengthMenu: [
-					[ 10, 25, 50, 100 ],
-					[ 10, 25, 50, 100 ],
-				],
-				language: dtLang,
-				autoWidth: false,
-				order: [ [ 0, 'asc' ] ],
-				ajax: {
-					url: getAjaxUrl(),
-					type: 'POST',
-					data: function ( d ) {
-						d.action = 'wc_optic_convert_list_products';
-						d.nonce = wcOpticConvert.nonce;
+			convertTable = $table.DataTable(
+				$.extend( true, {}, commonOpts, {
+					serverSide: true,
+					processing: true,
+					pageLength: 25,
+					lengthMenu: [
+						[ 10, 25, 50, 100 ],
+						[ 10, 25, 50, 100 ],
+					],
+					ajax: {
+						url: getAjaxUrl(),
+						type: 'POST',
+						data: function ( d ) {
+							d.action = 'wc_optic_convert_list_products';
+							d.nonce = wcOpticConvert.nonce;
+						},
 					},
-				},
-				columnDefs: [
-					{ orderable: false, targets: [ 1, 2, 4 ] },
-				],
-			} );
+					columnDefs: [
+						{ orderable: false, targets: [ 1, 2, 4 ] },
+					],
+				} )
+			);
 		} else {
 			if ( ! $table.find( 'tbody tr.wc-optic-convert-row' ).length ) {
 				return;
 			}
-			convertTable = $table.DataTable( {
-				pageLength: 25,
-				lengthMenu: [
-					[ 10, 25, 50, 100, -1 ],
-					[ 10, 25, 50, 100, wcOpticConvert.i18n.allProducts || 'All' ],
-				],
-				language: dtLang,
-				autoWidth: false,
-				order: [ [ 0, 'asc' ] ],
-				columnDefs: [
-					{ orderable: false, targets: [ 2 ] },
-				],
-			} );
+			convertTable = $table.DataTable(
+				$.extend( true, {}, commonOpts, {
+					pageLength: 25,
+					lengthMenu: [
+						[ 10, 25, 50, 100, -1 ],
+						[ 10, 25, 50, 100, wcOpticConvert.i18n.allProducts || 'All' ],
+					],
+					columnDefs: [
+						{ orderable: false, targets: [ 2 ] },
+					],
+				} )
+			);
 		}
 
 		convertTable.on( 'draw', function () {
