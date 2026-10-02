@@ -17,7 +17,7 @@ class WC_Optic_Convert_Queue {
 	const OPTION_PREFIX = 'wc_optic_cq_';
 	const HOOK          = 'wc_optic_convert_queue_item';
 	const GROUP         = 'wc-optic-convert';
-	const LOCK_TTL      = 300;
+	const LOCK_TTL = 90;
 
 	/**
 	 * Hooks.
@@ -80,12 +80,12 @@ class WC_Optic_Convert_Queue {
 			'ok'         => 0,
 			'error'      => 0,
 			'skipped'    => 0,
-			'use_as'     => self::has_action_scheduler(),
+			// Poll-driven only: AS async often never runs while the modal is open.
+			'use_as'     => false,
 			'cursor'     => 0,
 		);
 
 		self::save_batch( $batch );
-		self::schedule_next( $batch_id, 0 );
 
 		return array(
 			'batch_id' => $batch_id,
@@ -176,6 +176,21 @@ class WC_Optic_Convert_Queue {
 		$index    = max( 0, (int) $index );
 		$lock_key = 'wc_optic_cq_lock_' . $batch_id;
 
+		$batch = self::get_batch( $batch_id );
+		if ( ! $batch || empty( $batch['items'][ $index ] ) ) {
+			return new WP_Error( 'wc_optic_missing_batch', __( 'Conversion batch not found.', 'wc-optic' ) );
+		}
+
+		// Reclaim a stuck "running" item after a timed-out HTTP request.
+		$item_status = (string) ( $batch['items'][ $index ]['status'] ?? '' );
+		$updated     = (int) ( $batch['updated'] ?? 0 );
+		if ( 'running' === $item_status && $updated > 0 && ( time() - $updated ) > self::LOCK_TTL ) {
+			$batch['items'][ $index ]['status']  = 'pending';
+			$batch['items'][ $index ]['message'] = '';
+			self::save_batch( $batch );
+			delete_transient( $lock_key );
+		}
+
 		if ( get_transient( $lock_key ) ) {
 			$batch = self::get_batch( $batch_id );
 			return $batch ? self::public_status( $batch ) : new WP_Error( 'wc_optic_missing_batch', __( 'Conversion batch not found.', 'wc-optic' ) );
@@ -185,6 +200,9 @@ class WC_Optic_Convert_Queue {
 		try {
 			if ( function_exists( 'set_time_limit' ) ) {
 				@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			}
+			if ( function_exists( 'wp_raise_memory_limit' ) ) {
+				wp_raise_memory_limit( 'admin' );
 			}
 
 			$batch = self::get_batch( $batch_id );

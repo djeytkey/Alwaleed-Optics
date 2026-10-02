@@ -405,10 +405,11 @@ class WC_Optic_Ajax {
 		}
 
 		$batch_id = isset( $_POST['batch_id'] ) ? sanitize_key( wp_unslash( $_POST['batch_id'] ) ) : '';
-		$do_tick  = ! empty( $_POST['tick'] );
+		// Always advance one item per poll while the wizard is open (reliable).
+		$do_tick = ! isset( $_POST['tick'] ) || ! empty( $_POST['tick'] );
 
 		if ( $do_tick ) {
-			$status = WC_Optic_Convert_Queue::tick( $batch_id, true );
+			$status = WC_Optic_Convert_Queue::tick( $batch_id, false );
 		} else {
 			$status = WC_Optic_Convert_Queue::get_status( $batch_id );
 		}

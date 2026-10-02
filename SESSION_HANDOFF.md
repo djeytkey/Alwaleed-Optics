@@ -2,7 +2,7 @@
 
 **Date :** 2026-10-02 (dernière mise à jour)  
 **Plugin :** `wp-content/plugins/Optic-Lenses`  
-**Version déclarée :** 1.10.2 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
+**Version déclarée :** 1.10.3 (`woocommerce-optic-product.php`, `composer.json`, `CHANGELOG.md`)  
 **Thème cible boutique :** Flatsome (parent ou enfant)
 
 Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cumulées), pour permettre à un autre développeur (ou une future session IA) de reprendre sans perte de contexte.
@@ -15,9 +15,10 @@ Ce document résume tout le travail réalisé sur le plugin (sessions Cursor cum
 
 ### Session 2026-10-02 (courante)
 
-1. **Convert queue fiabilité (v1.10.2)** : items JSON ; ids file d’attente ; clear formulaire ; poll sans tick sous AS.
-2. **Convert queue fixes (v1.10.1)** : enqueue sans tick sync ; stash local ; refresh DataTable Convert sans `ajax.reload`.
-3. **Convert queue Option A (v1.10.0)** : wizard configure puis enqueue ; création AS + poll ; plafond défaut 25000.
+1. **Convert queue poll-driven (v1.10.3)** : tick obligatoire ; Convert n’affiche plus d’anciennes meta identity/ranges ; locks récupérables.
+2. **Convert queue fiabilité (v1.10.2)** : items JSON ; ids file d’attente ; clear formulaire ; poll sans tick sous AS.
+3. **Convert queue fixes (v1.10.1)** : enqueue sans tick sync ; stash local ; refresh DataTable Convert sans `ajax.reload`.
+4. **Convert queue Option A (v1.10.0)** : wizard configure puis enqueue ; création AS + poll ; plafond défaut 25000.
 2. **Liste internes — Color lecture seule (v1.9.11)** : colonne Color dans `wc-optic-child-list` ; couleur figée à l’édition (JS + `upsert_child_on_product`).
 3. **DataTables Search sans autocomplete (v1.9.10)** : Convert / Converted / Specifics / Stock Alerts — `autocomplete=off` (+ autocorrect / spellcheck) sur `.dataTables_filter input`.
 4. **Identité optique fiche produit (v1.9.9)** : champs Section / Company / Brand / etc. préremplis à l’édition (meta parent + internes SQL ; Select2 `initialIdentity`).

@@ -4,6 +4,13 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.10.3] — 2026-10-02
+
+### Corrigé
+
+- **Convert queue à 0 produit** : traitement forcé via poll `tick` (Action Scheduler seul ne démarrait pas pendant le wizard) ; récupération des locks bloqués.
+- **Wizard Convert** : ne recharge plus identity/ranges d’une ancienne tentative ; Select2 détruit/vidé entre produits.
+
 ## [1.10.2] — 2026-10-02
 
 ### Corrigé
