@@ -959,7 +959,12 @@
 
 	function clearWizardProductFields() {
 		$( '#wc-optic-wizard-product-card' ).empty();
-		$( '#wc_optic_wizard_division' ).val( '' ).trigger( 'change' );
+		var $division = $( '#wc_optic_wizard_division' );
+		if ( $division.hasClass( 'enhanced' ) && $division.data( 'select2' ) ) {
+			$division.selectWoo( 'destroy' );
+			$division.removeClass( 'enhanced' );
+		}
+		$division.val( '' );
 		$( '#wc_optic_wizard_price' ).val( '' );
 		$( '#wc_optic_wizard_sale_price' ).val( '' );
 		$( '#wc_optic_wizard_stock' ).val( '0' );
@@ -1063,7 +1068,6 @@
 				current.id = productId;
 				current.original_id = res.data.original_id || res.data.id || productId;
 				renderProductCard( current );
-				$( '#wc_optic_wizard_division' ).val( current.division || '' );
 				$( '#wc_optic_wizard_price' ).val( current.price || '' );
 				$( '#wc_optic_wizard_sale_price' ).val( current.sale_price || '' );
 				$( '#wc_optic_wizard_stock' ).val( '0' );
@@ -1078,9 +1082,10 @@
 				}
 				resetWizardTemplatePickers();
 				current.color_image_urls = current.color_image_urls || {};
-				// Convert (new): never reuse leftover identity/ranges meta from a previous attempt.
+				// Convert (new): never reuse leftover division/identity/ranges from a previous attempt.
 				// Rebuild / Specifics: restore saved values.
 				if ( isRebuildMode() || isSpecificsMode() ) {
+					$( '#wc_optic_wizard_division' ).val( current.division || '' ).trigger( 'change' );
 					fillIdentity( current.identity || {}, current.selected_colors || [], current.color_images || {} );
 					applyDivisionRanges( current.division || '' );
 					applyDivisionIdentityFields( current.division || '' );
@@ -1091,9 +1096,10 @@
 						fillRanges( current.ranges || {} );
 					}
 				} else {
+					$( '#wc_optic_wizard_division' ).val( '' ).trigger( 'change' );
 					fillIdentity( {}, [], {} );
-					applyDivisionRanges( current.division || '' );
-					applyDivisionIdentityFields( current.division || '' );
+					applyDivisionRanges( '' );
+					applyDivisionIdentityFields( '' );
 					fillRanges( {} );
 					syncColorImagesTable( {}, {} );
 				}
