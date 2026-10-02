@@ -1158,41 +1158,15 @@
 			return;
 		}
 
-		var item = buildCurrentPayload();
-		$( '#wc-optic-wizard-next' ).prop( 'disabled', true );
-		showAlert( '' );
-
-		$.post(
-			getAjaxUrl(),
-			{
-				action: 'wc_optic_count_power_ranges',
-				nonce: wcOpticConvert.nonce,
-				division: item.args.division,
-				ranges: item.args.ranges,
-				color_count: ( function () {
-					var n = selectedColorCount();
-					return n > 0 ? n : 1;
-				} )(),
-			},
-			function ( res ) {
-				$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
-				if ( ! res || ! res.success ) {
-					showAlert( ( res && res.data && res.data.message ) || wcOpticConvert.i18n.convertFailed );
-					return;
-				}
-				pendingConfigs[ String( current.id ) ] = item;
-				converted = true;
-				current.division = item.args.division;
-				showAlert( wcOpticConvert.i18n.queuedSaved || 'Saved for conversion queue.', true );
-				updateNextLabel();
-				if ( typeof onSuccess === 'function' ) {
-					onSuccess();
-				}
-			}
-		).fail( function ( xhr ) {
-			$( '#wc-optic-wizard-next' ).prop( 'disabled', false );
-			showAlert( parseAjaxErrorMessage( xhr, wcOpticConvert.i18n.convertFailed ) );
-		} );
+		// Client-side validation only — avoid a blocking count AJAX (can 400 on edge ranges).
+		pendingConfigs[ String( current.id ) ] = buildCurrentPayload();
+		converted = true;
+		current.division = pendingConfigs[ String( current.id ) ].args.division;
+		showAlert( wcOpticConvert.i18n.queuedSaved || 'Saved for conversion queue.', true );
+		updateNextLabel();
+		if ( typeof onSuccess === 'function' ) {
+			onSuccess();
+		}
 	}
 
 	function queueStatusLabel( status ) {
@@ -1260,6 +1234,39 @@
 		}
 	}
 
+	function refreshConvertTableAfterBatch( data ) {
+		if ( ! convertTable ) {
+			return;
+		}
+
+		// Convert tab = client-side DataTable (no ajax.url). ajax.reload() crashes DT 2.x.
+		if ( wcOpticConvert.serverSideList ) {
+			try {
+				if ( convertTable.ajax && typeof convertTable.ajax.reload === 'function' ) {
+					convertTable.ajax.reload( null, false );
+				}
+			} catch ( e ) {
+				// ignore
+			}
+			return;
+		}
+
+		$.each( ( data && data.items ) || [], function ( _, item ) {
+			if ( ! item || ( item.status !== 'ok' && item.status !== 'skip' ) ) {
+				return;
+			}
+			var $row = $( '.wc-optic-convert-product[value="' + String( item.product_id ) + '"]' ).closest( 'tr' );
+			if ( $row.length ) {
+				try {
+					convertTable.row( $row ).remove();
+				} catch ( e2 ) {
+					$row.remove();
+				}
+			}
+		} );
+		convertTable.draw( false );
+	}
+
 	function pollBatchStatus() {
 		if ( ! batchId ) {
 			return;
@@ -1280,11 +1287,7 @@
 				renderQueueStatus( res.data );
 				if ( res.data.complete ) {
 					stopBatchPoll();
-					if ( convertTable && convertTable.ajax && convertTable.ajax.reload ) {
-						convertTable.ajax.reload( null, false );
-					} else if ( convertTable ) {
-						convertTable.draw( false );
-					}
+					refreshConvertTableAfterBatch( res.data );
 					return;
 				}
 				batchPollTimer = window.setTimeout( pollBatchStatus, 1500 );

@@ -374,17 +374,11 @@ class WC_Optic_Ajax {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
 		}
 
-		// Kick the first item immediately so the admin UI moves without waiting for cron.
-		$status = WC_Optic_Convert_Queue::tick( $result['batch_id'], true );
+		// Do not convert inside this request (large parents time out → HTTP 400).
+		// The admin poll tick / Action Scheduler processes items one by one.
+		$status = WC_Optic_Convert_Queue::get_status( $result['batch_id'] );
 		if ( is_wp_error( $status ) ) {
-			wp_send_json_success(
-				array_merge(
-					$result,
-					array(
-						'status' => WC_Optic_Convert_Queue::get_status( $result['batch_id'] ),
-					)
-				)
-			);
+			wp_send_json_success( $result );
 		}
 
 		wp_send_json_success(

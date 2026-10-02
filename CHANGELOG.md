@@ -4,6 +4,12 @@ Toutes les modifications notables de **Alwaleed Optics Products** sont document�
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.10.1] — 2026-10-02
+
+### Corrigé
+
+- **Convert queue** : plus de convert synchrone dans `enqueue` (évite HTTP 400 sur gros produits) ; stash sans AJAX count ; `ajax.reload` seulement si DataTables serverSide (évite crash `url` null sur l’onglet Convert).
+
 ## [1.10.0] — 2026-10-02
 
 ### Ajouté
